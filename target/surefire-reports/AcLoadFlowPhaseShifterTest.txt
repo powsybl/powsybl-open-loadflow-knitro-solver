@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: AcLoadFlowPhaseShifterTest
+-------------------------------------------------------------------------------
+Tests run: 21, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.565 s -- in AcLoadFlowPhaseShifterTest
