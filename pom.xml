@@ -15,11 +15,11 @@
     <parent>
         <groupId>com.powsybl</groupId>
         <artifactId>powsybl-parent</artifactId>
-        <version>18</version>
+        <version>20</version>
         <relativePath/>
     </parent>
     <artifactId>powsybl-open-loadflow-knitro-solver</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
 
     <name>powsybl open loadflow knitro solver</name>
     <description>The extension of the loadflow based on PowSyBl to Knitro Solver</description>
@@ -124,6 +124,11 @@
             <artifactId>graphviz-builder</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
