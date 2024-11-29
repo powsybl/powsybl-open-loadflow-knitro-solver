@@ -52,9 +52,9 @@ class AcLoadFlowBatteryTest {
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
         parameters = new LoadFlowParameters().setUseReactiveLimits(true)
                 .setDistributedSlack(true);
-        ExternalSolverExtensionParameters externalSolverExtensionParameters = new ExternalSolverExtensionParameters(); // set gradient computation mode
-        externalSolverExtensionParameters.setGradientComputationMode(2).setMaxIterations(0);
-        parameters.addExtension(ExternalSolverExtensionParameters.class, externalSolverExtensionParameters);
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
+        knitroLoadFlowParameters.setGradientComputationMode(2).setMaxIterations(0);
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
                 .setAcSolverType(KnitroSolverFactory.NAME);

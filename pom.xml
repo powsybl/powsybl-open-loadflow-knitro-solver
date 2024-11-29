@@ -98,7 +98,7 @@
             <artifactId>knitro-interfaces</artifactId>
             <version>14.0.0</version>
             <scope>system</scope>
-            <systemPath>${project.basedir}/../libs/Knitro-Interfaces-2.5-KN_14.0.0.jar</systemPath>
+            <systemPath>${project.basedir}/../libs/Knitro-Interfaces-2.5-KN_14.1.0.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>com.artelys</groupId>

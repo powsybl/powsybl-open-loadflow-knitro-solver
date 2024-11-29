@@ -44,13 +44,13 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 .setMaxVoltageChangeStateVectorScalingMaxDv(parametersExt.getMaxVoltageChangeStateVectorScalingMaxDv())
                 .setMaxVoltageChangeStateVectorScalingMaxDphi(parametersExt.getMaxVoltageChangeStateVectorScalingMaxDphi())
                 .setAlwaysUpdateNetwork(parametersExt.isAlwaysUpdateNetwork());
-        if (parameters.getExtension(ExternalSolverExtensionParameters.class) != null) {
+        if (parameters.getExtension(KnitroLoadFlowParameters.class) != null) {
             knitroSolverParameters
-                .setGradientComputationMode(parameters.getExtension(ExternalSolverExtensionParameters.class).getGradientComputationMode())
-                .setGradientUserRoutine(parameters.getExtension(ExternalSolverExtensionParameters.class).getGradientUserRoutine())
-                .setLowerVoltageBound(parameters.getExtension(ExternalSolverExtensionParameters.class).getLowerVoltageBound())
-                .setUpperVoltageBound(parameters.getExtension(ExternalSolverExtensionParameters.class).getUpperVoltageBound())
-                .setMaxIterations(parameters.getExtension(ExternalSolverExtensionParameters.class).getMaxIterations());
+                .setGradientComputationMode(parameters.getExtension(KnitroLoadFlowParameters.class).getGradientComputationMode())
+                .setGradientUserRoutine(parameters.getExtension(KnitroLoadFlowParameters.class).getGradientUserRoutine())
+                .setLowerVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getLowerVoltageBound())
+                .setUpperVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getUpperVoltageBound())
+                .setMaxIterations(parameters.getExtension(KnitroLoadFlowParameters.class).getMaxIterations());
 
         }
         return knitroSolverParameters;

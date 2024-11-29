@@ -14,7 +14,7 @@ import java.util.Objects;
 /**
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
  */
-public class ExternalSolverExtensionParameters extends AbstractExtension<LoadFlowParameters> {
+public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParameters> {
 
     private int gradientComputationMode = KnitroSolverParameters.DEFAULT_GRADIENT_COMPUTATION_MODE;
     private int gradientUserRoutine = KnitroSolverParameters.DEFAULT_GRADIENT_USER_ROUTINE;
@@ -28,7 +28,7 @@ public class ExternalSolverExtensionParameters extends AbstractExtension<LoadFlo
         return gradientComputationMode;
     }
 
-    public ExternalSolverExtensionParameters setGradientComputationMode(int gradientComputationMode) {
+    public KnitroLoadFlowParameters setGradientComputationMode(int gradientComputationMode) {
         if (gradientComputationMode < 1 || gradientComputationMode > 3) {
             throw new IllegalArgumentException("User routine must be between 1 and 3");
         }
@@ -40,7 +40,7 @@ public class ExternalSolverExtensionParameters extends AbstractExtension<LoadFlo
         return gradientUserRoutine;
     }
 
-    public ExternalSolverExtensionParameters setGradientUserRoutine(int gradientUserRoutine) {
+    public KnitroLoadFlowParameters setGradientUserRoutine(int gradientUserRoutine) {
         if (gradientUserRoutine < 1 || gradientUserRoutine > 2) {
             throw new IllegalArgumentException("User routine must be between 1 and 2");
         }
@@ -52,7 +52,7 @@ public class ExternalSolverExtensionParameters extends AbstractExtension<LoadFlo
         return lowerVoltageBound;
     }
 
-    public ExternalSolverExtensionParameters setLowerVoltageBound(double lowerVoltageBound) {
+    public KnitroLoadFlowParameters setLowerVoltageBound(double lowerVoltageBound) {
         if (lowerVoltageBound < 0) {
             throw new IllegalArgumentException("Realistic voltage bounds must strictly greater than 0");
         }
@@ -64,7 +64,7 @@ public class ExternalSolverExtensionParameters extends AbstractExtension<LoadFlo
         return upperVoltageBound;
     }
 
-    public ExternalSolverExtensionParameters setUpperVoltageBound(double upperVoltageBound) {
+    public KnitroLoadFlowParameters setUpperVoltageBound(double upperVoltageBound) {
         if (upperVoltageBound < 0) {
             throw new IllegalArgumentException("Realistic voltage bounds must strictly greater than 0");
         }
@@ -79,7 +79,7 @@ public class ExternalSolverExtensionParameters extends AbstractExtension<LoadFlo
         return maxIterations;
     }
 
-    public ExternalSolverExtensionParameters setMaxIterations(int maxIterations) {
+    public KnitroLoadFlowParameters setMaxIterations(int maxIterations) {
         if (maxIterations < 0) {
             throw new IllegalArgumentException("Max iterations parameter must be greater than 0");
         }
@@ -91,14 +91,14 @@ public class ExternalSolverExtensionParameters extends AbstractExtension<LoadFlo
         return stoppingCriteria;
     }
 
-    public ExternalSolverExtensionParameters setStoppingCriteria(KnitroSolverStoppingCriteria stoppingCriteria) {
+    public KnitroLoadFlowParameters setStoppingCriteria(KnitroSolverStoppingCriteria stoppingCriteria) {
         this.stoppingCriteria = Objects.requireNonNull(stoppingCriteria);
         return this;
     }
 
     @Override
     public String getName() {
-        return "external-solver-extension";
+        return "knitro-load-flow-parameters";
     }
 
 }

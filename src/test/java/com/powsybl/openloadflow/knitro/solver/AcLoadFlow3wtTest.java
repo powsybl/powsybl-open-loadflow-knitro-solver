@@ -46,9 +46,9 @@ class AcLoadFlow3wtTest {
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
         parameters = new LoadFlowParameters().setUseReactiveLimits(false)
                 .setDistributedSlack(false);
-        ExternalSolverExtensionParameters externalSolverExtensionParameters = new ExternalSolverExtensionParameters(); // set gradient computation mode
-        externalSolverExtensionParameters.setGradientComputationMode(2);
-        parameters.addExtension(ExternalSolverExtensionParameters.class, externalSolverExtensionParameters);
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
+        knitroLoadFlowParameters.setGradientComputationMode(2);
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
                 .setAcSolverType(KnitroSolverFactory.NAME);

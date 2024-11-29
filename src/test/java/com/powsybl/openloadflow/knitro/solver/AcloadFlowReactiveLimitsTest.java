@@ -104,9 +104,9 @@ class AcloadFlowReactiveLimitsTest {
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
         parameters = new LoadFlowParameters().setUseReactiveLimits(true)
                 .setDistributedSlack(false);
-        ExternalSolverExtensionParameters externalSolverExtensionParameters = new ExternalSolverExtensionParameters(); // set gradient computation mode
-        externalSolverExtensionParameters.setGradientComputationMode(2);
-        parameters.addExtension(ExternalSolverExtensionParameters.class, externalSolverExtensionParameters);
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
+        knitroLoadFlowParameters.setGradientComputationMode(2);
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters).setAcSolverType(KnitroSolverFactory.NAME);
     }
 

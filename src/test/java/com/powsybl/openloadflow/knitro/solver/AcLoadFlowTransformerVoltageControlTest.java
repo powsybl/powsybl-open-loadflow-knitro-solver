@@ -48,9 +48,9 @@ class AcLoadFlowTransformerVoltageControlTest {
         parameters = new LoadFlowParameters();
         parameters.setTransformerVoltageControlOn(false);
         parameters.setDistributedSlack(false);
-        ExternalSolverExtensionParameters externalSolverExtensionParameters = new ExternalSolverExtensionParameters(); // set gradient computation mode
-        externalSolverExtensionParameters.setGradientComputationMode(2);
-        parameters.addExtension(ExternalSolverExtensionParameters.class, externalSolverExtensionParameters);
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
+        knitroLoadFlowParameters.setGradientComputationMode(2);
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         parametersExt = OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.FIRST)
                 .setAcSolverType(KnitroSolverFactory.NAME);

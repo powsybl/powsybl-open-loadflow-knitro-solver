@@ -189,9 +189,9 @@ class SecondaryVoltageControlTest {
         g8.setTargetV(19.5);
 
         parametersExt.setSecondaryVoltageControl(true);
-        ExternalSolverExtensionParameters externalSolverExtensionParameters = new ExternalSolverExtensionParameters(); // set gradient computation mode
-        externalSolverExtensionParameters.setUpperVoltageBound(2.0);  // for this specific test, we allow the voltage to be greater than 1.5 (knitro's default maxRealisticVoltage) for the network to converge
-        parameters.addExtension(ExternalSolverExtensionParameters.class, externalSolverExtensionParameters);
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
+        knitroLoadFlowParameters.setUpperVoltageBound(2.0);  // for this specific test, we allow the voltage to be greater than 1.5 (knitro's default maxRealisticVoltage) for the network to converge
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
 
         // try to put g6 and g8 at qmax to see if they are correctly unblock from qmin
         var result = loadFlowRunner.run(network, parameters);
@@ -225,9 +225,9 @@ class SecondaryVoltageControlTest {
                 .add();
 
         parametersExt.setSecondaryVoltageControl(true);
-        ExternalSolverExtensionParameters externalSolverExtensionParameters = new ExternalSolverExtensionParameters(); // set gradient computation mode
-        externalSolverExtensionParameters.setUpperVoltageBound(2.0);  // for this specific test, we allow the voltage to be greater than 1.5 (knitro's default maxRealisticVoltage) for the network to converge
-        parameters.addExtension(ExternalSolverExtensionParameters.class, externalSolverExtensionParameters);
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
+        knitroLoadFlowParameters.setUpperVoltageBound(2.0);  // for this specific test, we allow the voltage to be greater than 1.5 (knitro's default maxRealisticVoltage) for the network to converge
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         var result = loadFlowRunner.run(network, parameters);
         assertEquals(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getComponentResults().get(0).getStatus());
         assertEquals(9, result.getComponentResults().get(0).getIterationCount());
