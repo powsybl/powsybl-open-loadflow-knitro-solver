@@ -20,7 +20,7 @@
     </parent>
 
     <artifactId>powsybl-open-loadflow-knitro-solver</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>0.1.0-SNAPSHOT</version>
 
     <name>powsybl open loadflow knitro solver</name>
     <description>A Load Flow solver based on Knitro for PowSyBl Open Load Flow</description>
