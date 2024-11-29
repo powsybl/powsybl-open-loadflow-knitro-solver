@@ -70,13 +70,12 @@ public class ExternalSolverExtensionParameters extends AbstractExtension<LoadFlo
     }
 
     public ExternalSolverExtensionParameters setMaxIterations(int maxIterations) {
-        if (maxIterations < 0 ) {
+        if (maxIterations < 0) {
             throw new IllegalArgumentException("Max iterations parameter must be greater than 0");
         }
         this.maxIterations = maxIterations;
         return this;
     }
-
 
     public KnitroSolverStoppingCriteria getStoppingCriteria() {
         return stoppingCriteria;
