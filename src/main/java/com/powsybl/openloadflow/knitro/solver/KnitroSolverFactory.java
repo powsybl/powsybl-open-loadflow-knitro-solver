@@ -19,7 +19,6 @@ import com.powsybl.openloadflow.equations.EquationVector;
 import com.powsybl.openloadflow.equations.JacobianMatrix;
 import com.powsybl.openloadflow.equations.TargetVector;
 import com.powsybl.openloadflow.network.LfNetwork;
-//import com.powsybl.knitroextension.ExternalSolverExtensionParameters;
 
 /**
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
