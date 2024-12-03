@@ -11,7 +11,7 @@ import com.google.auto.service.AutoService;
 import com.powsybl.tools.*;
 
 /**
- * @author Damien Jeandemange {@literal <damien.jeandemange at rte-france.com>}
+ * @author Damien Jeandemange {@literal <damien.jeandemange at artelys.com>}
  */
 @AutoService(Version.class)
 public class PowsyblOpenLoadFlowKnitroSolverVersion extends AbstractVersion {
