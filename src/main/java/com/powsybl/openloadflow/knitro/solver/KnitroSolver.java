@@ -474,16 +474,39 @@ public class KnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
     }
 
+    /**
+     * Temporary to workaround Knitro finalization issue - Knitro v14.2 will have the proper fix
+     */
+    public static class FinalizeSafeSolver extends KNSolver implements AutoCloseable {
+
+        public FinalizeSafeSolver(KNBaseProblem problem) throws KNException {
+            super(problem);
+        }
+
+        @Override
+        protected void finalize() {
+            // no-op.
+        }
+
+        @Override
+        public void close() {
+            this.KNFree();
+        }
+    }
+
     @Override
     public AcSolverResult run(VoltageInitializer voltageInitializer, ReportNode reportNode) {
-        AcSolverStatus status;
         int nbIter = -1;
-        AcSolverStatus acStatus = null;
-
+        AcSolverStatus acStatus;
+        KnitroProblem instance;
         try {
+            instance = new KnitroProblem(network, equationSystem, targetVector, voltageInitializer, j, knitroParameters);
+        } catch (KNException e) {
+            throw new PowsyblException("Exception while trying to build Knitro Problem", e);
+        }
+        try (FinalizeSafeSolver solver = new FinalizeSafeSolver(instance)) {
             // Create instance of problem
-            KnitroProblem instance = new KnitroProblem(network, equationSystem, targetVector, voltageInitializer, j, knitroParameters);
-            KNSolver solver = new KNSolver(instance);
+
             solver.initProblem();
 
             // Set solver parameters
@@ -532,7 +555,7 @@ public class KnitroSolver extends AbstractAcSolver {
 //            }
 
         } catch (KNException e) {
-            throw new PowsyblException("Exception found while trying to solve with Knitro");
+            throw new PowsyblException("Exception while trying to solve with Knitro", e);
         }
 
         double slackBusActivePowerMismatch = network.getSlackBuses().stream().mapToDouble(LfBus::getMismatchP).sum();
