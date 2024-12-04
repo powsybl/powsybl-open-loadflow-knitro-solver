@@ -22,7 +22,7 @@ jobs:
         shell: powershell
         run: |
           C:\msys64\usr\bin\wget.exe -nv -O knitro.zip "$env:KNITRO_WINDOWS_URL"
-          7z x -y -oC:\knitro
+          7z x -y knitro.zip -oC:\knitro
           echo "KNITRODIR=C:\knitro\knitro-14.1.0-Win64" >> "$env:GITHUB_ENV"
         env:
           KNITRO_WINDOWS_URL: ${{ secrets.KNITRO_WINDOWS_URL }}
