@@ -19,6 +19,7 @@ jobs:
 
     steps:
       - name: Install Knitro (Linux)
+        if: matrix.os == 'ubuntu-latest'
         run: |
           wget -nv -O knitro.tar.gz "$KNITRO_LINUX_URL"
           mkdir -p /opt/knitro
@@ -28,6 +29,7 @@ jobs:
           KNITRO_LINUX_URL: ${{ secrets.KNITRO_LINUX_URL }}
 
       - name: Install Knitro (Windows)
+        if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
           C:\msys64\usr\bin\wget.exe -nv -O knitro.zip "$env:KNITRO_WINDOWS_URL"
