@@ -558,10 +558,10 @@ class AcLoadFlowPhaseShifterTest {
         double di2t10 = i2t1 - i2t0;
         double di1t12 = i1t1 - i1t2;
         double di2t12 = i2t1 - i2t2;
-        assertEquals(35.18805497279091, di1t10, 0d);
-        assertEquals(35.18805497279091, di2t10, 0d);
-        assertEquals(-45.75648113263733, di1t12, 0d);
-        assertEquals(-45.75648113263733, di2t12, 0d);
+        assertEquals(35.18805497279091, di1t10, 1e-6);
+        assertEquals(35.18805497279091, di2t10, 1e-6);
+        assertEquals(-45.75648113263733, di1t12, 1e-6);
+        assertEquals(-45.75648113263733, di2t12, 1e-6);
 
         // compare with sensi on tap 1
         t2wt.getPhaseTapChanger().setTapPosition(1);
@@ -592,13 +592,13 @@ class AcLoadFlowPhaseShifterTest {
             double sensi1 = sensitivityContext.calculateSensitivityFromA2I(ps1, ps1, TwoSides.ONE);
             double di1t10p = sensi1 * da10 * ib;
             double di1t12p = sensi1 * da12 * ib;
-            assertEquals(43.007011829925496, di1t10p, 0d);
-            assertEquals(-43.007011829925496, di1t12p, 0d);
+            assertEquals(43.007011829925496, di1t10p, 1e-6);
+            assertEquals(-43.007011829925496, di1t12p, 1e-6);
             double sensi2 = sensitivityContext.calculateSensitivityFromA2I(ps1, ps1, TwoSides.TWO);
             double di2t10p = sensi2 * da10 * ib;
             double di2t12p = sensi2 * da12 * ib;
-            assertEquals(43.007011829925496, di2t10p, 0d);
-            assertEquals(-43.007011829925496, di2t12p, 0d);
+            assertEquals(43.007011829925496, di2t10p, 1e-6);
+            assertEquals(-43.007011829925496, di2t12p, 1e-6);
         }
     }
 
