@@ -14,8 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-# revert me        os: [ubuntu-latest, windows-latest, macos-latest]
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
       - name: Install Knitro (Linux)
@@ -27,6 +26,16 @@ jobs:
           echo "KNITRODIR=/opt/knitro/knitro-14.1.0-Linux64" >> "$GITHUB_ENV"
         env:
           KNITRO_LINUX_URL: ${{ secrets.KNITRO_LINUX_URL }}
+
+      - name: Install Knitro (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          wget -nv -O knitro.tar.gz "$KNITRO_MACOS_URL"
+          mkdir -p /opt/knitro
+          tar xzf knitro.tar.gz -C /opt/knitro
+          echo "KNITRODIR=/opt/knitro/knitro-14.1.0-ARM-MacOS" >> "$GITHUB_ENV"
+        env:
+          KNITRO_MACOS_URL: ${{ secrets.KNITRO_MACOS_URL }}
 
       - name: Install Knitro (Windows)
         if: matrix.os == 'windows-latest'
@@ -64,6 +73,8 @@ jobs:
           ./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/bridj-0.7.0.jar" -DgroupId=com.artelys -DartifactId=bridj -Dversion=0.7.0 -Dpackaging=jar -DgeneratePom=true
           ./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.1.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=14.1.0 -Dpackaging=jar -DgeneratePom=true
           ./mvnw --batch-mode -Pjacoco install
+        env:
+          ARTELYS_LICENSE: ${{ secrets.ARTELYS_LICENSE }}
 
       - name: Build with Maven (Windows)
         if: matrix.os == 'windows-latest'
