@@ -96,16 +96,12 @@
         <dependency>
             <groupId>com.artelys</groupId>
             <artifactId>knitro-interfaces</artifactId>
-            <version>14.0.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/../libs/Knitro-Interfaces-2.5-KN_14.1.0.jar</systemPath>
+            <version>14.1.0</version>
         </dependency>
         <dependency>
             <groupId>com.artelys</groupId>
             <artifactId>bridj</artifactId>
             <version>0.7.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/../libs/bridj-0.7.0.jar</systemPath>
         </dependency>
 
         <!-- Test dependencies -->

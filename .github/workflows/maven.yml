@@ -53,7 +53,10 @@ jobs:
 
       - name: Build with Maven (Windows)
         if: matrix.os == 'windows-latest'
-        run: mvnw.cmd --batch-mode install
+        run: |
+          mvnw.cmd install:install-file -Dfile="%KNITRODIR%\examples\Java\lib\bridj-0.7.0.jar" -DgroupId=com.artelys -DartifactId=bridj -Dversion=0.7.0 -Dpackaging=jar -DgeneratePom=true
+          mvnw.cmd install:install-file -Dfile="%KNITRODIR%\examples\Java\lib\Knitro-Interfaces-2.5-KN_14.1.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=14.1.0 -Dpackaging=jar -DgeneratePom=true
+          mvnw.cmd --batch-mode install
         shell: cmd
 
 # TODO
