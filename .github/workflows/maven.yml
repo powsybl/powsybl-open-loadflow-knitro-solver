@@ -21,9 +21,9 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           wget -nv -O knitro.tar.gz "$KNITRO_LINUX_URL"
-          mkdir -p /opt/knitro
-          tar xzf knitro.tar.gz -C /opt/knitro
-          echo "KNITRODIR=/opt/knitro/knitro-14.1.0-Linux64" >> "$GITHUB_ENV"
+          mkdir -p $RUNNER_TEMP/knitro
+          tar xzf knitro.tar.gz -C $RUNNER_TEMP/knitro
+          echo "KNITRODIR=$RUNNER_TEMP/knitro/knitro-14.1.0-Linux64" >> "$GITHUB_ENV"
         env:
           KNITRO_LINUX_URL: ${{ secrets.KNITRO_LINUX_URL }}
 
@@ -31,9 +31,9 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           wget -nv -O knitro.tar.gz "$KNITRO_MACOS_URL"
-          mkdir -p /opt/knitro
-          tar xzf knitro.tar.gz -C /opt/knitro
-          echo "KNITRODIR=/opt/knitro/knitro-14.1.0-ARM-MacOS" >> "$GITHUB_ENV"
+          mkdir -p $RUNNER_TEMP/knitro
+          tar xzf knitro.tar.gz -C $RUNNER_TEMP/knitro
+          echo "KNITRODIR=$RUNNER_TEMP/knitro/knitro-14.1.0-ARM-MacOS" >> "$GITHUB_ENV"
         env:
           KNITRO_MACOS_URL: ${{ secrets.KNITRO_MACOS_URL }}
 
