@@ -21,8 +21,7 @@ jobs:
       - name: Install Knitro (Windows)
         shell: powershell
         run: |
-          choco install wget --no-progress
-          wget -nv -O knitro.zip "$env:KNITRO_WINDOWS_URL"
+          C:\msys64\usr\bin\wget.exe -nv -O knitro.zip "$env:KNITRO_WINDOWS_URL"
           7z x -y -oC:\knitro
           echo "KNITRODIR=C:\knitro\knitro-14.1.0-Win64" >> "$env:GITHUB_ENV"
         env:
