@@ -43,14 +43,6 @@ public final class NonLinearExternalSolverUtils {
             AcEquationType.DISTR_Q
     ));
 
-    public static List<AcEquationType> getLinearConstraintsTypes() {
-        return linearConstraintsTypes;
-    }
-
-    public static List<AcEquationType> getNonLinearConstraintsTypes() {
-        return nonLinearConstraintsTypes;
-    }
-
     // Classifies a constraint as linear or non-linear based on its type and terms
     public static boolean isLinear(AcEquationType typeEq, List<EquationTerm<AcVariableType, AcEquationType>> terms) {
         // Check if the constraint type is BUS_TARGET_V

@@ -26,10 +26,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
 
-//    public KnitroSolverParameters() {
-//        super(DEFAULT_MAX_ITERATIONS);
-//    }
-
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
 
     private int lineSearchStateVectorScalingMaxIteration = LineSearchStateVectorScaling.DEFAULT_MAX_ITERATION;

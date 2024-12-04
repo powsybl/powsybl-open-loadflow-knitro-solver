@@ -51,7 +51,6 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 .setLowerVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getLowerVoltageBound())
                 .setUpperVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getUpperVoltageBound())
                 .setMaxIterations(parameters.getExtension(KnitroLoadFlowParameters.class).getMaxIterations());
-
         }
         return knitroSolverParameters;
     }
@@ -65,6 +64,6 @@ public class KnitroSolverFactory implements AcSolverFactory {
     }
 
     private static KnitroSolverStoppingCriteria createKnitroStoppingCriteria(OpenLoadFlowParameters parametersExt) {
-        return new DefaultKnitroSolverStoppingCriteria(Math.pow(10, -6)); //TODO
+        return new DefaultKnitroSolverStoppingCriteria();
     }
 }

@@ -1,4 +1,5 @@
-package com.powsybl.openloadflow.knitro.solver; /**
+package com.powsybl.openloadflow.knitro.solver;
+/**
  * Copyright (c) 2019, RTE (http://www.rte-france.com)
  * Copyright (c) 2023, Coreso SA (https://www.coreso.eu/) and TSCNET Services GmbH (https://www.tscnet.eu/)
  * This Source Code Form is subject to the terms of the Mozilla Public
