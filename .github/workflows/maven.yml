@@ -14,9 +14,20 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+# revert me        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest]
 
     steps:
+      - name: Install Knitro (Windows)
+        shell: powershell
+        run: |
+          choco install wget --no-progress
+          wget -nv -O knitro.zip "$env:KNITRO_WINDOWS_URL"
+          7z x -y -oC:\knitro
+          echo "KNITRODIR=C:\knitro\knitro-14.1.0-Win64" >> "$env:GITHUB_ENV"
+        env:
+          KNITRO_WINDOWS_URL: ${{ secrets.KNITRO_WINDOWS_URL }}
+
       - name: Checkout sources
         uses: actions/checkout@v4
 
