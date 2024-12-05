@@ -2,13 +2,21 @@
 
 This document provides an overview of the **Non-linear External Optimization Solver** extension and its integration into a Java project.
 
----
-
 ## Overview
 
 By default, load flow calculations in the solver are performed using the **Newton-Raphson** method. However, this extension allows these calculations to be executed using the **non-linear solver Knitro**, modeling the problem as a **constraint satisfaction problem** (without an objective function). 
 
-To use the Knitro solver, a trial license is available on the [Artelys website](https://www.artelys.com). Users must invoke `.setAcSolverType(KnitroSolverFactory.NAME)` in the `OpenLoadFlowParameters` extension.
+### Installation / Setup
+To use the Knitro solver, users need to first download a license for Knitro, and add it to their environment variables under the name of ARTELYS_LICENSE.
+A trial license is available on the [Artelys website](https://www.artelys.com).
+
+Users must also specify to Knitro the installation directory in the environment variable KNITRODIR.
+
+Users then need to install knitro's jars by running the following maven commands : \
+./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/bridj-0.7.0.jar" -DgroupId=com.artelys -DartifactId=bridj -Dversion=0.7.0 -Dpackaging=jar -DgeneratePom=true\
+./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.1.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=14.1.0 -Dpackaging=jar -DgeneratePom=true
+
+To setup Knitro as the solver to run loadflow computations, users must use `.setAcSolverType(KnitroSolverFactory.NAME)` in the `OpenLoadFlowParameters` extension.
 
 ### Functionality
 
