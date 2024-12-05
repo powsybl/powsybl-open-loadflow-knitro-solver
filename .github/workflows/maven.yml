@@ -62,7 +62,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: powsybl/powsybl-open-loadflow
-          ref: external-ac-solver
+          ref: main
           path: powsybl-open-loadflow
       - name: Build powsybl-open-loadflow
         run: mvn -batch-mode --no-transfer-progress clean install -DskipTests
