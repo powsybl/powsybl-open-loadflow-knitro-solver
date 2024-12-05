@@ -43,9 +43,10 @@
 
     <properties>
         <java.version>17</java.version>
-        <asciitable.version>0.3.2</asciitable.version>
-        <powsybl-core.version>6.5.1</powsybl-core.version>
+        <powsybl-core.version>6.6.0-RC1</powsybl-core.version>
         <powsybl-open-loadflow.version>1.14.0-SNAPSHOT</powsybl-open-loadflow.version>
+        <knitro-interfaces.version>14.1.0</knitro-interfaces.version>
+        <bridj.version>0.7.0</bridj.version>
     </properties>
 
     <build>
@@ -96,12 +97,12 @@
         <dependency>
             <groupId>com.artelys</groupId>
             <artifactId>knitro-interfaces</artifactId>
-            <version>14.1.0</version>
+            <version>${knitro-interfaces.version}</version>
         </dependency>
         <dependency>
             <groupId>com.artelys</groupId>
             <artifactId>bridj</artifactId>
-            <version>0.7.0</version>
+            <version>${bridj.version}</version>
         </dependency>
 
         <!-- Test dependencies -->
