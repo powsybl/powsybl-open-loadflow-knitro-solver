@@ -11,7 +11,6 @@ import com.powsybl.openloadflow.ac.equations.AcVariableType;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.equations.EquationTerm;
 import com.powsybl.openloadflow.equations.VariableEquationTerm;
-import com.sun.jdi.InvalidTypeException;
 
 import java.util.*;
 
