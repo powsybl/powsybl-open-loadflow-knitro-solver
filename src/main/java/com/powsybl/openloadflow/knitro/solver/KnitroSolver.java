@@ -76,7 +76,7 @@ public class KnitroSolver extends AbstractAcSolver {
          * @param acSolverStatus The corresponding AcSolverStatus.
          */
         KnitroStatus(int min, int max, AcSolverStatus acSolverStatus) {
-            this.statusRange = Range.between(min, max);
+            this.statusRange = Range.of(min, max);
             this.acSolverStatus = acSolverStatus;
         }
 

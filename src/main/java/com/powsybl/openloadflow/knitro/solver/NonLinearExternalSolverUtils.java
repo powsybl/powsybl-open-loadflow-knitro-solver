@@ -44,7 +44,7 @@ public final class NonLinearExternalSolverUtils {
     }
 
     // Return lists of variables and coefficients to pass to Knitro for a linear constraint
-    public VarAndCoefList getLinearConstraint(AcEquationType typeEq, int equationId, List<EquationTerm<AcVariableType, AcEquationType>> terms) throws InvalidTypeException {
+    public VarAndCoefList getLinearConstraint(AcEquationType typeEq, int equationId, List<EquationTerm<AcVariableType, AcEquationType>> terms) throws UnsupportedOperationException {
         VarAndCoefList varAndCoefList = null;
 
         // Check if the constraint is linear
@@ -60,8 +60,8 @@ public final class NonLinearExternalSolverUtils {
                 case ZERO_V, ZERO_PHI:
                     varAndCoefList = addConstraintZero(terms);
                     break;
-                case BUS_TARGET_P, BUS_TARGET_Q, BRANCH_TARGET_P, BRANCH_TARGET_Q, BUS_DISTR_SLACK_P, DISTR_Q:
-                    throw new InvalidTypeException();
+                default:
+                    throw new UnsupportedOperationException("Non-linear equation : " + typeEq);
             }
         }
         return varAndCoefList;
