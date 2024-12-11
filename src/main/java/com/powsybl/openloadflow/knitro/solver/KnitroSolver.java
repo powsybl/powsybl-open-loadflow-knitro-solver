@@ -22,7 +22,6 @@ import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.network.LfBus;
 import com.powsybl.openloadflow.network.LfNetwork;
 import com.powsybl.openloadflow.network.util.VoltageInitializer;
-import com.sun.jdi.InvalidTypeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.commons.lang3.Range;
@@ -217,7 +216,7 @@ public class KnitroSolver extends AbstractAcSolver {
                     knitroProblem.addConstraintLinearPart(equationId, listVar.get(i), listCoef.get(i));
                 }
                 LOGGER.trace("Adding linear constraint n° {} of type {}", equationId, typeEq);
-            } catch (InvalidTypeException e) {
+            } catch (UnsupportedOperationException e) {
                 throw new RuntimeException(e);
             }
         } else {
