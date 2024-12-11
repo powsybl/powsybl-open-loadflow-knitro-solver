@@ -45,7 +45,6 @@ public class KnitroSolver extends AbstractAcSolver {
                         TargetVector<AcVariableType, AcEquationType> targetVector, EquationVector<AcVariableType, AcEquationType> equationVector,
                         boolean detailedReport) {
         super(network, equationSystem, j, targetVector, equationVector, detailedReport);
-        this.knitroParameters = knitroParameters;
     }
 
     @Override
@@ -206,7 +205,7 @@ public class KnitroSolver extends AbstractAcSolver {
         AcEquationType typeEq = equation.getType();
         List<EquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
 
-        if (solverUtils.isLinear(typeEq, terms)) {
+        if (NonLinearExternalSolverUtils.isLinear(typeEq, terms)) {
             List<Integer> listVar = solverUtils.getLinearConstraint(typeEq, equationId, terms).getListIdVar();
             List<Double> listCoef = solverUtils.getLinearConstraint(typeEq, equationId, terms).getListCoef();
 
@@ -250,7 +249,7 @@ public class KnitroSolver extends AbstractAcSolver {
                 knitroProblem.setJacNnzPattern(listNonZerosCtsSparse, listNonZerosVarsSparse);
             }
             // If the user decided to directly pass the Jacobian to the solver, we set the callback for gradient evaluations.
-            knitroProblem.setGradEvalCallback(new KnitroProblem.CallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense, listNonZerosCtsSparse, listNonZerosVarsSparse, listNonLinearConsts, lfNetwork, equationSystem)); //TODO enlever listVarChecker
+            knitroProblem.setGradEvalCallback(new KnitroProblem.CallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense, listNonZerosCtsSparse, listNonZerosVarsSparse, listNonLinearConsts, lfNetwork, equationSystem));
         }
     }
 
@@ -355,7 +354,6 @@ public class KnitroSolver extends AbstractAcSolver {
             private final List<Integer> listNonZerosVarsDense;
             private final List<Integer> listNonZerosCtsSparse;
             private final List<Integer> listNonZerosVarsSparse;
-            private final List<Integer> listNonLinearConsts;
             private final LfNetwork network;
             private final EquationSystem<AcVariableType, AcEquationType> equationSystem;
 
@@ -365,7 +363,6 @@ public class KnitroSolver extends AbstractAcSolver {
                 this.listNonZerosVarsDense = listNonZerosVars;
                 this.listNonZerosCtsSparse = listNonZerosCts2;
                 this.listNonZerosVarsSparse = listNonZerosVars2;
-                this.listNonLinearConsts = listNonLinearConsts;
                 this.network = network;
                 this.equationSystem = equationSystem;
             }
@@ -393,13 +390,13 @@ public class KnitroSolver extends AbstractAcSolver {
                 // Pass coefficients of Jacobian matrix to Knitro
                 for (int index = 0; index < numCbCts; index++) {
                     try {
-                        int var = 0;
+                        int variable = 0;
                         int ct = 0;
                         if (knitroParameters.getGradientUserRoutine() == 1) {
-                            var = listNonZerosVarsDense.get(index);
+                            variable = listNonZerosVarsDense.get(index);
                             ct = listNonZerosCtsDense.get(index);
                         } else if (knitroParameters.getGradientUserRoutine() == 2) {
-                            var = listNonZerosVarsSparse.get(index);
+                            variable = listNonZerosVarsSparse.get(index);
                             ct = listNonZerosCtsSparse.get(index);
                         }
 
@@ -411,7 +408,7 @@ public class KnitroSolver extends AbstractAcSolver {
                         // Iterate through the column range
                         for (int i = colStart; i < colEnd; i++) {
                             // Check if the row index matches var
-                            if (rowIndices[i] == var) {
+                            if (rowIndices[i] == variable) {
                                 // Get the corresponding value
                                 valueSparse = values[i];
                                 break;  // Exit loop since the value is found
@@ -523,6 +520,7 @@ public class KnitroSolver extends AbstractAcSolver {
         }
 
         @Override
+        @Deprecated
         protected void finalize() {
             // no-op.
         }
