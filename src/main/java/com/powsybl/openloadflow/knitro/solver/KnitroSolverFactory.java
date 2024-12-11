@@ -37,7 +37,6 @@ public class KnitroSolverFactory implements AcSolverFactory {
     public AcSolverParameters createParameters(LoadFlowParameters parameters) {
         OpenLoadFlowParameters parametersExt = OpenLoadFlowParameters.get(parameters);
         KnitroSolverParameters knitroSolverParameters = new KnitroSolverParameters()
-                .setStoppingCriteria(createKnitroStoppingCriteria(parametersExt))
                 .setStateVectorScalingMode(parametersExt.getStateVectorScalingMode())
                 .setLineSearchStateVectorScalingMaxIteration(parametersExt.getLineSearchStateVectorScalingMaxIteration())
                 .setLineSearchStateVectorScalingStepFold(parametersExt.getLineSearchStateVectorScalingStepFold())
@@ -50,7 +49,9 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 .setGradientUserRoutine(parameters.getExtension(KnitroLoadFlowParameters.class).getGradientUserRoutine())
                 .setLowerVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getLowerVoltageBound())
                 .setUpperVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getUpperVoltageBound())
-                .setMaxIterations(parameters.getExtension(KnitroLoadFlowParameters.class).getMaxIterations());
+                .setMaxIterations(parameters.getExtension(KnitroLoadFlowParameters.class).getMaxIterations())
+                .setConvEps(parameters.getExtension(KnitroLoadFlowParameters.class).getConvEps());
+
         }
         return knitroSolverParameters;
     }
@@ -63,7 +64,4 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 j, targetVector, equationVector, parameters.isDetailedReport());
     }
 
-    private static KnitroSolverStoppingCriteria createKnitroStoppingCriteria(OpenLoadFlowParameters parametersExt) {
-        return new DefaultKnitroSolverStoppingCriteria();
-    }
 }

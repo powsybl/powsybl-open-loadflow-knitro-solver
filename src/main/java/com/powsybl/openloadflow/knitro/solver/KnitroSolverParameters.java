@@ -23,6 +23,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final double DEFAULT_LOWER_VOLTAGE_BOUND = 0.5; // Lower bound for voltage magnitude
     public static final double DEFAULT_UPPER_VOLTAGE_BOUND = 1.5; // Upper bound for voltage magnitude
     public static final int DEFAULT_MAX_ITERATIONS = 200;
+    public static final double DEFAULT_STOPPING_CRITERIA = Math.pow(10,-6);
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
 
@@ -44,11 +45,11 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     private double upperVoltageBound = DEFAULT_UPPER_VOLTAGE_BOUND;
 
-    private KnitroSolverStoppingCriteria stoppingCriteria = new DefaultKnitroSolverStoppingCriteria();
-
     private boolean alwaysUpdateNetwork = ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
 
     private int maxIterations = DEFAULT_MAX_ITERATIONS;
+
+    private double convEps = DEFAULT_STOPPING_CRITERIA;
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -98,15 +99,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
             throw new IllegalArgumentException("Realistic voltage upper bounds must greater then lower bounds");
         }
         this.upperVoltageBound = upperVoltageBound;
-        return this;
-    }
-
-    public KnitroSolverStoppingCriteria getStoppingCriteria() {
-        return stoppingCriteria;
-    }
-
-    public KnitroSolverParameters setStoppingCriteria(KnitroSolverStoppingCriteria stoppingCriteria) {
-        this.stoppingCriteria = Objects.requireNonNull(stoppingCriteria);
         return this;
     }
 
@@ -174,11 +166,20 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return this;
     }
 
+    public double getConvEps() {
+        return convEps;
+    }
+
+    public KnitroSolverParameters setConvEps(double convEps) {
+        this.convEps = convEps;
+        return this;
+    }
+
     @Override
     public String toString() {
         return "KnitroSolverParameters(" +
                 "gradientComputationMode=" + gradientComputationMode +
-                ", stoppingCriteria=" + stoppingCriteria.getClass().getSimpleName() +
+                ", stoppingCriteria=" + convEps +
                 ", minRealisticVoltage=" + lowerVoltageBound +
                 ", maxRealisticVoltage=" + upperVoltageBound +
                 ", alwaysUpdateNetwork=" + alwaysUpdateNetwork +

@@ -21,8 +21,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private double lowerVoltageBound = KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND;
     private double upperVoltageBound = KnitroSolverParameters.DEFAULT_UPPER_VOLTAGE_BOUND;
     private int maxIterations = KnitroSolverParameters.DEFAULT_MAX_ITERATIONS;
-    private KnitroSolverStoppingCriteria stoppingCriteria = new KnitroSolverStoppingCriteria() {
-    };
+    private double convEps = KnitroSolverParameters.DEFAULT_STOPPING_CRITERIA;
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -87,12 +86,15 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
         return this;
     }
 
-    public KnitroSolverStoppingCriteria getStoppingCriteria() {
-        return stoppingCriteria;
+    public double getConvEps() {
+        return convEps;
     }
 
-    public KnitroLoadFlowParameters setStoppingCriteria(KnitroSolverStoppingCriteria stoppingCriteria) {
-        this.stoppingCriteria = Objects.requireNonNull(stoppingCriteria);
+    public KnitroLoadFlowParameters setConvEps(double convEps) {
+        if (convEps < 0) {
+            throw new IllegalArgumentException("Convergence stopping criteria must be greater than 0");
+        }
+        this.convEps = convEps;
         return this;
     }
 
