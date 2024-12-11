@@ -22,6 +22,7 @@ import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.network.LfBus;
 import com.powsybl.openloadflow.network.LfNetwork;
 import com.powsybl.openloadflow.network.util.VoltageInitializer;
+import com.sun.jdi.InvalidTypeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.commons.lang3.Range;
@@ -206,13 +207,18 @@ public class KnitroSolver extends AbstractAcSolver {
         List<EquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
 
         if (NonLinearExternalSolverUtils.isLinear(typeEq, terms)) {
-            List<Integer> listVar = solverUtils.getLinearConstraint(typeEq, equationId, terms).getListIdVar();
-            List<Double> listCoef = solverUtils.getLinearConstraint(typeEq, equationId, terms).getListCoef();
+            try {
+                List<Integer> listVar = solverUtils.getLinearConstraint(typeEq, equationId, terms).getListIdVar();
 
-            for (int i = 0; i < listVar.size(); i++) {
-                knitroProblem.addConstraintLinearPart(equationId, listVar.get(i), listCoef.get(i));
+                List<Double> listCoef = solverUtils.getLinearConstraint(typeEq, equationId, terms).getListCoef();
+
+                for (int i = 0; i < listVar.size(); i++) {
+                    knitroProblem.addConstraintLinearPart(equationId, listVar.get(i), listCoef.get(i));
+                }
+                LOGGER.trace("Adding linear constraint n° {} of type {}", equationId, typeEq);
+            } catch (InvalidTypeException e) {
+                throw new RuntimeException(e);
             }
-            LOGGER.trace("Adding linear constraint n° {} of type {}", equationId, typeEq);
         } else {
             // ----- Non-linear constraints -----
             listNonLinearConsts.add(equationId); // Add constraint number to list of non-linear constraints

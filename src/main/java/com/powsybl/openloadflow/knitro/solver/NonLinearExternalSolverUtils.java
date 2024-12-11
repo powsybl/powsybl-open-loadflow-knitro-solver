@@ -11,6 +11,7 @@ import com.powsybl.openloadflow.ac.equations.AcVariableType;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.equations.EquationTerm;
 import com.powsybl.openloadflow.equations.VariableEquationTerm;
+import com.sun.jdi.InvalidTypeException;
 
 import java.util.*;
 
@@ -20,7 +21,7 @@ import java.util.*;
 public final class NonLinearExternalSolverUtils {
 
     // List of always linear constraints
-    private static List<AcEquationType> linearConstraintsTypes = new ArrayList<>(Arrays.asList(
+    private static final List<AcEquationType> linearConstraintsTypes = new ArrayList<>(Arrays.asList(
             AcEquationType.BUS_TARGET_PHI,
             AcEquationType.DUMMY_TARGET_P,
             AcEquationType.DUMMY_TARGET_Q,
@@ -33,16 +34,6 @@ public final class NonLinearExternalSolverUtils {
             AcEquationType.BRANCH_TARGET_RHO1
     ));
 
-    // List of always non-linear constraints
-    private static List<AcEquationType> nonLinearConstraintsTypes = new ArrayList<>(Arrays.asList(
-            AcEquationType.BUS_TARGET_P,
-            AcEquationType.BUS_TARGET_Q,
-            AcEquationType.BRANCH_TARGET_P,
-            AcEquationType.BRANCH_TARGET_Q,
-            AcEquationType.BUS_DISTR_SLACK_P,
-            AcEquationType.DISTR_Q
-    ));
-
     // Classifies a constraint as linear or non-linear based on its type and terms
     public static boolean isLinear(AcEquationType typeEq, List<EquationTerm<AcVariableType, AcEquationType>> terms) {
         // Check if the constraint type is BUS_TARGET_V
@@ -53,7 +44,7 @@ public final class NonLinearExternalSolverUtils {
     }
 
     // Return lists of variables and coefficients to pass to Knitro for a linear constraint
-    public VarAndCoefList getLinearConstraint(AcEquationType typeEq, int equationId, List<EquationTerm<AcVariableType, AcEquationType>> terms) {
+    public VarAndCoefList getLinearConstraint(AcEquationType typeEq, int equationId, List<EquationTerm<AcVariableType, AcEquationType>> terms) throws InvalidTypeException {
         VarAndCoefList varAndCoefList = null;
 
         // Check if the constraint is linear
@@ -76,6 +67,13 @@ public final class NonLinearExternalSolverUtils {
                 case ZERO_PHI:
                     varAndCoefList = addConstraintZero(typeEq, equationId, terms);
                     break;
+                case BUS_TARGET_P:
+                case BUS_TARGET_Q:
+                case BRANCH_TARGET_P:
+                case BRANCH_TARGET_Q:
+                case BUS_DISTR_SLACK_P:
+                case DISTR_Q:
+                    throw new InvalidTypeException();
             }
         }
         return varAndCoefList;
