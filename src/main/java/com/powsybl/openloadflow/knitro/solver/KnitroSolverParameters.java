@@ -23,7 +23,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final double DEFAULT_LOWER_VOLTAGE_BOUND = 0.5; // Lower bound for voltage magnitude
     public static final double DEFAULT_UPPER_VOLTAGE_BOUND = 1.5; // Upper bound for voltage magnitude
     public static final int DEFAULT_MAX_ITERATIONS = 200;
-    public static final double DEFAULT_STOPPING_CRITERIA = Math.pow(10,-6);
+    public static final double DEFAULT_STOPPING_CRITERIA = Math.pow(10, -6);
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
 
