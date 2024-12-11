@@ -46,6 +46,7 @@ public class KnitroSolver extends AbstractAcSolver {
                         TargetVector<AcVariableType, AcEquationType> targetVector, EquationVector<AcVariableType, AcEquationType> equationVector,
                         boolean detailedReport) {
         super(network, equationSystem, j, targetVector, equationVector, detailedReport);
+        this.knitroParameters = knitroParameters;
     }
 
     @Override

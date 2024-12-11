@@ -491,7 +491,7 @@ class AcLoadFlowWithCachingTest {
 
         result = loadFlowRunner.run(network, parameters);
         assertEquals(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getComponentResults().get(0).getStatus());
-        assertEquals(3, result.getComponentResults().get(0).getIterationCount());
+        assertEquals(0, result.getComponentResults().get(0).getIterationCount());
         assertVoltageEquals(12.5, b10);
         assertReactivePowerEquals(-11.836, network.getGenerator("B6-G").getTerminal());
         assertReactivePowerEquals(-11.836, network.getGenerator("B8-G").getTerminal());

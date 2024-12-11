@@ -50,29 +50,17 @@ public final class NonLinearExternalSolverUtils {
         // Check if the constraint is linear
         if (isLinear(typeEq, terms)) {
             switch (typeEq) {
-                case BUS_TARGET_V: // BUS_TARGET_V should be treated as linear
-                case BUS_TARGET_PHI:
-                case DUMMY_TARGET_P:
-                case DUMMY_TARGET_Q:
-                case SHUNT_TARGET_B:
-                case BRANCH_TARGET_ALPHA1:
-                case BRANCH_TARGET_RHO1:
-                    varAndCoefList = addConstraintConstantTarget(typeEq, equationId, terms);
+                case BUS_TARGET_V, BUS_TARGET_PHI, DUMMY_TARGET_P, DUMMY_TARGET_Q, SHUNT_TARGET_B, BRANCH_TARGET_ALPHA1, BRANCH_TARGET_RHO1:
+                    // BUS_TARGET_V should be treated as linear
+                    varAndCoefList = addConstraintConstantTarget(terms);
                     break;
-                case DISTR_SHUNT_B:
-                case DISTR_RHO:
-                    varAndCoefList = addConstraintDistrQ(typeEq, equationId, terms);
+                case DISTR_SHUNT_B, DISTR_RHO:
+                    varAndCoefList = addConstraintDistrQ(terms);
                     break;
-                case ZERO_V:
-                case ZERO_PHI:
-                    varAndCoefList = addConstraintZero(typeEq, equationId, terms);
+                case ZERO_V, ZERO_PHI:
+                    varAndCoefList = addConstraintZero(terms);
                     break;
-                case BUS_TARGET_P:
-                case BUS_TARGET_Q:
-                case BRANCH_TARGET_P:
-                case BRANCH_TARGET_Q:
-                case BUS_DISTR_SLACK_P:
-                case DISTR_Q:
+                case BUS_TARGET_P, BUS_TARGET_Q, BRANCH_TARGET_P, BRANCH_TARGET_Q, BUS_DISTR_SLACK_P, DISTR_Q:
                     throw new InvalidTypeException();
             }
         }
@@ -97,22 +85,22 @@ public final class NonLinearExternalSolverUtils {
         }
     }
 
-    public VarAndCoefList addConstraintConstantTarget(AcEquationType typeEq, int equationId, List<EquationTerm<AcVariableType, AcEquationType>> terms) {
+    public VarAndCoefList addConstraintConstantTarget(List<EquationTerm<AcVariableType, AcEquationType>> terms) {
         // get the variable V/Theta/DummyP/DummyQ/... corresponding to the constraint
         int idVar = terms.get(0).getVariables().get(0).getRow();
         return new VarAndCoefList(List.of(idVar), List.of(1.0));
     }
 
-    public VarAndCoefList addConstraintZero(AcEquationType typeEq, int equationId, List<EquationTerm<AcVariableType, AcEquationType>> terms) {
+    public VarAndCoefList addConstraintZero(List<EquationTerm<AcVariableType, AcEquationType>> terms) {
         // get the variables Vi and Vj / Thetai and Thetaj corresponding to the constraint
         int idVari = terms.get(0).getVariables().get(0).getRow();
         int idVarj = terms.get(1).getVariables().get(0).getRow();
         return new VarAndCoefList(Arrays.asList(idVari, idVarj), Arrays.asList(1.0, -1.0));
     }
 
-    public VarAndCoefList addConstraintDistrQ(AcEquationType typeEq, int equationId, List<EquationTerm<AcVariableType, AcEquationType>> terms) {
+    public VarAndCoefList addConstraintDistrQ(List<EquationTerm<AcVariableType, AcEquationType>> terms) {
         // get the variables corresponding to the constraint
-        List<Integer> listVar = new ArrayList();
+        List<Integer> listVar = new ArrayList<>();
         List<Double> listCoef = new ArrayList<>();
         for (EquationTerm<AcVariableType, AcEquationType> equationTerm : terms) {
             double scalar = 0.0;
