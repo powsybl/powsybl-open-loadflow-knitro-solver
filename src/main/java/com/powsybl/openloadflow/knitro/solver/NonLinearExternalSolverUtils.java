@@ -21,7 +21,7 @@ import java.util.*;
 public final class NonLinearExternalSolverUtils {
 
     // List of always linear constraints
-    private static final List<AcEquationType> linearConstraintsTypes = new ArrayList<>(Arrays.asList(
+    private static final List<AcEquationType> LINEAR_CONSTRAINTS_TYPES = new ArrayList<>(Arrays.asList(
             AcEquationType.BUS_TARGET_PHI,
             AcEquationType.DUMMY_TARGET_P,
             AcEquationType.DUMMY_TARGET_Q,
@@ -40,7 +40,7 @@ public final class NonLinearExternalSolverUtils {
         if (typeEq == AcEquationType.BUS_TARGET_V) {
             return terms.size() == 1; // If there's only one term, it is linear
         }
-        return linearConstraintsTypes.contains(typeEq);
+        return LINEAR_CONSTRAINTS_TYPES.contains(typeEq);
     }
 
     // Return lists of variables and coefficients to pass to Knitro for a linear constraint
