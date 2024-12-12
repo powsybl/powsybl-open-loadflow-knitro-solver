@@ -100,7 +100,7 @@
             <version>${knitro-interfaces.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.artelys</groupId>
+            <groupId>com.nativelibs4java</groupId>
             <artifactId>bridj</artifactId>
             <version>${bridj.version}</version>
         </dependency>

@@ -1,43 +1,123 @@
-# Non-linear External Optimization Solver
+# PowSyBl Open Load Flow - Knitro Solver
 
-This document provides an overview of the **Non-linear External Optimization Solver** extension and its integration into a Java project.
+[![Actions Status](https://github.com/powsybl/powsybl-open-loadflow-knitro-solver/workflows/CI/badge.svg)](https://github.com/powsybl/powsybl-open-loadflow-knitro-solver/actions)
+[![Coverage Status](https://sonarcloud.io/api/project_badges/measure?project=com.powsybl%3Apowsybl-open-loadflow-knitro-solver&metric=coverage)](https://sonarcloud.io/component_measures?id=com.powsybl%3Apowsybl-open-loadflow-knitro-solver&metric=coverage)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=com.powsybl%3Apowsybl-open-loadflow-knitro-solver&metric=alert_status)](https://sonarcloud.io/dashboard?id=com.powsybl%3Apowsybl-open-loadflow-knitro-solver)
+[![MPL-2.0 License](https://img.shields.io/badge/license-MPL_2.0-blue.svg)](https://www.mozilla.org/en-US/MPL/2.0/)
+[![Slack](https://img.shields.io/badge/slack-powsybl-blueviolet.svg?logo=slack)](https://join.slack.com/t/powsybl/shared_invite/zt-rzvbuzjk-nxi0boim1RKPS5PjieI0rA)
 
-## Overview
+PowSyBl (**Pow**er **Sy**stem **Bl**ocks) is an open source library written in Java, that makes it easy to write complex
+software for power systems’ simulations and analysis. Its modular approach allows developers to extend or customize its
+features.
 
-By default, load flow calculations in the solver are performed using the **Newton-Raphson** method. However, this extension allows these calculations to be executed using the **non-linear solver Knitro**, modeling the problem as a **constraint satisfaction problem** (without an objective function). 
+PowSyBl is part of the LF Energy Foundation, a project of The Linux Foundation that supports open source innovation projects
+within the energy and electricity sectors.
 
-### Installation / Setup
-To use the Knitro solver, users need to first download a license for Knitro, and add it to their environment variables under the name of ARTELYS_LICENSE.
-A trial license is available on the [Artelys website](https://www.artelys.com).
+<p align="center">
+<img src="https://raw.githubusercontent.com/powsybl/powsybl-gse/main/gse-spi/src/main/resources/images/logo_lfe_powsybl.svg?sanitize=true" alt="PowSyBl Logo" width="50%"/>
+</p>
 
-Users must also specify to Knitro the installation directory in the environment variable KNITRODIR.
+Read more at https://www.powsybl.org !
 
-Users then need to install knitro's jars by running the following maven commands : \
-./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/bridj-0.7.0.jar" -DgroupId=com.artelys -DartifactId=bridj -Dversion=0.7.0 -Dpackaging=jar -DgeneratePom=true\
+This project and everyone participating in it is under the [Linux Foundation Energy governance principles](https://www.powsybl.org/pages/project/governance.html) and must respect the [PowSyBl Code of Conduct](https://github.com/powsybl/.github/blob/main/CODE_OF_CONDUCT.md).
+By participating, you are expected to uphold this code. Please report unacceptable behavior to [powsybl-tsc@lists.lfenergy.org](mailto:powsybl-tsc@lists.lfenergy.org).
+
+## PowSyBl vs PowSyBl Open Load Flow Knitro Solver
+
+PowSyBl Open Load Flow Knitro Solver is an extension to [PowSyBl Open Load Flow](https://github.com/powsybl/powsybl-open-loadflow) allowing to solve
+the load flow equations with the **non-linear solver Knitro** instead of the default **Newton-Raphson** method.
+
+The Knitro solver extension models the load flow problem as a **constraint satisfaction problem** (without an objective function).
+
+## Getting Started
+
+A Knitro installation is required to use the PowSyBl OLF Knitro extension.
+
+Knitro installation kit and trial license can be obtained on the [Artelys website](https://www.artelys.com/solvers/knitro/programs/#trial).
+
+After Knitro installation, create the following environment variables:
+- `KNITRODIR` containing the Knitro installation directory.
+- `ARTELYS_LICENSE` containing the Knitro license (either the license file path, or the license content).
+
+Knitro Java bindings use a private JAR which is not available on Maven Central and must be installed locally as follows: 
+
+```bash
 ./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.1.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=14.1.0 -Dpackaging=jar -DgeneratePom=true
+```
 
-To setup Knitro as the solver to run loadflow computations, users must use `.setAcSolverType(KnitroSolverFactory.NAME)` in the `OpenLoadFlowParameters` extension.
+To run a load flow with PowSyBl Open Load Flow Knitro Solver. We first add a few Maven
+dependencies to respectively have access to network model, IEEE test networks and simple logging capabilities:
 
-### Functionality
+```xml
+<dependency>
+    <groupId>com.powsybl</groupId>
+    <artifactId>powsybl-iidm-impl</artifactId>
+    <version>6.6.0</version>
+</dependency>
+<dependency>
+    <groupId>com.powsybl</groupId>
+    <artifactId>powsybl-ieee-cdf-converter</artifactId>
+    <version>6.6.0</version>
+</dependency>
+<dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>slf4j-simple</artifactId>
+    <version>2.0.13</version>
+</dependency>
+```
 
-The Knitro solver is used as a substitute for the **inner loop calculations** in the load flow process. The **outer loop** operates identically to the Newton-Raphson method. After the outer loop is complete, the inner loop calculations are executed with Knitro.
+We are now able to load the IEEE 14 bus test network:
+ ```java
+Network network = IeeeCdfNetworkFactory.create14();
+ ```
 
-## Configuration
+After adding dependency on both Open Load Flow implementation and Knitro Solver extension:
+```xml
+<dependency>
+    <groupId>com.powsybl</groupId>
+    <artifactId>powsybl-open-loadflow</artifactId>
+    <version>1.14.0</version>
+</dependency>
+<dependency>
+    <groupId>com.powsybl</groupId>
+    <artifactId>powsybl-open-loadflow-knitro-solver</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
 
-### Parameter Settings
-
-Most parameters for Knitro are configured similarly to the Newton-Raphson method. However, specific parameters tailored to Knitro are provided through the `KnitroLoadFlowParameters` extension of `LoadFlowParameters`. 
-
-#### Example: Setting Gradient Computation Mode
+To run the load flow with the Knitro solver, configure the
+[Open Load Flow parameter `acSolverType`](https://powsybl.readthedocs.io/projects/powsybl-open-loadflow/en/latest/loadflow/parameters.html)
+as follows:
 
 ```java
 LoadFlowParameters parameters = new LoadFlowParameters();
+OpenLoadFlowParameters.create(parameters)
+   .setAcSolverType("KNITRO"); // Change default Open Load Flow parameter acSolverType from NEWTON_RAPHSON to KNITRO
+LoadFlow.run(network, parameters);
+```
+
+## Features
+
+The Knitro solver is used as a substitute for the **inner loop calculations** in the load flow process.
+The **outer loops** such as distributed slack, reactive limits, etc... operate identically as when using the Newton-Raphson method.
+
+### Configuration
+
+Most parameters for Knitro are configured similarly to the Newton-Raphson method.
+However, specific parameters tailored to Knitro are provided through the `KnitroLoadFlowParameters` extension of `LoadFlowParameters`. 
+
+Here an example on how to provide Knitro solver specific parameters in Java:
+
+```java
+LoadFlowParameters parameters = new LoadFlowParameters();
+OpenLoadFlowParameters.create(parameters)
+   .setAcSolverType("KNITRO");
 KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
 knitroLoadFlowParameters.setGradientComputationMode(2);
 parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
 ```
 
-### Default Knitro Parameters
+### Knitro Parameters
 
 1. **Voltage Bounds**:
     - Default range: **0.5 p.u. to 1.5 p.u.** : they define lower and upper bounds of voltages.
@@ -65,7 +145,7 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
     - Default: **200**
     - Modify using `setMaxIterations`.
 
-## Constraint Handling
+### Constraint Handling
 
 Constraints are categorized into two types:
 
