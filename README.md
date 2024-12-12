@@ -31,19 +31,28 @@ The Knitro solver extension models the load flow problem as a **constraint satis
 
 ## Getting Started
 
-A Knitro installation is required to use the PowSyBl OLF Knitro extension.
+To use the PowSyBl Open Load Flow Knitro Solver extension, a valid Knitro installation is required.
 
-Knitro installation kit and trial license can be obtained on the [Artelys website](https://www.artelys.com/solvers/knitro/programs/#trial).
+### Platform compatibility
 
-After Knitro installation, create the following environment variables:
-- `KNITRODIR` containing the Knitro installation directory.
-- `ARTELYS_LICENSE` containing the Knitro license (either the license file path, or the license content).
+Knitro supports Linux, Windows, and macOS; however, its Java bindings are currently available only on Linux and Windows.
 
-Knitro Java bindings use a private JAR which is not available on Maven Central and must be installed locally as follows: 
+### Installing Knitro
+
+1. Obtain the installation kit and trial license from the [Artelys website](https://www.artelys.com/solvers/knitro/programs/#trial).
+2. Configure the following environment variables:
+  - `KNITRODIR`: Path to the Knitro installation directory.
+  - `ARTELYS_LICENSE`: Path to the Knitro license file or its content.
+
+### Installing Knitro Java Bindings
+Knitro Java bindings require a private JAR file that must be installed locally, as it is not available on Maven Central.
+Use the following command:
 
 ```bash
 ./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.1.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=14.1.0 -Dpackaging=jar -DgeneratePom=true
 ```
+
+### Running a Load Flow with Knitro Solver
 
 To run a load flow with PowSyBl Open Load Flow Knitro Solver. We first add a few Maven
 dependencies to respectively have access to network model, IEEE test networks and simple logging capabilities:
