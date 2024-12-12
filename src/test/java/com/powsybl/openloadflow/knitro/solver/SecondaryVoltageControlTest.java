@@ -1,4 +1,3 @@
-package com.powsybl.openloadflow.knitro.solver;
 /**
  * Copyright (c) 2023, RTE (http://www.rte-france.com)
  * This Source Code Form is subject to the terms of the Mozilla Public
@@ -6,6 +5,7 @@ package com.powsybl.openloadflow.knitro.solver;
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  * SPDX-License-Identifier: MPL-2.0
  */
+package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.ieeecdf.converter.IeeeCdfNetworkFactory;
