@@ -43,7 +43,7 @@ public final class NonLinearExternalSolverUtils {
     }
 
     // Return lists of variables and coefficients to pass to Knitro for a linear constraint
-    public VarAndCoefList getLinearConstraint(AcEquationType typeEq, int equationId, List<EquationTerm<AcVariableType, AcEquationType>> terms) throws UnsupportedOperationException {
+    public VarAndCoefList getLinearConstraint(AcEquationType typeEq, List<EquationTerm<AcVariableType, AcEquationType>> terms) throws UnsupportedOperationException {
         VarAndCoefList varAndCoefList = null;
 
         // Check if the constraint is linear
