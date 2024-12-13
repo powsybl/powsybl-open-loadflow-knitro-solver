@@ -48,9 +48,9 @@ public class KnitroSolverParametersTest {
         assertEquals(1, parametersKnitro.getGradientUserRoutine());
 
         // wrong values
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parametersKnitro.setGradientComputationMode(0));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parametersKnitro.setGradientUserRoutine(0));
         assertEquals("User routine must be between 1 and 2", e.getMessage());
-        IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> parametersKnitro.setGradientComputationMode(3));
+        IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> parametersKnitro.setGradientUserRoutine(3));
         assertEquals("User routine must be between 1 and 2", e2.getMessage());
     }
 
