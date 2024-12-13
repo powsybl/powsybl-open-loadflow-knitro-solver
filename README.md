@@ -44,6 +44,35 @@ Knitro supports Linux, Windows, and macOS; however, its Java bindings are curren
   - `KNITRODIR`: Path to the Knitro installation directory.
   - `ARTELYS_LICENSE`: Path to the Knitro license file or its content.
 
+You may then validate your installation by running one of the Java examples like this (here on Linux):
+
+```bash
+cd $KNITRODIR/examples/java/examples
+# compile example
+javac -cp ".;../lib/*" com/artelys/knitro/examples/ExampleNLP1.java
+# run example
+java -cp ".;../lib/*" com.artelys.knitro.examples.ExampleNLP1
+```
+
+<details>
+
+<summary>Here an example output (click to expand)</summary>
+
+```
+$ java -cp ".;../lib/*" com.artelys.knitro.examples.ExampleNLP1
+
+--- snip ---
+
+Optimal constraint values (with corresponding multiplier)
+ c[0] = 1,000000 (lambda = -700,000000)
+ c[1] = 4,500000 (lambda = -0,000000)
+Feasibility violation    = 0,000000
+Optimality violation     = 0,000003
+```
+
+</details>
+
+
 ### Installing Knitro Java Bindings
 Knitro Java bindings require a private JAR file that must be installed locally, as it is not available on Maven Central.
 Use the following command:
