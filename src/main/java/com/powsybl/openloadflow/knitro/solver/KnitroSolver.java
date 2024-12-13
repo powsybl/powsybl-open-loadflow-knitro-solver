@@ -40,11 +40,33 @@ public class KnitroSolver extends AbstractAcSolver {
 
     protected static KnitroSolverParameters knitroParameters = new KnitroSolverParameters();
 
-    public KnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters,
-                        EquationSystem<AcVariableType, AcEquationType> equationSystem, JacobianMatrix<AcVariableType, AcEquationType> j,
-                        TargetVector<AcVariableType, AcEquationType> targetVector, EquationVector<AcVariableType, AcEquationType> equationVector,
-                        boolean detailedReport) {
+    public KnitroSolver(
+            LfNetwork network,
+            KnitroSolverParameters knitroParameters,
+            EquationSystem<AcVariableType, AcEquationType> equationSystem,
+            JacobianMatrix<AcVariableType, AcEquationType> j,
+            TargetVector<AcVariableType, AcEquationType> targetVector,
+            EquationVector<AcVariableType, AcEquationType> equationVector,
+            boolean detailedReport) {
+
         super(network, equationSystem, j, targetVector, equationVector, detailedReport);
+
+        // Initialize static parameters only if it hasn't been set
+        if (KnitroSolver.knitroParameters == null) {
+            KnitroSolver.knitroParameters = knitroParameters;
+        } else {
+            LOGGER.warn("knitroParameters is already set and will not be overwritten.");
+        }
+    }
+
+    // Getter for accessing knitroParameters
+    public static KnitroSolverParameters getKnitroParameters() {
+        return knitroParameters;
+    }
+
+    // Setter for modification
+    public static synchronized void setKnitroParameters(KnitroSolverParameters knitroParameters) {
+        LOGGER.info("Setting new knitroParameters.");
         KnitroSolver.knitroParameters = knitroParameters;
     }
 
@@ -116,13 +138,15 @@ public class KnitroSolver extends AbstractAcSolver {
         private final List<Double> lowerBounds;
         private final List<Double> upperBounds;
 
-        public VariableBounds(List<Variable<AcVariableType>> sortedVariables, KnitroSolverParameters knitroParameters) {
+        public VariableBounds(List<Variable<AcVariableType>> sortedVariables) {
             this.lowerBounds = new ArrayList<>();
             this.upperBounds = new ArrayList<>();
-            setBounds(sortedVariables, knitroParameters);
+            setBounds(sortedVariables);
         }
 
-        private void setBounds(List<Variable<AcVariableType>> sortedVariables, KnitroSolverParameters knitroParameters) {
+        private void setBounds(List<Variable<AcVariableType>> sortedVariables) {
+            KnitroSolverParameters knitroParameters = KnitroSolver.getKnitroParameters();
+
             double loBndV = knitroParameters.getLowerVoltageBound();
             double upBndV = knitroParameters.getUpperVoltageBound();
 
@@ -208,9 +232,9 @@ public class KnitroSolver extends AbstractAcSolver {
 
         if (NonLinearExternalSolverUtils.isLinear(typeEq, terms)) {
             try {
-                List<Integer> listVar = solverUtils.getLinearConstraint(typeEq, equationId, terms).getListIdVar();
+                List<Integer> listVar = solverUtils.getLinearConstraint(typeEq, terms).getListIdVar();
 
-                List<Double> listCoef = solverUtils.getLinearConstraint(typeEq, equationId, terms).getListCoef();
+                List<Double> listCoef = solverUtils.getLinearConstraint(typeEq, terms).getListCoef();
 
                 for (int i = 0; i < listVar.size(); i++) {
                     knitroProblem.addConstraintLinearPart(equationId, listVar.get(i), listCoef.get(i));
@@ -243,19 +267,31 @@ public class KnitroSolver extends AbstractAcSolver {
                                   List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> listNonLinearConsts,
                                   List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
                                   List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) throws KNException {
+
+        // Fetch the shared knitroParameters instance
+        KnitroSolverParameters knitroParameters = KnitroSolver.getKnitroParameters();
+
         int numVar = equationSystem.getVariableSet().getVariables().size();
         if (knitroParameters.getGradientComputationMode() == 1) { // User routine to compute the Jacobian
             if (knitroParameters.getGradientUserRoutine() == 1) {
-                // Dense method : when computing the Jacobian matrix, all non-linear constraints are considered as a function of all variables.
+                // Dense method: all non-linear constraints are considered as a function of all variables.
                 buildDenseJacobianMatrix(numVar, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense);
                 knitroProblem.setJacNnzPattern(listNonZerosCtsDense, listNonZerosVarsDense);
             } else if (knitroParameters.getGradientUserRoutine() == 2) {
-                // Sparse method : when computing the Jacobian matrix, non-linear constraints derivates are evaluated only with respect to variables the constraints really depend off.
+                // Sparse method: compute Jacobian only for variables the constraints depend on.
                 buildSparseJacobianMatrix(sortedEquationsToSolve, listNonLinearConsts, listNonZerosCtsSparse, listNonZerosVarsSparse);
                 knitroProblem.setJacNnzPattern(listNonZerosCtsSparse, listNonZerosVarsSparse);
             }
-            // If the user decided to directly pass the Jacobian to the solver, we set the callback for gradient evaluations.
-            knitroProblem.setGradEvalCallback(new KnitroProblem.CallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense, listNonZerosCtsSparse, listNonZerosVarsSparse, lfNetwork, equationSystem));
+            // Set the callback for gradient evaluations if the user directly passes the Jacobian to the solver.
+            knitroProblem.setGradEvalCallback(new KnitroProblem.CallbackEvalG(
+                    jacobianMatrix,
+                    listNonZerosCtsDense,
+                    listNonZerosVarsDense,
+                    listNonZerosCtsSparse,
+                    listNonZerosVarsSparse,
+                    lfNetwork,
+                    equationSystem
+            ));
         }
     }
 
@@ -379,11 +415,15 @@ public class KnitroSolver extends AbstractAcSolver {
                 equationSystem.getStateVector().set(toArray(x));
                 AcSolverUtil.updateNetwork(network, equationSystem);
                 oldMatrix.forceUpdate();
+
                 // For sparse matrix, get values, row and column structure
                 SparseMatrix sparseOldMatrix = oldMatrix.getMatrix().toSparse();
                 int[] columnStart = sparseOldMatrix.getColumnStart();
                 int[] rowIndices = sparseOldMatrix.getRowIndices();
                 double[] values = sparseOldMatrix.getValues();
+
+                // Dynamically fetch Knitro parameters
+                KnitroSolverParameters knitroParameters = KnitroSolver.getKnitroParameters();
 
                 // Number of constraints evaluated in callback
                 int numCbCts = 0;
@@ -422,7 +462,11 @@ public class KnitroSolver extends AbstractAcSolver {
                         }
                         jac.set(index, valueSparse);
                     } catch (Exception e) {
-                        LOGGER.error("Exception found while trying to add Jacobian term {} in non-linear constraint n° {}", listNonZerosVarsSparse.get(index), listNonZerosCtsSparse.get(index));
+                        LOGGER.error(
+                                "Exception found while trying to add Jacobian term {} in non-linear constraint n° {}",
+                                listNonZerosVarsSparse.get(index),
+                                listNonZerosCtsSparse.get(index)
+                        );
                         LOGGER.error(e.getMessage());
                     }
                 }
@@ -446,7 +490,7 @@ public class KnitroSolver extends AbstractAcSolver {
          * - definition of non-linear constraints, evaluated in the callback function
          * - definition of the Jacobian matrix passed to Knitro to solve the problem
          */
-        private KnitroProblem(LfNetwork lfNetwork, EquationSystem<AcVariableType, AcEquationType> equationSystem, TargetVector targetVector, VoltageInitializer voltageInitializer, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix, KnitroSolverParameters knitroParameters) throws KNException {
+        private KnitroProblem(LfNetwork lfNetwork, EquationSystem<AcVariableType, AcEquationType> equationSystem, TargetVector targetVector, VoltageInitializer voltageInitializer, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix) throws KNException {
 
             // =============== Variables ===============
             // Defining variables
@@ -462,7 +506,7 @@ public class KnitroSolver extends AbstractAcSolver {
             setVarTypes(listVarTypes);
 
             // Bounds
-            VariableBounds variableBounds = new VariableBounds(sortedVariables, knitroParameters);
+            VariableBounds variableBounds = new VariableBounds(sortedVariables);
             setVarLoBnds(variableBounds.getLowerBounds());
             setVarUpBnds(variableBounds.getUpperBounds());
 
@@ -510,7 +554,9 @@ public class KnitroSolver extends AbstractAcSolver {
         }
     }
 
-    private void setSolverParameters(KNSolver solver, KnitroSolverParameters knitroParameters) throws KNException {
+    private void setSolverParameters(KNSolver solver) throws KNException {
+        KnitroSolverParameters knitroParameters = KnitroSolver.getKnitroParameters();
+
         solver.setParam(KNConstants.KN_PARAM_GRADOPT, knitroParameters.getGradientComputationMode());
         solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
@@ -539,28 +585,34 @@ public class KnitroSolver extends AbstractAcSolver {
 
     @Override
     public AcSolverResult run(VoltageInitializer voltageInitializer, ReportNode reportNode) {
+        // Set the Knitro parameters
+        KnitroSolverParameters knitroParameters = new KnitroSolverParameters();
+        KnitroSolver.setKnitroParameters(knitroParameters);
+
         int nbIter = -1;
         AcSolverStatus acStatus;
         KnitroProblem instance;
+
         try {
-            instance = new KnitroProblem(network, equationSystem, targetVector, voltageInitializer, j, knitroParameters);
+            // Create a new Knitro problem instance
+            instance = new KnitroProblem(network, equationSystem, targetVector, voltageInitializer, j);
         } catch (KNException e) {
             throw new PowsyblException("Exception while trying to build Knitro Problem", e);
         }
-        try (FinalizeSafeSolver solver = new FinalizeSafeSolver(instance)) {
-            // Create instance of problem
 
+        try (FinalizeSafeSolver solver = new FinalizeSafeSolver(instance)) {
+            // Initialize problem
             solver.initProblem();
 
             // Set solver parameters
-            setSolverParameters(solver, knitroParameters);
+            setSolverParameters(solver);
 
             // Solve
             solver.solve();
             KNSolution solution = solver.getSolution();
             List<Double> constraintValues = solver.getConstraintValues();
             acStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
-            logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus())); // convert and log Knitro's status
+            logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
             nbIter = solver.getNumberIters();
 
             // Log solution
@@ -581,15 +633,15 @@ public class KnitroSolver extends AbstractAcSolver {
                 LOGGER.debug(" violation[{}] = {} ", i, solver.getConViol(i));
             }
 
-            // Load results in the network
+            // Update the network if required
             if (acStatus == AcSolverStatus.CONVERGED || knitroParameters.isAlwaysUpdateNetwork()) {
-                equationSystem.getStateVector().set(toArray(solution.getX())); //update equation system
-                for (Equation<AcVariableType, AcEquationType> equation : equationSystem.getEquations()) { //update terms
+                equationSystem.getStateVector().set(toArray(solution.getX())); // update equation system
+                for (Equation<AcVariableType, AcEquationType> equation : equationSystem.getEquations()) { // update terms
                     for (EquationTerm term : equation.getTerms()) {
                         term.setStateVector(equationSystem.getStateVector());
                     }
                 }
-                AcSolverUtil.updateNetwork(network, equationSystem); //update network
+                AcSolverUtil.updateNetwork(network, equationSystem); // update network
             }
 
         } catch (KNException e) {
@@ -599,4 +651,5 @@ public class KnitroSolver extends AbstractAcSolver {
         double slackBusActivePowerMismatch = network.getSlackBuses().stream().mapToDouble(LfBus::getMismatchP).sum();
         return new AcSolverResult(acStatus, nbIter, slackBusActivePowerMismatch);
     }
+
 }
