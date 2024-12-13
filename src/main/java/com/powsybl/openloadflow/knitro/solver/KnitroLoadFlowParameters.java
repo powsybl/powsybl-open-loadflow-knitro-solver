@@ -90,7 +90,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     }
 
     public KnitroLoadFlowParameters setConvEps(double convEps) {
-        if (convEps < 0) {
+        if (convEps <= 0) {
             throw new IllegalArgumentException("Convergence stopping criteria must be greater than 0");
         }
         this.convEps = convEps;
