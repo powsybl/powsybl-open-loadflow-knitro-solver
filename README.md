@@ -63,6 +63,10 @@ $ java -cp ".;../lib/*" com.artelys.knitro.examples.ExampleNLP1
 
 --- snip ---
 
+Optimal objective value  = 306.5000025616414
+Optimal x (with corresponding multiplier)
+x1 = 0,500000 (lambda = -700,000000)
+x2 = 2,000000 (lambda = -0,000000)
 Optimal constraint values (with corresponding multiplier)
  c[0] = 1,000000 (lambda = -700,000000)
  c[1] = 4,500000 (lambda = -0,000000)
