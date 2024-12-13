@@ -43,8 +43,8 @@
 
     <properties>
         <java.version>17</java.version>
-        <powsybl-core.version>6.6.0-RC1</powsybl-core.version>
-        <powsybl-open-loadflow.version>1.14.0-SNAPSHOT</powsybl-open-loadflow.version>
+        <powsybl-core.version>6.6.0</powsybl-core.version>
+        <powsybl-open-loadflow.version>1.14.0</powsybl-open-loadflow.version>
         <knitro-interfaces.version>14.1.0</knitro-interfaces.version>
         <bridj.version>0.7.0</bridj.version>
     </properties>
@@ -100,7 +100,7 @@
             <version>${knitro-interfaces.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.artelys</groupId>
+            <groupId>com.nativelibs4java</groupId>
             <artifactId>bridj</artifactId>
             <version>${bridj.version}</version>
         </dependency>
@@ -140,4 +140,3 @@
         </dependency>
     </dependencies>
 </project>
-

@@ -1,4 +1,3 @@
-package com.powsybl.openloadflow.knitro.solver;
 /**
  * Copyright (c) 2019, RTE (http://www.rte-france.com)
  * Copyright (c) 2023, Coreso SA (https://www.coreso.eu/) and TSCNET Services GmbH (https://www.tscnet.eu/)
@@ -7,6 +6,7 @@ package com.powsybl.openloadflow.knitro.solver;
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  * SPDX-License-Identifier: MPL-2.0
  */
+package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.extensions.ActivePowerControl;

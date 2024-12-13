@@ -22,32 +22,25 @@ jobs:
       - name: Install Knitro (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          wget -nv -O knitro.tar.gz "$KNITRO_LINUX_URL"
+          wget -nv -O knitro.tar.gz --user "$KNITRO_DOWNLOAD_USER" --password "$KNITRO_DOWNLOAD_PASSWORD" "$KNITRO_LINUX_URL"
           mkdir -p $RUNNER_TEMP/knitro
           tar xzf knitro.tar.gz -C $RUNNER_TEMP/knitro
           echo "KNITRODIR=$RUNNER_TEMP/knitro/knitro-14.1.0-Linux64" >> "$GITHUB_ENV"
         env:
+          KNITRO_DOWNLOAD_USER: ${{ secrets.KNITRO_DOWNLOAD_USER }}
+          KNITRO_DOWNLOAD_PASSWORD: ${{ secrets.KNITRO_DOWNLOAD_PASSWORD }}
           KNITRO_LINUX_URL: ${{ secrets.KNITRO_LINUX_URL }}
-
-# Knitro does not yet support Java API on macOS, to be tried later on
-#      - name: Install Knitro (macOS)
-#        if: matrix.os == 'macos-latest'
-#        run: |
-#          wget -nv -O knitro.tar.gz "$KNITRO_MACOS_URL"
-#          mkdir -p $RUNNER_TEMP/knitro
-#          tar xzf knitro.tar.gz -C $RUNNER_TEMP/knitro
-#          echo "KNITRODIR=$RUNNER_TEMP/knitro/knitro-14.1.0-ARM-MacOS" >> "$GITHUB_ENV"
-#        env:
-#          KNITRO_MACOS_URL: ${{ secrets.KNITRO_MACOS_URL }}
 
       - name: Install Knitro (Windows)
         if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
-          C:\msys64\usr\bin\wget.exe -nv -O knitro.zip "$env:KNITRO_WINDOWS_URL"
+          C:\msys64\usr\bin\wget.exe -nv -O knitro.zip --user "$env:KNITRO_DOWNLOAD_USER" --password "$env:KNITRO_DOWNLOAD_PASSWORD" "$env:KNITRO_WINDOWS_URL"
           7z x -y knitro.zip -oC:\knitro
           echo "KNITRODIR=C:\knitro\knitro-14.1.0-Win64" >> "$env:GITHUB_ENV"
         env:
+          KNITRO_DOWNLOAD_USER: ${{ secrets.KNITRO_DOWNLOAD_USER }}
+          KNITRO_DOWNLOAD_PASSWORD: ${{ secrets.KNITRO_DOWNLOAD_PASSWORD }}
           KNITRO_WINDOWS_URL: ${{ secrets.KNITRO_WINDOWS_URL }}
 
       - name: Checkout sources
@@ -59,21 +52,9 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # temp until next OLF release
-      - name: Checkout powsybl-open-loadflow sources
-        uses: actions/checkout@v4
-        with:
-          repository: powsybl/powsybl-open-loadflow
-          ref: main
-          path: powsybl-open-loadflow
-      - name: Build powsybl-open-loadflow
-        run: mvn -batch-mode --no-transfer-progress clean install -DskipTests
-        working-directory: ./powsybl-open-loadflow
-
-      - name: Build with Maven (Ubuntu)  # later: (Ubuntu / MacOS)
+      - name: Build with Maven (Ubuntu)
         if: matrix.os != 'windows-latest'
         run: |
-          ./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/bridj-0.7.0.jar" -DgroupId=com.artelys -DartifactId=bridj -Dversion=0.7.0 -Dpackaging=jar -DgeneratePom=true
           ./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.1.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=14.1.0 -Dpackaging=jar -DgeneratePom=true
           ./mvnw --batch-mode -Pjacoco install
         env:
@@ -82,7 +63,6 @@ jobs:
       - name: Build with Maven (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          call mvnw.cmd install:install-file -Dfile="%KNITRODIR%\examples\Java\lib\bridj-0.7.0.jar" -DgroupId=com.artelys -DartifactId=bridj -Dversion=0.7.0 -Dpackaging=jar -DgeneratePom=true
           call mvnw.cmd install:install-file -Dfile="%KNITRODIR%\examples\Java\lib\Knitro-Interfaces-2.5-KN_14.1.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=14.1.0 -Dpackaging=jar -DgeneratePom=true
           mvnw.cmd --batch-mode install
         shell: cmd
