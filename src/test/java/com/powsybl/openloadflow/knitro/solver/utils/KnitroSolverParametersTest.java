@@ -38,6 +38,23 @@ public class KnitroSolverParametersTest {
     }
 
     @Test
+    void testGradientUserRoutine() {
+        KnitroSolverParameters parametersKnitro = new KnitroSolverParameters();
+        // default value
+        assertEquals(2, parametersKnitro.getGradientUserRoutine());
+
+        // set other value
+        parametersKnitro.setGradientUserRoutine(1);
+        assertEquals(1, parametersKnitro.getGradientUserRoutine());
+
+        // wrong values
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parametersKnitro.setGradientComputationMode(0));
+        assertEquals("User routine must be between 1 and 2", e.getMessage());
+        IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> parametersKnitro.setGradientComputationMode(3));
+        assertEquals("User routine must be between 1 and 2", e2.getMessage());
+    }
+
+    @Test
     void getAndSetVoltageBounds() {
         KnitroSolverParameters parametersKnitro = new KnitroSolverParameters();
         //TODO

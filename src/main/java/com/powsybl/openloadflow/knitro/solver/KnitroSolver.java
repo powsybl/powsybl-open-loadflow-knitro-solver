@@ -249,7 +249,7 @@ public class KnitroSolver extends AbstractAcSolver {
                                   List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
                                   List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) throws KNException {
 
-        int numVar = equationSystem.getVariableSet().getVariables().size();
+        int numVar = equationSystem.getIndex().getSortedVariablesToFind().size();
         if (knitroParameters.getGradientComputationMode() == 1) { // User routine to compute the Jacobian
             if (knitroParameters.getGradientUserRoutine() == 1) {
                 // Dense method: all non-linear constraints are considered as a function of all variables.

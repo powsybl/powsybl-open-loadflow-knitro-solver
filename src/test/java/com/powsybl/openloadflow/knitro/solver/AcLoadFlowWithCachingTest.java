@@ -386,7 +386,9 @@ class AcLoadFlowWithCachingTest {
                 .setP0(5)
                 .setQ0(5)
                 .add();
-
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
+        knitroLoadFlowParameters.setGradientUserRoutine(1);
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         parametersExt.setActionableSwitchesIds(Set.of("BR"));
 //        parametersExt.setAcSolverType(NewtonRaphsonFactory.NAME);
 
