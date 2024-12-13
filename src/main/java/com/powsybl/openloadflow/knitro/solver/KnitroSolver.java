@@ -45,7 +45,7 @@ public class KnitroSolver extends AbstractAcSolver {
                         TargetVector<AcVariableType, AcEquationType> targetVector, EquationVector<AcVariableType, AcEquationType> equationVector,
                         boolean detailedReport) {
         super(network, equationSystem, j, targetVector, equationVector, detailedReport);
-        this.knitroParameters = knitroParameters;
+        KnitroSolver.knitroParameters = knitroParameters;
     }
 
     @Override
@@ -62,7 +62,7 @@ public class KnitroSolver extends AbstractAcSolver {
         TERMINATED_AT_INFEASIBLE_POINT(-299, -200, AcSolverStatus.SOLVER_FAILED),
         PROBLEM_UNBOUNDED(-399, -300, AcSolverStatus.SOLVER_FAILED),
         TERMINATED_DUE_TO_PRE_DEFINED_LIMIT(-499, -400, AcSolverStatus.MAX_ITERATION_REACHED),
-        INPUT_OR_NON_STANDARD_ERROR(-599, -500, AcSolverStatus.NO_CALCULATION);
+        INPUT_OR_NON_STANDARD_ERROR(-599, -500, AcSolverStatus.SOLVER_FAILED);
 
         private final Range<Integer> statusRange;
         private final AcSolverStatus acSolverStatus;
@@ -217,7 +217,7 @@ public class KnitroSolver extends AbstractAcSolver {
                 }
                 LOGGER.trace("Adding linear constraint n° {} of type {}", equationId, typeEq);
             } catch (UnsupportedOperationException e) {
-                throw new RuntimeException(e);
+                throw new PowsyblException(e);
             }
         } else {
             // ----- Non-linear constraints -----
@@ -255,7 +255,7 @@ public class KnitroSolver extends AbstractAcSolver {
                 knitroProblem.setJacNnzPattern(listNonZerosCtsSparse, listNonZerosVarsSparse);
             }
             // If the user decided to directly pass the Jacobian to the solver, we set the callback for gradient evaluations.
-            knitroProblem.setGradEvalCallback(new KnitroProblem.CallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense, listNonZerosCtsSparse, listNonZerosVarsSparse, listNonLinearConsts, lfNetwork, equationSystem));
+            knitroProblem.setGradEvalCallback(new KnitroProblem.CallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense, listNonZerosCtsSparse, listNonZerosVarsSparse, lfNetwork, equationSystem));
         }
     }
 
@@ -363,7 +363,7 @@ public class KnitroSolver extends AbstractAcSolver {
             private final LfNetwork network;
             private final EquationSystem<AcVariableType, AcEquationType> equationSystem;
 
-            private CallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> oldMatrix, List<Integer> listNonZerosCts, List<Integer> listNonZerosVars, List<Integer> listNonZerosCts2, List<Integer> listNonZerosVars2, List<Integer> listNonLinearConsts, LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem) {
+            private CallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> oldMatrix, List<Integer> listNonZerosCts, List<Integer> listNonZerosVars, List<Integer> listNonZerosCts2, List<Integer> listNonZerosVars2, LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem) {
                 this.oldMatrix = oldMatrix;
                 this.listNonZerosCtsDense = listNonZerosCts;
                 this.listNonZerosVarsDense = listNonZerosVars;
