@@ -155,7 +155,7 @@ public class KnitroSolver extends AbstractAcSolver {
     /**
      * Handles initialization of the state vector.
      */
-    public class StateInitializer {
+    public static class StateInitializer {
         private final List<Double> initialState;
 
         public StateInitializer(LfNetwork lfNetwork, EquationSystem<AcVariableType, AcEquationType> equationSystem,
@@ -175,102 +175,6 @@ public class KnitroSolver extends AbstractAcSolver {
 
         public List<Double> getInitialState() {
             return initialState;
-        }
-    }
-
-    /**
-     * Adds constraints to the Knitro problem, classifying them as linear or non-linear.
-     *
-     * @param knitroProblem The Knitro problem to which constraints are added.
-     * @param sortedEquationsToSolve A list of equations to solve.
-     * @param solverUtils Utils for solving external non-linear equations.
-     * @param listNonLinearConsts A list to store ids of non-linear constraints.
-     */
-    public void addLinearConstraints(KnitroProblem knitroProblem,
-                                     List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
-                                     NonLinearExternalSolverUtils solverUtils, List<Integer> listNonLinearConsts) {
-
-        int numConst = sortedEquationsToSolve.size();
-
-        for (int equationId = 0; equationId < numConst; equationId++) {
-            addConstraint(equationId, knitroProblem, sortedEquationsToSolve, solverUtils, listNonLinearConsts);
-        }
-    }
-
-    /**
-     * Adds a specific constraint to the Knitro problem, classifying it as linear or non-linear.
-     *
-     * @param equationId The id of the equation.
-     * @param knitroProblem The Knitro problem to which the constraint is added.
-     * @param sortedEquationsToSolve A list of equations to solve.
-     * @param solverUtils Utils for solving external non-linear equations.
-     * @param listNonLinearConsts A list to store ids of non-linear constraints.
-     */
-    public void addConstraint(int equationId, KnitroProblem knitroProblem, List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, NonLinearExternalSolverUtils solverUtils, List<Integer> listNonLinearConsts) {
-        Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
-        AcEquationType typeEq = equation.getType();
-        List<EquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
-
-        if (NonLinearExternalSolverUtils.isLinear(typeEq, terms)) {
-            try {
-                List<Integer> listVar = solverUtils.getLinearConstraint(typeEq, terms).getListIdVar();
-
-                List<Double> listCoef = solverUtils.getLinearConstraint(typeEq, terms).getListCoef();
-
-                for (int i = 0; i < listVar.size(); i++) {
-                    knitroProblem.addConstraintLinearPart(equationId, listVar.get(i), listCoef.get(i));
-                }
-                LOGGER.trace("Adding linear constraint n° {} of type {}", equationId, typeEq);
-            } catch (UnsupportedOperationException e) {
-                throw new PowsyblException(e);
-            }
-        } else {
-            // ----- Non-linear constraints -----
-            listNonLinearConsts.add(equationId); // Add constraint number to list of non-linear constraints
-        }
-    }
-
-    /**
-     * Configures the Jacobian matrix for the Knitro problem, using either a dense or sparse representation.
-     *
-     * @param knitroProblem The Knitro problem instance.
-     * @param lfNetwork The PowSyBl network.
-     * @param jacobianMatrix The PowSyBl Jacobian matrix.
-     * @param sortedEquationsToSolve The list of equations to solve.
-     * @param listNonLinearConsts The list of non-linear constraint ids.
-     * @param listNonZerosCtsDense Dense non-zero constraints.
-     * @param listNonZerosVarsDense Dense non-zero variables.
-     * @param listNonZerosCtsSparse Sparse non-zero constraints.
-     * @param listNonZerosVarsSparse Sparse non-zero variables.
-     * @throws KNException If an error occurs in Knitro operations.
-     */
-    public void setJacobianMatrix(KnitroProblem knitroProblem, LfNetwork lfNetwork, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                  List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> listNonLinearConsts,
-                                  List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
-                                  List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) throws KNException {
-
-        int numVar = equationSystem.getIndex().getSortedVariablesToFind().size();
-        if (knitroParameters.getGradientComputationMode() == 1) { // User routine to compute the Jacobian
-            if (knitroParameters.getGradientUserRoutine() == 1) {
-                // Dense method: all non-linear constraints are considered as a function of all variables.
-                buildDenseJacobianMatrix(numVar, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense);
-                knitroProblem.setJacNnzPattern(listNonZerosCtsDense, listNonZerosVarsDense);
-            } else if (knitroParameters.getGradientUserRoutine() == 2) {
-                // Sparse method: compute Jacobian only for variables the constraints depend on.
-                buildSparseJacobianMatrix(sortedEquationsToSolve, listNonLinearConsts, listNonZerosCtsSparse, listNonZerosVarsSparse);
-                knitroProblem.setJacNnzPattern(listNonZerosCtsSparse, listNonZerosVarsSparse);
-            }
-            // Set the callback for gradient evaluations if the user directly passes the Jacobian to the solver.
-            knitroProblem.setGradEvalCallback(new KnitroProblem.CallbackEvalG(
-                    jacobianMatrix,
-                    listNonZerosCtsDense,
-                    listNonZerosVarsDense,
-                    listNonZerosCtsSparse,
-                    listNonZerosVarsSparse,
-                    lfNetwork,
-                    equationSystem,
-                    knitroParameters
-            ));
         }
     }
 
@@ -298,7 +202,7 @@ public class KnitroSolver extends AbstractAcSolver {
             List<Integer> listNonZerosVarsCurrentCt = new ArrayList<>(); //list of variables involved in current constraint
 
             for (EquationTerm<AcVariableType, AcEquationType> term : terms) {
-                for (Variable variable : term.getVariables()) {
+                for (Variable<AcVariableType> variable : term.getVariables()) {
                     listNonZerosVarsCurrentCt.add(variable.getRow());
                 }
             }
@@ -315,7 +219,7 @@ public class KnitroSolver extends AbstractAcSolver {
          * Callback function to evaluate non-linear parts of the objective and of constraints
          */
 
-        private final class CallbackEvalFC extends KNEvalFCCallback {
+        private static final class CallbackEvalFC extends KNEvalFCCallback {
 
             private final List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve;
             private final List<Integer> listNonLinearConsts;
@@ -347,7 +251,7 @@ public class KnitroSolver extends AbstractAcSolver {
                         throw new IllegalArgumentException("Equation of type " + typeEq + " is linear, and should be considered in the main function of Knitro, not in the callback function");
                     } else {
                         // we evaluate the equation with respect to the current state
-                        for (EquationTerm term : equation.getTerms()) {
+                        for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
                             term.setStateVector(currentState);
                             if (term.isActive()) {
                                 valueConst += term.eval();
@@ -468,7 +372,7 @@ public class KnitroSolver extends AbstractAcSolver {
          * - definition of non-linear constraints, evaluated in the callback function
          * - definition of the Jacobian matrix passed to Knitro to solve the problem
          */
-        private KnitroProblem(LfNetwork lfNetwork, EquationSystem<AcVariableType, AcEquationType> equationSystem, TargetVector targetVector, VoltageInitializer voltageInitializer, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix) throws KNException {
+        private KnitroProblem(LfNetwork lfNetwork, EquationSystem<AcVariableType, AcEquationType> equationSystem, TargetVector<AcVariableType, AcEquationType> targetVector, VoltageInitializer voltageInitializer, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix) throws KNException {
 
             // =============== Variables ===============
             // Defining variables
@@ -502,7 +406,7 @@ public class KnitroSolver extends AbstractAcSolver {
 
             // ----- Linear constraints -----
             NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
-            addLinearConstraints(this, sortedEquationsToSolve, solverUtils, listNonLinearConsts); // add linear constraints and fill the list of non-linear constraints
+            addLinearConstraints(sortedEquationsToSolve, solverUtils, listNonLinearConsts); // add linear constraints and fill the list of non-linear constraints
 
             // ----- Non-linear constraints -----
             // Callback
@@ -526,9 +430,101 @@ public class KnitroSolver extends AbstractAcSolver {
             List<Integer> listNonZerosCtsSparse = new ArrayList<>();
             List<Integer> listNonZerosVarsSparse = new ArrayList<>();
 
-            setJacobianMatrix(this, lfNetwork, jacobianMatrix, sortedEquationsToSolve, listNonLinearConsts,
+            setJacobianMatrix(lfNetwork, jacobianMatrix, sortedEquationsToSolve, listNonLinearConsts,
                     listNonZerosCtsDense, listNonZerosVarsDense,
                     listNonZerosCtsSparse, listNonZerosVarsSparse);
+        }
+
+        /**
+         * Adds constraints to the Knitro problem, classifying them as linear or non-linear.
+         *
+         * @param sortedEquationsToSolve A list of equations to solve.
+         * @param solverUtils Utils for solving external non-linear equations.
+         * @param listNonLinearConsts A list to store ids of non-linear constraints.
+         */
+        private void addLinearConstraints(List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+                                          NonLinearExternalSolverUtils solverUtils, List<Integer> listNonLinearConsts) {
+
+            int numConst = sortedEquationsToSolve.size();
+
+            for (int equationId = 0; equationId < numConst; equationId++) {
+                addConstraint(equationId, sortedEquationsToSolve, solverUtils, listNonLinearConsts);
+            }
+        }
+
+        /**
+         * Adds a specific constraint to the Knitro problem, classifying it as linear or non-linear.
+         *
+         * @param equationId The id of the equation.
+         * @param sortedEquationsToSolve A list of equations to solve.
+         * @param solverUtils Utils for solving external non-linear equations.
+         * @param listNonLinearConsts A list to store ids of non-linear constraints.
+         */
+        private void addConstraint(int equationId, List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, NonLinearExternalSolverUtils solverUtils, List<Integer> listNonLinearConsts) {
+            Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
+            AcEquationType typeEq = equation.getType();
+            List<EquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
+
+            if (NonLinearExternalSolverUtils.isLinear(typeEq, terms)) {
+                try {
+                    List<Integer> listVar = solverUtils.getLinearConstraint(typeEq, terms).listIdVar();
+
+                    List<Double> listCoef = solverUtils.getLinearConstraint(typeEq, terms).listCoef();
+
+                    for (int i = 0; i < listVar.size(); i++) {
+                        this.addConstraintLinearPart(equationId, listVar.get(i), listCoef.get(i));
+                    }
+                    LOGGER.trace("Adding linear constraint n° {} of type {}", equationId, typeEq);
+                } catch (UnsupportedOperationException e) {
+                    throw new PowsyblException(e);
+                }
+            } else {
+                // ----- Non-linear constraints -----
+                listNonLinearConsts.add(equationId); // Add constraint number to list of non-linear constraints
+            }
+        }
+
+        /**
+         * Configures the Jacobian matrix for the Knitro problem, using either a dense or sparse representation.
+         *
+         * @param lfNetwork The PowSyBl network.
+         * @param jacobianMatrix The PowSyBl Jacobian matrix.
+         * @param sortedEquationsToSolve The list of equations to solve.
+         * @param listNonLinearConsts The list of non-linear constraint ids.
+         * @param listNonZerosCtsDense Dense non-zero constraints.
+         * @param listNonZerosVarsDense Dense non-zero variables.
+         * @param listNonZerosCtsSparse Sparse non-zero constraints.
+         * @param listNonZerosVarsSparse Sparse non-zero variables.
+         * @throws KNException If an error occurs in Knitro operations.
+         */
+        private void setJacobianMatrix(LfNetwork lfNetwork, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
+                                       List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> listNonLinearConsts,
+                                       List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
+                                       List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) throws KNException {
+
+            int numVar = equationSystem.getIndex().getSortedVariablesToFind().size();
+            if (knitroParameters.getGradientComputationMode() == 1) { // User routine to compute the Jacobian
+                if (knitroParameters.getGradientUserRoutine() == 1) {
+                    // Dense method: all non-linear constraints are considered as a function of all variables.
+                    buildDenseJacobianMatrix(numVar, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense);
+                    this.setJacNnzPattern(listNonZerosCtsDense, listNonZerosVarsDense);
+                } else if (knitroParameters.getGradientUserRoutine() == 2) {
+                    // Sparse method: compute Jacobian only for variables the constraints depend on.
+                    buildSparseJacobianMatrix(sortedEquationsToSolve, listNonLinearConsts, listNonZerosCtsSparse, listNonZerosVarsSparse);
+                    this.setJacNnzPattern(listNonZerosCtsSparse, listNonZerosVarsSparse);
+                }
+                // Set the callback for gradient evaluations if the user directly passes the Jacobian to the solver.
+                this.setGradEvalCallback(new KnitroProblem.CallbackEvalG(
+                        jacobianMatrix,
+                        listNonZerosCtsDense,
+                        listNonZerosVarsDense,
+                        listNonZerosCtsSparse,
+                        listNonZerosVarsSparse,
+                        lfNetwork,
+                        equationSystem,
+                        knitroParameters
+                ));
+            }
         }
     }
 
@@ -562,7 +558,7 @@ public class KnitroSolver extends AbstractAcSolver {
 
     @Override
     public AcSolverResult run(VoltageInitializer voltageInitializer, ReportNode reportNode) {
-        int nbIter = -1;
+        int nbIter;
         AcSolverStatus acStatus;
         KnitroProblem instance;
 
@@ -610,7 +606,7 @@ public class KnitroSolver extends AbstractAcSolver {
             if (acStatus == AcSolverStatus.CONVERGED || knitroParameters.isAlwaysUpdateNetwork()) {
                 equationSystem.getStateVector().set(toArray(solution.getX())); // update equation system
                 for (Equation<AcVariableType, AcEquationType> equation : equationSystem.getEquations()) { // update terms
-                    for (EquationTerm term : equation.getTerms()) {
+                    for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
                         term.setStateVector(equationSystem.getStateVector());
                     }
                 }

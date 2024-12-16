@@ -81,7 +81,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     public KnitroSolverParameters setLowerVoltageBound(double lowerVoltageBound) {
         if (lowerVoltageBound < 0) {
-            throw new IllegalArgumentException("Realistic voltage bounds must strictly greater then 0");
+            throw new IllegalArgumentException("Realistic voltage bounds must strictly greater than 0");
         }
         this.lowerVoltageBound = lowerVoltageBound;
         return this;
@@ -93,10 +93,10 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     public KnitroSolverParameters setUpperVoltageBound(double upperVoltageBound) {
         if (upperVoltageBound < 0) {
-            throw new IllegalArgumentException("Realistic voltage bounds must strictly greater then 0");
+            throw new IllegalArgumentException("Realistic voltage bounds must strictly greater than 0");
         }
         if (upperVoltageBound <= lowerVoltageBound) {
-            throw new IllegalArgumentException("Realistic voltage upper bounds must greater then lower bounds");
+            throw new IllegalArgumentException("Realistic voltage upper bounds must greater than lower bounds");
         }
         this.upperVoltageBound = upperVoltageBound;
         return this;

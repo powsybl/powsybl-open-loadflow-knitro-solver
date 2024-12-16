@@ -66,22 +66,7 @@ public final class NonLinearExternalSolverUtils {
         return varAndCoefList;
     }
 
-    public class VarAndCoefList {
-        private List<Integer> listIdVar;
-        private List<Double> listCoef;
-
-        public VarAndCoefList(List<Integer> listIdVar, List<Double> listCoef) {
-            this.listIdVar = listIdVar;
-            this.listCoef = listCoef;
-        }
-
-        public List<Integer> getListIdVar() {
-            return listIdVar;
-        }
-
-        public List<Double> getListCoef() {
-            return listCoef;
-        }
+    public record VarAndCoefList(List<Integer> listIdVar, List<Double> listCoef) {
     }
 
     public VarAndCoefList addConstraintConstantTarget(List<EquationTerm<AcVariableType, AcEquationType>> terms) {

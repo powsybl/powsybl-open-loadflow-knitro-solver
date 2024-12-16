@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2024, Coreso SA (https://www.coreso.eu/) and TSCNET Services GmbH (https://www.tscnet.eu/)
+ * Copyright (c) 2024, Artelys (http://www.artelys.com/)
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
  */
-public class KnitroSolverParametersTest {
+class KnitroSolverParametersTest {
 
     @Test
     void testGradientComputationMode() {
@@ -57,7 +57,6 @@ public class KnitroSolverParametersTest {
     @Test
     void getAndSetVoltageBounds() {
         KnitroSolverParameters parametersKnitro = new KnitroSolverParameters();
-        //TODO
         // default value
         assertEquals(0.5, parametersKnitro.getLowerVoltageBound());
         assertEquals(1.5, parametersKnitro.getUpperVoltageBound());
@@ -67,12 +66,12 @@ public class KnitroSolverParametersTest {
         assertEquals(0.95, parametersKnitro.getLowerVoltageBound());
         assertEquals(1.05, parametersKnitro.getUpperVoltageBound());
         // wrong values
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parametersKnitro.setLowerVoltageBound(-Math.pow(10, -6)));
-        assertEquals("Realistic voltage bounds must strictly greater then 0", e.getMessage());
-        IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> parametersKnitro.setUpperVoltageBound(-2.0));
-        assertEquals("Realistic voltage bounds must strictly greater then 0", e2.getMessage());
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parametersKnitro.setLowerVoltageBound(-1.0));
+        assertEquals("Realistic voltage bounds must strictly greater than 0", e.getMessage());
+        IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> parametersKnitro.setUpperVoltageBound(-1.0));
+        assertEquals("Realistic voltage bounds must strictly greater than 0", e2.getMessage());
         IllegalArgumentException e3 = assertThrows(IllegalArgumentException.class, () -> parametersKnitro.setUpperVoltageBound(0.90));
-        assertEquals("Realistic voltage upper bounds must greater then lower bounds", e3.getMessage());
+        assertEquals("Realistic voltage upper bounds must greater than lower bounds", e3.getMessage());
     }
 
     @Test
@@ -86,7 +85,7 @@ public class KnitroSolverParametersTest {
         assertEquals(Math.pow(10, -2), knitroLoadFlowParameters.getConvEps());
 
         // wrong values
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setConvEps(Math.pow(-10, -3)));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setConvEps(-1.0));
         assertEquals("Convergence stopping criteria must be greater than 0", e.getMessage());
         IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setConvEps(0));
         assertEquals("Convergence stopping criteria must be greater than 0", e2.getMessage());

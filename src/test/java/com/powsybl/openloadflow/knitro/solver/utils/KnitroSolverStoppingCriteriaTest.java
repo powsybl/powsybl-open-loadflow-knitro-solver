@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023, Coreso SA (https://www.coreso.eu/) and TSCNET Services GmbH (https://www.tscnet.eu/)
+ * Copyright (c) 2024, Artelys (http://www.artelys.com/)
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -21,8 +21,6 @@ import com.powsybl.openloadflow.network.FourBusNetworkFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
 import static com.powsybl.openloadflow.util.LoadFlowAssert.assertAngleEquals;
 import static com.powsybl.openloadflow.util.LoadFlowAssert.assertVoltageEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -37,6 +35,10 @@ class KnitroSolverStoppingCriteriaTest {
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
     private OpenLoadFlowParameters parametersExt;
+    Bus b1;
+    Bus b2;
+    Bus b3;
+    Bus b4;
 
     @BeforeEach
     void setUp() {
@@ -53,18 +55,11 @@ class KnitroSolverStoppingCriteriaTest {
                 .setUseReactiveLimits(false);
         parameters.getExtension(OpenLoadFlowParameters.class)
                 .setSvcVoltageMonitoring(false);
-    }
-
-    // Builds 4 bus network with condenser and returns busList
-    List<Bus> setUp4Bus() {
-        // ============= Building network =============
         network = FourBusNetworkFactory.createWithCondenser();
-        Bus b1 = network.getBusBreakerView().getBus("b1");
-        Bus b4 = network.getBusBreakerView().getBus("b4");
-        Bus b2 = network.getBusBreakerView().getBus("b2");
-        Bus b3 = network.getBusBreakerView().getBus("b3");
-        List<Bus> busList = network.getBusView().getBusStream().toList();
-        return busList;
+        b1 = network.getBusBreakerView().getBus("b1");
+        b2 = network.getBusBreakerView().getBus("b2");
+        b3 = network.getBusBreakerView().getBus("b3");
+        b4 = network.getBusBreakerView().getBus("b4");
     }
 
     @Test
@@ -73,20 +68,18 @@ class KnitroSolverStoppingCriteriaTest {
          * Checks the effect of changing Knitro's parameter convEpsPerEq on precision and values, when running Knitro solver
          */
 
-        List<Bus> busList = setUp4Bus();
-
         // ============= Model with default precision =============
         LoadFlowResult knitroResultDefault = loadFlowRunner.run(network, parameters);
         assertSame(LoadFlowResult.ComponentResult.Status.CONVERGED, knitroResultDefault.getComponentResults().get(0).getStatus());
         assertTrue(knitroResultDefault.isFullyConverged());
-        assertVoltageEquals(1.0, busList.get(0));
-        assertAngleEquals(0, busList.get(0));
-        assertVoltageEquals(0.983834, busList.get(1));
-        assertAngleEquals(-9.490705, busList.get(1));
-        assertVoltageEquals(0.983124, busList.get(2));
-        assertAngleEquals(-13.178514, busList.get(2));
-        assertVoltageEquals(1.0, busList.get(3));
-        assertAngleEquals(-6.531907, busList.get(3));
+        assertVoltageEquals(1.0, b1);
+        assertAngleEquals(0, b1);
+        assertVoltageEquals(0.983834, b2);
+        assertAngleEquals(-9.490705, b2);
+        assertVoltageEquals(0.983124, b3);
+        assertAngleEquals(-13.178514, b3);
+        assertVoltageEquals(1.0, b4);
+        assertAngleEquals(-6.531907, b4);
 
         // ============= Model with smaller precision =============
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
@@ -97,14 +90,13 @@ class KnitroSolverStoppingCriteriaTest {
 
         assertSame(LoadFlowResult.ComponentResult.Status.CONVERGED, knitroResultLessPrecise.getComponentResults().get(0).getStatus());
         assertTrue(knitroResultLessPrecise.isFullyConverged());
-        assertVoltageEquals(1.0, busList.get(0));
-        assertAngleEquals(0, busList.get(0));
-        assertVoltageEquals(0.983834, busList.get(1));
-        assertAngleEquals(-9.485945, busList.get(1));
-        assertVoltageEquals(0.983124, busList.get(2));
-        assertAngleEquals(-13.170002, busList.get(2));
-        assertVoltageEquals(1.0, busList.get(3));
-        assertAngleEquals(-6.530383, busList.get(3));
-
+        assertVoltageEquals(1.0, b1);
+        assertAngleEquals(0, b1);
+        assertVoltageEquals(0.983834, b2);
+        assertAngleEquals(-9.485945, b2);
+        assertVoltageEquals(0.983124, b3);
+        assertAngleEquals(-13.170002, b3);
+        assertVoltageEquals(1.0, b4);
+        assertAngleEquals(-6.530383, b4);
     }
 }
