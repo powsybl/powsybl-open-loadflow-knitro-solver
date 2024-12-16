@@ -538,7 +538,7 @@ public class KnitroSolver extends AbstractAcSolver {
     /**
      * Temporary to workaround Knitro finalization issue - FIXME on Knitro v14.2 release which will have the proper fix
      */
-    @SuppressWarnings({"java:S1113", "java:S5738"})
+    @SuppressWarnings({"java:S1113", "java:S1874", "java:S5738"})
     public static class FinalizeSafeSolver extends KNSolver implements AutoCloseable {
 
         public FinalizeSafeSolver(KNBaseProblem problem) throws KNException {
