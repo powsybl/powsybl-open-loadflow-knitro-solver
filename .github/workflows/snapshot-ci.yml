@@ -2,6 +2,7 @@ name: Snapshot CI
 
 on:
   workflow_dispatch:
+  push: #tmp
   schedule:
     - cron: '30 3 * * *'
 
