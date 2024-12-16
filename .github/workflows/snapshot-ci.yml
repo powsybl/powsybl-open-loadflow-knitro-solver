@@ -13,7 +13,10 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]  # macos-latest : Knitro does not yet support Java API on macOS, to be tried later on
-
+      fail-fast: false
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Install Knitro (Linux)
         if: matrix.os == 'ubuntu-latest'
