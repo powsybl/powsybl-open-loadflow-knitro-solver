@@ -86,12 +86,12 @@ jobs:
 
       # Build powsybl-open-loadflow snapshot
       - name: Checking for open-loadflow snapshot branch
-        run : ${{ env.SCRIPTS_PATH }}/check_snapshot_branch.sh "https://github.com/powsybl/powsybl-open-loadflow.git" ${{ env.CORE_VERSION }}
+        run : ${{ env.SCRIPTS_PATH }}/check_integration_branch.sh "https://github.com/powsybl/powsybl-open-loadflow.git" ${{ env.CORE_VERSION }}
       - name: Checkout open-loadflow sources
         uses: actions/checkout@v4
         with:
           repository: powsybl/powsybl-open-loadflow
-          ref: ${{ env.SNAPSHOT_BRANCH }}
+          ref: ${{ env.INTEGRATION_BRANCH }}
           path: powsybl-open-loadflow
       - name: Build open-loadflow snapshot
         run: |
