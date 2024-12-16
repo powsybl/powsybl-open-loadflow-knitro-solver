@@ -50,7 +50,8 @@ jobs:
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             SCRIPTS_PATH=$(echo "$SCRIPTS_PATH" | sed 's/\\/\//g')
           fi
-          echo "SCRIPTS_PATH=$SCRIPTS_PATH" >> $GITHUB_ENV  
+          echo "SCRIPTS_PATH=$SCRIPTS_PATH" >> $GITHUB_ENV
+          git config --system core.longpaths true
 
       # Build powsybl-core on main branch
       - name: Checkout core sources
