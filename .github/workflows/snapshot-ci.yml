@@ -42,6 +42,12 @@ jobs:
           KNITRO_DOWNLOAD_PASSWORD: ${{ secrets.KNITRO_DOWNLOAD_PASSWORD }}
           KNITRO_WINDOWS_URL: ${{ secrets.KNITRO_WINDOWS_URL }}
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       # Define script path variable
       - name: Set up script path
         shell: bash
@@ -51,7 +57,7 @@ jobs:
             SCRIPTS_PATH=$(echo "$SCRIPTS_PATH" | sed 's/\\/\//g')
           fi
           echo "SCRIPTS_PATH=$SCRIPTS_PATH" >> $GITHUB_ENV
-          git config --system core.longpaths true
+          git config --global core.longpaths true
 
       # Build powsybl-core on main branch
       - name: Checkout core sources
@@ -96,12 +102,6 @@ jobs:
 
       - name: Checkout sources
         uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
 
       - name: update pom.xml with snapshot versions
         run: |
