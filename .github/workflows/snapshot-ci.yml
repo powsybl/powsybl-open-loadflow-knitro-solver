@@ -1,0 +1,125 @@
+name: Snapshot CI
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 3 * * *'
+
+jobs:
+  build:
+    name: Build OS ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]  # macos-latest : Knitro does not yet support Java API on macOS, to be tried later on
+      fail-fast: false
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install Knitro (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          wget -nv -O knitro.tar.gz --user "$KNITRO_DOWNLOAD_USER" --password "$KNITRO_DOWNLOAD_PASSWORD" "$KNITRO_LINUX_URL"
+          mkdir -p $RUNNER_TEMP/knitro
+          tar xzf knitro.tar.gz -C $RUNNER_TEMP/knitro
+          echo "KNITRODIR=$RUNNER_TEMP/knitro/knitro-14.1.0-Linux64" >> "$GITHUB_ENV"
+        env:
+          KNITRO_DOWNLOAD_USER: ${{ secrets.KNITRO_DOWNLOAD_USER }}
+          KNITRO_DOWNLOAD_PASSWORD: ${{ secrets.KNITRO_DOWNLOAD_PASSWORD }}
+          KNITRO_LINUX_URL: ${{ secrets.KNITRO_LINUX_URL }}
+
+      - name: Install Knitro (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          C:\msys64\usr\bin\wget.exe -nv -O knitro.zip --user "$env:KNITRO_DOWNLOAD_USER" --password "$env:KNITRO_DOWNLOAD_PASSWORD" "$env:KNITRO_WINDOWS_URL"
+          7z x -y knitro.zip -oC:\knitro
+          echo "KNITRODIR=C:\knitro\knitro-14.1.0-Win64" >> "$env:GITHUB_ENV"
+        env:
+          KNITRO_DOWNLOAD_USER: ${{ secrets.KNITRO_DOWNLOAD_USER }}
+          KNITRO_DOWNLOAD_PASSWORD: ${{ secrets.KNITRO_DOWNLOAD_PASSWORD }}
+          KNITRO_WINDOWS_URL: ${{ secrets.KNITRO_WINDOWS_URL }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # Define script path variable
+      - name: Set up script path
+        shell: bash
+        run: |
+          SCRIPTS_PATH="${GITHUB_WORKSPACE}/scripts/.github/workflows/scripts"
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            SCRIPTS_PATH=$(echo "$SCRIPTS_PATH" | sed 's/\\/\//g')
+          fi
+          echo "SCRIPTS_PATH=$SCRIPTS_PATH" >> $GITHUB_ENV
+          git config --global core.longpaths true
+
+      # Build powsybl-core on main branch
+      - name: Checkout core sources
+        uses: actions/checkout@v4
+        with:
+          repository: powsybl/powsybl-core
+          ref: main
+          path: powsybl-core
+
+      - name: Build powsybl-core
+        run: |
+          mvn -batch-mode --no-transfer-progress clean install -DskipTests
+          echo "CORE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
+        working-directory: ./powsybl-core
+
+      # Checkout script
+      # The script check_integration_branch.sh is located in the workflow folder of the repository
+      # It is necessary for checking out the integration branch if it exists
+      - name: Checkout script
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
+          sparse-checkout-cone-mode: false
+          path: scripts
+
+      # Build powsybl-open-loadflow snapshot
+      - name: Checking for open-loadflow snapshot branch
+        run : ${{ env.SCRIPTS_PATH }}/check_integration_branch.sh "https://github.com/powsybl/powsybl-open-loadflow.git" ${{ env.CORE_VERSION }}
+      - name: Checkout open-loadflow sources
+        uses: actions/checkout@v4
+        with:
+          repository: powsybl/powsybl-open-loadflow
+          ref: ${{ env.INTEGRATION_BRANCH }}
+          path: powsybl-open-loadflow
+      - name: Build open-loadflow snapshot
+        run: |
+          mvn versions:set-property -Dproperty=powsybl-core.version -DnewVersion=${{ env.CORE_VERSION}} -DgenerateBackupPoms=false
+          mvn -batch-mode --no-transfer-progress clean install -DskipTests
+          echo "LOADFLOW_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
+        working-directory: ./powsybl-open-loadflow
+
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: update pom.xml with snapshot versions
+        run: |
+          mvn versions:set-property -Dproperty=powsybl-core.version -DnewVersion=$CORE_VERSION -DgenerateBackupPoms=false
+          mvn versions:set-property -Dproperty=powsybl-open-loadflow.version -DnewVersion=$LOADFLOW_VERSION -DgenerateBackupPoms=false
+
+      - name: Build with Maven (Ubuntu)
+        if: matrix.os != 'windows-latest'
+        run: |
+          ./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.1.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=14.1.0 -Dpackaging=jar -DgeneratePom=true
+          ./mvnw --batch-mode -Pjacoco install
+        env:
+          ARTELYS_LICENSE: ${{ secrets.ARTELYS_LICENSE }}
+
+      - name: Build with Maven (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          call mvnw.cmd install:install-file -Dfile="%KNITRODIR%\examples\Java\lib\Knitro-Interfaces-2.5-KN_14.1.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=14.1.0 -Dpackaging=jar -DgeneratePom=true
+          mvnw.cmd --batch-mode install
+        shell: cmd
+        env:
+          ARTELYS_LICENSE: ${{ secrets.ARTELYS_LICENSE }}
