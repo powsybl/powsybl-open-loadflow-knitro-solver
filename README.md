@@ -84,7 +84,7 @@ Knitro Java bindings require a private JAR file that must be installed locally, 
 Use the following command:
 
 ```bash
-./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.1.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=14.1.0 -Dpackaging=jar -DgeneratePom=true
+./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.2.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=14.2.0 -Dpackaging=jar -DgeneratePom=true
 ```
 
 ### Running a Load Flow with Knitro Solver

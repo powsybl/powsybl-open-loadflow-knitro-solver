@@ -535,27 +535,6 @@ public class KnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
     }
 
-    /**
-     * Temporary to workaround Knitro finalization issue - FIXME on Knitro v14.2 release which will have the proper fix
-     */
-    @SuppressWarnings({"java:S1113", "java:S1874", "java:S5738"})
-    public static class FinalizeSafeSolver extends KNSolver implements AutoCloseable {
-
-        public FinalizeSafeSolver(KNBaseProblem problem) throws KNException {
-            super(problem);
-        }
-
-        @Override
-        protected void finalize() {
-            // no-op.
-        }
-
-        @Override
-        public void close() {
-            this.KNFree();
-        }
-    }
-
     @Override
     public AcSolverResult run(VoltageInitializer voltageInitializer, ReportNode reportNode) {
         int nbIter;
@@ -569,7 +548,7 @@ public class KnitroSolver extends AbstractAcSolver {
             throw new PowsyblException("Exception while trying to build Knitro Problem", e);
         }
 
-        try (FinalizeSafeSolver solver = new FinalizeSafeSolver(instance)) {
+        try (KNSolver solver = new KNSolver(instance)) {
             // Initialize problem
             solver.initProblem();
 
