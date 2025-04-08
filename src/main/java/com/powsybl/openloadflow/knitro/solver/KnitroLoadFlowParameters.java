@@ -12,6 +12,7 @@ import com.powsybl.loadflow.LoadFlowParameters;
 
 /**
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
+ * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  */
 public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParameters> {
 
@@ -21,6 +22,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private double upperVoltageBound = KnitroSolverParameters.DEFAULT_UPPER_VOLTAGE_BOUND;
     private int maxIterations = KnitroSolverParameters.DEFAULT_MAX_ITERATIONS;
     private double convEps = KnitroSolverParameters.DEFAULT_STOPPING_CRITERIA;
+    private KnitroSolverParameters.KnitroSolverType knitroSolverType = KnitroSolverParameters.DEFAULT_KNITRO_SOLVER_TYPE;
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -94,6 +96,15 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
             throw new IllegalArgumentException("Convergence stopping criteria must be greater than 0");
         }
         this.convEps = convEps;
+        return this;
+    }
+
+    public KnitroSolverParameters.KnitroSolverType getKnitroSolverType() {
+        return knitroSolverType;
+    }
+
+    public KnitroLoadFlowParameters setKnitroSolverType(KnitroSolverParameters.KnitroSolverType knitroSolverType) {
+        this.knitroSolverType = knitroSolverType;
         return this;
     }
 

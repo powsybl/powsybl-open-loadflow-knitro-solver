@@ -14,9 +14,14 @@ import java.util.Objects;
 /**
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
+ * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  */
-
 public class KnitroSolverParameters implements AcSolverParameters {
+
+    public enum KnitroSolverType {
+        STANDARD,
+        RESILIENT
+    }
 
     public static final int DEFAULT_GRADIENT_COMPUTATION_MODE = 1; // Specifies how the Jacobian matrix is computed
     public static final int DEFAULT_GRADIENT_USER_ROUTINE = 2; // If the user chooses to pass the exact Jacobian to knitro, specifies the sparsity pattern for the Jacobian matrix.
@@ -26,6 +31,9 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final double DEFAULT_STOPPING_CRITERIA = Math.pow(10, -6);
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
+    public static final KnitroSolverType DEFAULT_KNITRO_SOLVER_TYPE = KnitroSolverType.STANDARD;
+
+    public KnitroSolverType knitroSolverType = DEFAULT_KNITRO_SOLVER_TYPE;
 
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
 
@@ -175,6 +183,15 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return this;
     }
 
+    public KnitroSolverType getKnitroSolverType() {
+        return knitroSolverType;
+    }
+
+    public KnitroSolverParameters setKnitroSolverType(KnitroSolverType knitroSolverType) {
+        this.knitroSolverType = Objects.requireNonNull(knitroSolverType);
+        return this;
+    }
+
     @Override
     public String toString() {
         return "KnitroSolverParameters(" +
@@ -184,6 +201,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
                 ", maxRealisticVoltage=" + upperVoltageBound +
                 ", alwaysUpdateNetwork=" + alwaysUpdateNetwork +
                 ", maxIterations=" + maxIterations +
+                ", knitroSolverType=" + knitroSolverType +
                 ')';
     }
 }

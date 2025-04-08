@@ -22,6 +22,7 @@ import com.powsybl.openloadflow.network.LfNetwork;
 
 /**
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
+ * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  */
 @AutoService(AcSolverFactory.class)
 public class KnitroSolverFactory implements AcSolverFactory {
@@ -45,12 +46,13 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 .setAlwaysUpdateNetwork(parametersExt.isAlwaysUpdateNetwork());
         if (parameters.getExtension(KnitroLoadFlowParameters.class) != null) {
             knitroSolverParameters
-                .setGradientComputationMode(parameters.getExtension(KnitroLoadFlowParameters.class).getGradientComputationMode())
-                .setGradientUserRoutine(parameters.getExtension(KnitroLoadFlowParameters.class).getGradientUserRoutine())
-                .setLowerVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getLowerVoltageBound())
-                .setUpperVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getUpperVoltageBound())
-                .setMaxIterations(parameters.getExtension(KnitroLoadFlowParameters.class).getMaxIterations())
-                .setConvEps(parameters.getExtension(KnitroLoadFlowParameters.class).getConvEps());
+                    .setGradientComputationMode(parameters.getExtension(KnitroLoadFlowParameters.class).getGradientComputationMode())
+                    .setGradientUserRoutine(parameters.getExtension(KnitroLoadFlowParameters.class).getGradientUserRoutine())
+                    .setLowerVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getLowerVoltageBound())
+                    .setUpperVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getUpperVoltageBound())
+                    .setMaxIterations(parameters.getExtension(KnitroLoadFlowParameters.class).getMaxIterations())
+                    .setConvEps(parameters.getExtension(KnitroLoadFlowParameters.class).getConvEps())
+                    .setKnitroSolverType(parameters.getExtension(KnitroLoadFlowParameters.class).getKnitroSolverType());
 
         }
         return knitroSolverParameters;
@@ -60,8 +62,14 @@ public class KnitroSolverFactory implements AcSolverFactory {
     public AcSolver create(LfNetwork network, AcLoadFlowParameters parameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                            JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
                            EquationVector<AcVariableType, AcEquationType> equationVector) {
-        return new KnitroSolver(network, (KnitroSolverParameters) parameters.getAcSolverParameters(), equationSystem,
-                j, targetVector, equationVector, parameters.isDetailedReport());
+        KnitroSolverParameters knitroSolverParameters = (KnitroSolverParameters) parameters.getAcSolverParameters();
+        KnitroSolverParameters.KnitroSolverType knitroSolverType = knitroSolverParameters.getKnitroSolverType();
+        return switch (knitroSolverType) {
+            case STANDARD ->
+                    new KnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
+            case RESILIENT ->
+                    new KnitroResilientSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
+        };
     }
 
 }
