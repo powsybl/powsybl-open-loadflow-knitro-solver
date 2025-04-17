@@ -716,9 +716,9 @@ public class KnitroResilientSolver extends AbstractAcSolver {
             solver.solve();
 
             KNSolution solution = solver.getSolution();
-            List<Double> constraintValues = solver.getConstraintValues();
+            //List<Double> constraintValues = solver.getConstraintValues();
             List<Double> x = solution.getX();
-            List<Double> lambda = solution.getLambda();
+            //List<Double> lambda = solution.getLambda();
 
             solverStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
             logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
@@ -730,25 +730,25 @@ public class KnitroResilientSolver extends AbstractAcSolver {
             LOGGER.info("Optimality violation       = {}", solver.getAbsOptError());
 
             // Log primal solution
-            LOGGER.debug("==== Optimal variables ====");
-            for (int i = 0; i < x.size(); i++) {
-                LOGGER.debug(" x[{}] = {}", i, x.get(i));
-            }
+            //LOGGER.debug("==== Optimal variables ====");
+            //for (int i = 0; i < x.size(); i++) {
+            //    LOGGER.debug(" x[{}] = {}", i, x.get(i));
+            //}
 
-            LOGGER.debug("==== Constraint values ====");
-            for (int i = 0; i < problemInstance.getNumCons(); i++) {
-                LOGGER.debug(" c[{}] = {} (λ = {})", i, constraintValues.get(i), lambda.get(i));
-            }
+            //LOGGER.debug("==== Constraint values ====");
+            //for (int i = 0; i < problemInstance.getNumCons(); i++) {
+            //    LOGGER.debug(" c[{}] = {} (λ = {})", i, constraintValues.get(i), lambda.get(i));
+            //}
 
-            LOGGER.debug("==== Constraint violations ====");
-            for (int i = 0; i < problemInstance.getNumCons(); i++) {
-                LOGGER.debug(" violation[{}] = {}", i, solver.getConViol(i));
-            }
+            //LOGGER.debug("==== Constraint violations ====");
+            //for (int i = 0; i < problemInstance.getNumCons(); i++) {
+            //    LOGGER.debug(" violation[{}] = {}", i, solver.getConViol(i));
+            //}
 
             // ========== Slack Logging ==========
-            logSlackValues("P", slackPStartIndex, numPEquations, x);
-            logSlackValues("Q", slackQStartIndex, numQEquations, x);
-            logSlackValues("V", slackVStartIndex, numVEquations, x);
+            //logSlackValues("P", slackPStartIndex, numPEquations, x);
+            //logSlackValues("Q", slackQStartIndex, numQEquations, x);
+            //logSlackValues("V", slackVStartIndex, numVEquations, x);
 
             // ========== Penalty Computation ==========
             double wK = 1.0;
