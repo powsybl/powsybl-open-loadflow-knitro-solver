@@ -111,9 +111,6 @@ public class KnitroResilientSolver extends AbstractAcSolver {
                 case BUS_TARGET_V -> vEquationLocalIds.put(i, vCounter++);
             }
         }
-
-        // Debug logs
-        LOGGER.info("P eq count = {}, Q eq count = {}, V eq count = {}", numPEquations, numQEquations, numVEquations);
     }
 
     /**
@@ -237,7 +234,7 @@ public class KnitroResilientSolver extends AbstractAcSolver {
             Set<Integer> involvedVariables = equation.getTerms().stream()
                     .flatMap(term -> term.getVariables().stream())
                     .map(Variable::getRow)
-                    .collect(Collectors.toCollection(TreeSet::new)); // TreeSet = sorted + unique
+                    .collect(Collectors.toCollection(TreeSet::new));
 
             // Add slack variables if the constraint type has them
             int slackStart = switch (equationType) {

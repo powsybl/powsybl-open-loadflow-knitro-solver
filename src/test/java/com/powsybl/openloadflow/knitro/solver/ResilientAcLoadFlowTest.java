@@ -73,7 +73,7 @@ public class ResilientAcLoadFlowTest {
         network.write("XIIDM", properties, path);
     }
 
-    private void checkPQVIPhi(Network n1, Network n2, double pTolerance, double qTolerance, double vTolerance, double iTolerance, double phiTolerance) {
+    private void checkElectricalQuantities(Network n1, Network n2, double pTolerance, double qTolerance, double vTolerance, double iTolerance, double phiTolerance) {
         // Check generator active and reactive powers
         for (Generator g1 : n1.getGenerators()) {
             Generator g2 = n2.getGenerator(g1.getId());
@@ -128,7 +128,7 @@ public class ResilientAcLoadFlowTest {
         LoadFlowResult result2 = loadFlowRunner.run(nrNetwork, parameters);
         assertTrue(result2.isFullyConverged());
 
-        checkPQVIPhi(rknNetwork, nrNetwork, DEFAULT_P_TOLERANCE, DEFAULT_Q_TOLERANCE, DEFAULT_V_TOLERANCE, DEFAULT_I_TOLERANCE, DEFAULT_PHI_TOLERANCE);
+        checkElectricalQuantities(rknNetwork, nrNetwork, DEFAULT_P_TOLERANCE, DEFAULT_Q_TOLERANCE, DEFAULT_V_TOLERANCE, DEFAULT_I_TOLERANCE, DEFAULT_PHI_TOLERANCE);
 
         if (baseFilename != null) {
             writeXML(nrNetwork, baseFilename + "-NR.xml");
@@ -147,7 +147,7 @@ public class ResilientAcLoadFlowTest {
 
     @ParameterizedTest
     @MethodSource("provideNetworks")
-    void testLoadFlowComparisonOnVariousIEEENetworks(NetworkPair pair) {
+    void testLoadFlowComparisonOnVariousI3ENetworks(NetworkPair pair) {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
     }
 
@@ -155,7 +155,7 @@ public class ResilientAcLoadFlowTest {
     }
 
     @Test
-    void testResilienceWithHighSusceptanceOnVariousIEEENetworks() {
+    void testResilienceWithHighSusceptanceOnVariousI3ENetworks() {
         Stream.<Map.Entry<String, Supplier<Network>>>of(
                 Map.entry("ieee14", IeeeCdfNetworkFactory::create14),
                 Map.entry("ieee30", IeeeCdfNetworkFactory::create30),
@@ -168,7 +168,6 @@ public class ResilientAcLoadFlowTest {
             Network rknNetwork = factory.get();
             Network nrNetwork = factory.get();
 
-
             // Clone variant for baseline comparison
             final String variantId = "PERTURBED";
             rknNetwork.getVariantManager().cloneVariant(VariantManagerConstants.INITIAL_VARIANT_ID, variantId);
@@ -177,33 +176,18 @@ public class ResilientAcLoadFlowTest {
             applyHighSusceptancePerturbation(rknNetwork);
             applyHighSusceptancePerturbation(nrNetwork);
 
-            System.out.println("=== Testing " + name + " ===");
-
             // Newton-Raphson
             configureSolver(NR);
             LoadFlowResult resultNR = loadFlowRunner.run(nrNetwork, parameters);
             boolean isConverged = resultNR.isFullyConverged();
-            System.out.println("Newton-Raphson convergence: " + isConverged);
             assertFalse(isConverged, name + ": NR should not converge");
 
             // Knitro Resilient
             configureSolver(RKN);
             LoadFlowResult resultRKN = loadFlowRunner.run(rknNetwork, parameters);
             isConverged = resultRKN.isFullyConverged();
-            System.out.println("Knitro convergence: " + isConverged);
             assertTrue(isConverged, name + ": Knitro should converge");
 
-            // Voltage difference logging
-            System.out.println("Voltages on " + name + " after Knitro convergence:");
-            for (Bus bus : rknNetwork.getBusView().getBuses()) {
-                rknNetwork.getVariantManager().setWorkingVariant(VariantManagerConstants.INITIAL_VARIANT_ID);
-                double oldV = bus.getV();
-                rknNetwork.getVariantManager().setWorkingVariant(variantId);
-                double V = bus.getV();
-                System.out.printf("Bus %s: V = %.2f (old V = %.2f)%n", bus.getId(), V, oldV);
-            }
-
-            System.out.println();
         });
     }
 
@@ -247,6 +231,6 @@ public class ResilientAcLoadFlowTest {
         LoadFlowResult resultRKN = loadFlowRunner.run(n2, parameters);
         assertTrue(resultRKN.isFullyConverged(), "Knitro should converge");
 
-        checkPQVIPhi(n1, n2, DEFAULT_P_TOLERANCE, 10e-1, DEFAULT_V_TOLERANCE, 10e-1, DEFAULT_PHI_TOLERANCE);
+        checkElectricalQuantities(n1, n2, DEFAULT_P_TOLERANCE, 10e-1, DEFAULT_V_TOLERANCE, 10e-1, DEFAULT_PHI_TOLERANCE);
     }
 }
