@@ -13,7 +13,9 @@ import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.ac.AcLoadFlowParameters;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.ac.equations.AcVariableType;
-import com.powsybl.openloadflow.ac.solver.*;
+import com.powsybl.openloadflow.ac.solver.AcSolver;
+import com.powsybl.openloadflow.ac.solver.AcSolverFactory;
+import com.powsybl.openloadflow.ac.solver.AcSolverParameters;
 import com.powsybl.openloadflow.equations.EquationSystem;
 import com.powsybl.openloadflow.equations.EquationVector;
 import com.powsybl.openloadflow.equations.JacobianMatrix;
@@ -68,7 +70,7 @@ public class KnitroSolverFactory implements AcSolverFactory {
             case STANDARD ->
                     new KnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
             case RESILIENT ->
-                    new KnitroResilientSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
+                    new ResilientKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
         };
     }
 
