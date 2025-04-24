@@ -16,10 +16,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -155,7 +152,7 @@ public class ResilientAcLoadFlowTest {
     }
 
     @Test
-    void testResilienceWithHighSusceptanceOnVariousI3ENetworks() {
+    void testResilienceWithLowImpedanceLineOnVariousI3ENetworks() {
         Stream.<Map.Entry<String, Supplier<Network>>>of(
                 Map.entry("ieee14", IeeeCdfNetworkFactory::create14),
                 Map.entry("ieee30", IeeeCdfNetworkFactory::create30),
@@ -173,8 +170,13 @@ public class ResilientAcLoadFlowTest {
             rknNetwork.getVariantManager().cloneVariant(VariantManagerConstants.INITIAL_VARIANT_ID, variantId);
             rknNetwork.getVariantManager().setWorkingVariant(variantId);
 
-            applyHighSusceptancePerturbation(rknNetwork);
-            applyHighSusceptancePerturbation(nrNetwork);
+            double r = 1e-3;
+            double x = 1e-3;
+
+            //General case
+            List<String> targets = getLowImpedanceLineToChange(nrNetwork);
+            applyLowImpedanceLineChanges(rknNetwork, targets, r, x);
+            applyLowImpedanceLineChanges(nrNetwork, targets, r, x);
 
             // Newton-Raphson
             configureSolver(NR);
@@ -191,30 +193,108 @@ public class ResilientAcLoadFlowTest {
         });
     }
 
-    private void applyHighSusceptancePerturbation(Network network) {
-        //TODO: change the perturbation logic to match the new requirements (more targeted --> between two generators)
-        List<Line> lines = new ArrayList<>();
-        List<Load> loads = new ArrayList<>();
-        network.getLines().forEach(lines::add);
-        network.getLoads().forEach(loads::add);
+    private List<String> getLowImpedanceLineToChange(Network network) {
+        String targetBusID;
+        String connectedBusID;
+        String targetGeneratorID;
+        String targetLineID;
 
-        // Perturb the lines by setting their reactance and shunt admittance to 0
-        int limit = Math.min(lines.size(), (int) (0.2 * lines.size()));
-        for (int i = 0; i < limit; i++) {
-            Line line = lines.get(i);
-            line.setX(0.0);
-            line.setG1(0.0);
-            line.setB1(0.0);
-            line.setG2(0.0);
-            line.setB2(0.0);
+        //Selecting a random generator from network
+        Generator gen = network.getGenerators()
+                .iterator()
+                .next();
+        targetGeneratorID = gen.getId();
+
+        //The bus associated with the target generator
+        targetBusID = gen.getTerminal()
+                .getBusBreakerView()
+                .getBus()
+                .getId();
+
+        //Selecting a random line that is connected to the bus of the generator
+        Line line = gen.getTerminal()
+                .getBusBreakerView()
+                .getBus()
+                .getLines()
+                .iterator()
+                .next();
+        targetLineID = line.getId();
+
+        //Getting the bus associated with the other end of selected line
+        connectedBusID = line.getTerminal1()
+                .getBusBreakerView()
+                .getBus()
+                .getId();
+        if (connectedBusID.equals(targetBusID)) {
+            connectedBusID = line.getTerminal2()
+                    .getBusBreakerView()
+                    .getBus()
+                    .getId();
         }
 
-        // Perturb the loads by increasing their reactive charges
-        limit = Math.min(loads.size(), (int) (0.1 * loads.size()));
-        for (int i = 0; i < limit; i++) {
-            Load load = loads.get(i);
-            load.setQ0(load.getQ0() + 500.0);
+        //Choosing a random load for total balance if needed
+        String loadID = network.getLoads().iterator().next().getId();
+
+        return Arrays.asList(targetGeneratorID, targetBusID, connectedBusID, targetLineID, loadID);
+    }
+
+    private void applyLowImpedanceLineChanges(Network network, List<String> targets, double r, double x) {
+        String targetGeneratorID = targets.get(0);
+        String targetBusID = targets.get(1);
+        String connectedBusID = targets.get(2);
+        String targetLineID = targets.get(3);
+
+        Bus connectedBus = network.getBusBreakerView().getBus(connectedBusID);
+        Generator targetGenerator = network.getGenerator(targetGeneratorID);
+
+        VoltageLevel connectedVL = connectedBus.getVoltageLevel();
+        VoltageLevel targetVL = network.getBusBreakerView()
+                .getBus(targetBusID)
+                .getVoltageLevel();
+
+        //voltage Mismatch
+        double alpha = 0.1;
+
+        //Offsetting connected voltage level
+        connectedVL.setNominalV(targetVL.getNominalV() * alpha);
+
+        //adding the connected generator or modifying preexisting one
+        boolean hasGenerator = connectedBus
+                .getGenerators()
+                .iterator()
+                .hasNext();
+        if (hasGenerator) {
+            Generator gConnected = connectedBus
+                    .getGenerators()
+                    .iterator()
+                    .next();
+            gConnected.setMinP(targetGenerator.getMinP())
+                    .setMaxP(targetGenerator.getMaxP())
+                    .setTargetP(0.0)
+                    .setTargetQ(0.0)
+                    .setTargetV(targetVL.getNominalV() * alpha)
+                    .setVoltageRegulatorOn(true);
+        } else {
+            connectedVL.newGenerator()
+                    .setId(connectedBusID + "-" + "G-added")
+                    .setBus(connectedBusID)
+                    .setMinP(targetGenerator.getMinP())
+                    .setMaxP(targetGenerator.getMaxP())
+                    .setTargetP(0.0)
+                    .setTargetQ(0.0)
+                    .setTargetV(targetVL.getNominalV() * alpha)
+                    .setVoltageRegulatorOn(true)
+                    .add();
         }
+
+        //Changing line parameters by setting their reactance and shunt admittance to 0
+        Line lineTarget = network.getLine(targetLineID);
+        lineTarget.setR(r)
+                .setX(x)
+                .setG1(0.0)
+                .setB1(0.0)
+                .setG2(0.0)
+                .setB2(0.0);
     }
 
     @Test
