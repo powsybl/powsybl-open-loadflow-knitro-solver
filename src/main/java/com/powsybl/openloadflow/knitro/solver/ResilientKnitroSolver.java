@@ -37,9 +37,9 @@ import static com.google.common.primitives.Doubles.toArray;
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  */
-public class KnitroResilientSolver extends AbstractAcSolver {
+public class ResilientKnitroSolver extends AbstractAcSolver {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(KnitroResilientSolver.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ResilientKnitroSolver.class);
 
     // Number of Load Flows (LF) variables in the system
     private final int numLFVariables;
@@ -65,7 +65,7 @@ public class KnitroResilientSolver extends AbstractAcSolver {
 
     protected KnitroSolverParameters knitroParameters;
 
-    public KnitroResilientSolver(
+    public ResilientKnitroSolver(
             LfNetwork network,
             KnitroSolverParameters knitroParameters,
             EquationSystem<AcVariableType, AcEquationType> equationSystem,
@@ -119,58 +119,6 @@ public class KnitroResilientSolver extends AbstractAcSolver {
     @Override
     public String getName() {
         return "Knitro Resilient Solver";
-    }
-
-    /**
-     * Enum representing possible status codes returned by Knitro,
-     * grouped by ranges and associated with a corresponding AcSolverStatus.
-     */
-    public enum KnitroStatus {
-
-        CONVERGED_TO_LOCAL_OPTIMUM(0, 0, AcSolverStatus.CONVERGED),
-        CONVERGED_TO_FEASIBLE_APPROXIMATE_SOLUTION(-199, -100, AcSolverStatus.CONVERGED),
-        TERMINATED_AT_INFEASIBLE_POINT(-299, -200, AcSolverStatus.SOLVER_FAILED),
-        PROBLEM_UNBOUNDED(-399, -300, AcSolverStatus.SOLVER_FAILED),
-        TERMINATED_DUE_TO_PRE_DEFINED_LIMIT(-499, -400, AcSolverStatus.MAX_ITERATION_REACHED),
-        INPUT_OR_NON_STANDARD_ERROR(-599, -500, AcSolverStatus.SOLVER_FAILED);
-
-        private final Range<Integer> codeRange;
-        private final AcSolverStatus mappedStatus;
-
-        /**
-         * Constructs a KnitroStatus with a range of status codes and the associated AcSolverStatus.
-         *
-         * @param min          The minimum status code value (inclusive).
-         * @param max          The maximum status code value (inclusive).
-         * @param mappedStatus The corresponding AcSolverStatus.
-         */
-        KnitroStatus(int min, int max, AcSolverStatus mappedStatus) {
-            this.codeRange = Range.of(min, max);
-            this.mappedStatus = mappedStatus;
-        }
-
-        /**
-         * Returns the KnitroStatus corresponding to the given status code.
-         *
-         * @param statusCode the status code returned by Knitro
-         * @return the matching KnitroStatus enum constant
-         * @throws IllegalArgumentException if the status code does not match any known range
-         */
-        public static KnitroStatus fromStatusCode(int statusCode) {
-            return Arrays.stream(KnitroStatus.values())
-                    .filter(status -> status.codeRange.contains(statusCode))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Unknown Knitro status code: " + statusCode));
-        }
-
-        /**
-         * Returns the AcSolverStatus associated with this KnitroStatus.
-         *
-         * @return the corresponding AcSolverStatus
-         */
-        public AcSolverStatus toAcSolverStatus() {
-            return mappedStatus;
-        }
     }
 
     /**
@@ -261,163 +209,189 @@ public class KnitroResilientSolver extends AbstractAcSolver {
         }
     }
 
-    private final class ResilientKnitroProblem extends KNProblem {
+    /**
+     * Sets Knitro solver parameters based on the provided KnitroSolverParameters object.
+     *
+     * @param solver The Knitro solver instance to configure.
+     * @throws KNException if Knitro fails to accept a parameter.
+     */
+    private void setSolverParameters(KNSolver solver) throws KNException {
+        LOGGER.info("Configuring Knitro solver parameters...");
 
-        /**
-         * Callback used by Knitro to evaluate the non-linear parts of the objective and constraint functions.
-         */
-        private static final class CallbackEvalFC extends KNEvalFCCallback {
+        solver.setParam(KNConstants.KN_PARAM_GRADOPT, knitroParameters.getGradientComputationMode());
+        solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
+        solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
 
-            private final List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve;
-            private final List<Integer> nonLinearConstraintIds;
+        LOGGER.info("Knitro parameters set: GRADOPT={}, FEASTOL={}, MAXIT={}",
+                knitroParameters.getGradientComputationMode(),
+                knitroParameters.getConvEps(),
+                knitroParameters.getMaxIterations());
+    }
 
-            private CallbackEvalFC(List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
-                                   List<Integer> nonLinearConstraintIds) {
-                this.sortedEquationsToSolve = sortedEquationsToSolve;
-                this.nonLinearConstraintIds = nonLinearConstraintIds;
-            }
+    @Override
+    public AcSolverResult run(VoltageInitializer voltageInitializer, ReportNode reportNode) {
+        int nbIterations;
+        AcSolverStatus solverStatus;
+        ResilientKnitroProblem problemInstance;
 
-            /**
-             * Knitro callback function that evaluates the non-linear constraints at the current point.
-             *
-             * @param x   Current point (primal variables).
-             * @param obj Output objective value (unused here).
-             * @param c   Output constraint values.
-             */
-            @Override
-            public void evaluateFC(final List<Double> x, final List<Double> obj, final List<Double> c) {
-                LOGGER.trace("============ Knitro evaluating callback function ============");
-
-                StateVector currentState = new StateVector(toArray(x));
-                LOGGER.trace("Current state vector: {}", currentState.get());
-                LOGGER.trace("Evaluating {} non-linear constraints", nonLinearConstraintIds.size());
-
-                int callbackConstraintIndex = 0;
-
-                for (int equationId : nonLinearConstraintIds) {
-                    Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
-                    AcEquationType type = equation.getType();
-
-                    // Ensure the constraint is non-linear
-                    if (NonLinearExternalSolverUtils.isLinear(type, equation.getTerms())) {
-                        throw new IllegalArgumentException(
-                                "Equation of type " + type + " is linear but passed to the non-linear callback");
-                    }
-
-                    // Evaluate equation using the current state
-                    double constraintValue = 0.0;
-                    for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                        term.setStateVector(currentState);
-                        if (term.isActive()) {
-                            constraintValue += term.eval();
-                        }
-                    }
-
-                    try {
-                        c.set(callbackConstraintIndex, constraintValue);
-                        LOGGER.trace("Added non-linear constraint #{} (type: {}) = {}", equationId, type, constraintValue);
-                    } catch (Exception e) {
-                        throw new PowsyblException("Error while adding non-linear constraint #" + equationId, e);
-                    }
-
-                    callbackConstraintIndex++;
-                }
-            }
+        try {
+            problemInstance = new ResilientKnitroProblem(network, equationSystem, targetVector, j, voltageInitializer);
+        } catch (KNException e) {
+            throw new PowsyblException("Exception while building Knitro problem", e);
         }
 
-        /**
-         * Callback used by Knitro to evaluate the gradient (Jacobian matrix) of the constraints.
-         * Only constraints (no objective) are handled here.
-         */
-        private static final class CallbackEvalG extends KNEvalGACallback {
+        try (KNSolver solver = new KNSolver(problemInstance)) {
+            solver.initProblem();
+            setSolverParameters(solver);
+            solver.solve();
 
-            private final JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix;
-            private final List<Integer> denseConstraintIndices;
-            private final List<Integer> denseVariableIndices;
-            private final List<Integer> sparseConstraintIndices;
-            private final List<Integer> sparseVariableIndices;
+            KNSolution solution = solver.getSolution();
+            //List<Double> constraintValues = solver.getConstraintValues();
+            List<Double> x = solution.getX();
+            //List<Double> lambda = solution.getLambda();
 
-            private final LfNetwork network;
-            private final EquationSystem<AcVariableType, AcEquationType> equationSystem;
-            private final KnitroSolverParameters knitroParameters;
+            solverStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
+            logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
+            nbIterations = solver.getNumberIters();
 
-            private CallbackEvalG(
-                    JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                    List<Integer> denseConstraintIndices,
-                    List<Integer> denseVariableIndices,
-                    List<Integer> sparseConstraintIndices,
-                    List<Integer> sparseVariableIndices,
-                    LfNetwork network,
-                    EquationSystem<AcVariableType, AcEquationType> equationSystem,
-                    KnitroSolverParameters knitroParameters) {
+            LOGGER.info("==== Solution Summary ====");
+            LOGGER.info("Objective value            = {}", solution.getObjValue());
+            LOGGER.info("Feasibility violation      = {}", solver.getAbsFeasError());
+            LOGGER.info("Optimality violation       = {}", solver.getAbsOptError());
 
-                this.jacobianMatrix = jacobianMatrix;
-                this.denseConstraintIndices = denseConstraintIndices;
-                this.denseVariableIndices = denseVariableIndices;
-                this.sparseConstraintIndices = sparseConstraintIndices;
-                this.sparseVariableIndices = sparseVariableIndices;
-                this.network = network;
-                this.equationSystem = equationSystem;
-                this.knitroParameters = knitroParameters;
-            }
+            // Log primal solution
+            //LOGGER.debug("==== Optimal variables ====");
+            //for (int i = 0; i < x.size(); i++) {
+            //    LOGGER.debug(" x[{}] = {}", i, x.get(i));
+            //}
 
-            @Override
-            public void evaluateGA(final List<Double> x, final List<Double> objGrad, final List<Double> jac) {
-                // Update internal state and Jacobian
+            //LOGGER.debug("==== Constraint values ====");
+            //for (int i = 0; i < problemInstance.getNumCons(); i++) {
+            //    LOGGER.debug(" c[{}] = {} (λ = {})", i, constraintValues.get(i), lambda.get(i));
+            //}
+
+            //LOGGER.debug("==== Constraint violations ====");
+            //for (int i = 0; i < problemInstance.getNumCons(); i++) {
+            //    LOGGER.debug(" violation[{}] = {}", i, solver.getConViol(i));
+            //}
+
+            // ========== Slack Logging ==========
+            //logSlackValues("P", slackPStartIndex, numPEquations, x);
+            //logSlackValues("Q", slackQStartIndex, numQEquations, x);
+            //logSlackValues("V", slackVStartIndex, numVEquations, x);
+
+            // ========== Penalty Computation ==========
+            double wK = 1.0;
+            double wP = 100.0;
+            double wQ = 100.0;
+            double wV = 1.0;
+
+            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wK * wP);
+            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wK * wQ);
+            double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV);
+            double totalPenalty = penaltyP + penaltyQ + penaltyV;
+
+            LOGGER.info("==== Slack penalty details ====");
+            LOGGER.info("Penalty P = {}", penaltyP);
+            LOGGER.info("Penalty Q = {}", penaltyQ);
+            LOGGER.info("Penalty V = {}", penaltyV);
+            LOGGER.info("Total penalty = {}", totalPenalty);
+
+            // ========== Network Update ==========
+            if (solverStatus == AcSolverStatus.CONVERGED || knitroParameters.isAlwaysUpdateNetwork()) {
                 equationSystem.getStateVector().set(toArray(x));
-                AcSolverUtil.updateNetwork(network, equationSystem);
-                jacobianMatrix.forceUpdate();
-
-                // Get sparse matrix representation
-                SparseMatrix sparseMatrix = jacobianMatrix.getMatrix().toSparse();
-                int[] columnStart = sparseMatrix.getColumnStart();
-                int[] rowIndices = sparseMatrix.getRowIndices();
-                double[] values = sparseMatrix.getValues();
-
-                // Determine which list to use based on Knitro settings
-                List<Integer> constraintIndices;
-                List<Integer> variableIndices;
-
-                int routineType = knitroParameters.getGradientUserRoutine();
-                if (routineType == 1) {
-                    constraintIndices = denseConstraintIndices;
-                    variableIndices = denseVariableIndices;
-                } else if (routineType == 2) {
-                    constraintIndices = sparseConstraintIndices;
-                    variableIndices = sparseVariableIndices;
-                } else {
-                    throw new IllegalArgumentException("Unsupported gradientUserRoutine value: " + routineType);
-                }
-
-                // Fill Jacobian values
-                for (int index = 0; index < constraintIndices.size(); index++) {
-                    try {
-                        int ct = constraintIndices.get(index);
-                        int var = variableIndices.get(index);
-
-                        double value = 0.0;
-
-                        // Find matching (var, ct) entry in sparse column
-                        int colStart = columnStart[ct];
-                        int colEnd = columnStart[ct + 1];
-
-                        for (int i = colStart; i < colEnd; i++) {
-                            if (rowIndices[i] == var) {
-                                value = values[i];
-                                break;
-                            }
-                        }
-
-                        jac.set(index, value);
-
-                    } catch (Exception e) {
-                        int varId = routineType == 1 ? denseVariableIndices.get(index) : sparseVariableIndices.get(index);
-                        int ctId = routineType == 1 ? denseConstraintIndices.get(index) : sparseConstraintIndices.get(index);
-                        LOGGER.error("Error while filling Jacobian term at var {} and constraint {}", varId, ctId, e);
+                for (Equation<AcVariableType, AcEquationType> equation : equationSystem.getEquations()) {
+                    for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
+                        term.setStateVector(equationSystem.getStateVector());
                     }
                 }
+                AcSolverUtil.updateNetwork(network, equationSystem);
             }
+
+        } catch (KNException e) {
+            throw new PowsyblException("Exception while solving with Knitro", e);
         }
+
+        double slackBusMismatch = network.getSlackBuses().stream()
+                .mapToDouble(LfBus::getMismatchP)
+                .sum();
+
+        return new AcSolverResult(solverStatus, nbIterations, slackBusMismatch);
+    }
+
+    private void logSlackValues(String type, int startIndex, int count, List<Double> x) {
+        LOGGER.debug("==== Slack {} ====", type);
+        for (int i = 0; i < count; i++) {
+            double sm = x.get(startIndex + 2 * i);
+            double sp = x.get(startIndex + 2 * i + 1);
+            LOGGER.debug("Slack {}[{}] -> Sm = {}, Sp = {}", type, i, sm, sp);
+        }
+    }
+
+    private double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight) {
+        double penalty = 0.0;
+        for (int i = 0; i < count; i++) {
+            double sm = x.get(startIndex + 2 * i);
+            double sp = x.get(startIndex + 2 * i + 1);
+            double diff = sp - sm;
+            penalty += weight * (diff * diff + sp + sm);
+        }
+        return penalty;
+    }
+
+    /**
+     * Enum representing possible status codes returned by Knitro,
+     * grouped by ranges and associated with a corresponding AcSolverStatus.
+     */
+    public enum KnitroStatus {
+
+        CONVERGED_TO_LOCAL_OPTIMUM(0, 0, AcSolverStatus.CONVERGED),
+        CONVERGED_TO_FEASIBLE_APPROXIMATE_SOLUTION(-199, -100, AcSolverStatus.CONVERGED),
+        TERMINATED_AT_INFEASIBLE_POINT(-299, -200, AcSolverStatus.SOLVER_FAILED),
+        PROBLEM_UNBOUNDED(-399, -300, AcSolverStatus.SOLVER_FAILED),
+        TERMINATED_DUE_TO_PRE_DEFINED_LIMIT(-499, -400, AcSolverStatus.MAX_ITERATION_REACHED),
+        INPUT_OR_NON_STANDARD_ERROR(-599, -500, AcSolverStatus.SOLVER_FAILED);
+
+        private final Range<Integer> codeRange;
+        private final AcSolverStatus mappedStatus;
+
+        /**
+         * Constructs a KnitroStatus with a range of status codes and the associated AcSolverStatus.
+         *
+         * @param min          The minimum status code value (inclusive).
+         * @param max          The maximum status code value (inclusive).
+         * @param mappedStatus The corresponding AcSolverStatus.
+         */
+        KnitroStatus(int min, int max, AcSolverStatus mappedStatus) {
+            this.codeRange = Range.of(min, max);
+            this.mappedStatus = mappedStatus;
+        }
+
+        /**
+         * Returns the KnitroStatus corresponding to the given status code.
+         *
+         * @param statusCode the status code returned by Knitro
+         * @return the matching KnitroStatus enum constant
+         * @throws IllegalArgumentException if the status code does not match any known range
+         */
+        public static KnitroStatus fromStatusCode(int statusCode) {
+            return Arrays.stream(KnitroStatus.values())
+                    .filter(status -> status.codeRange.contains(statusCode))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown Knitro status code: " + statusCode));
+        }
+
+        /**
+         * Returns the AcSolverStatus associated with this KnitroStatus.
+         *
+         * @return the corresponding AcSolverStatus
+         */
+        public AcSolverStatus toAcSolverStatus() {
+            return mappedStatus;
+        }
+    }
+
+    private final class ResilientKnitroProblem extends KNProblem {
 
         /**
          * Knitro problem definition including:
@@ -479,8 +453,8 @@ public class KnitroResilientSolver extends AbstractAcSolver {
 
             // =============== Objective Function ===============
             double wK = 1.0;
-            double wP = 1000.0;
-            double wQ = 10.0;
+            double wP = 100.0;
+            double wQ = 100.0;
             double wV = 1.0;
 
             List<Integer> quadRows = new ArrayList<>();
@@ -662,7 +636,7 @@ public class KnitroResilientSolver extends AbstractAcSolver {
                     this.setJacNnzPattern(listNonZerosCtsSparse, listNonZerosVarsSparse);
                 }
                 // Set the callback for gradient evaluations if the user directly passes the Jacobian to the solver.
-                this.setGradEvalCallback(new KnitroResilientSolver.ResilientKnitroProblem.CallbackEvalG(
+                this.setGradEvalCallback(new ResilientKnitroSolver.ResilientKnitroProblem.CallbackEvalG(
                         jacobianMatrix,
                         listNonZerosCtsDense,
                         listNonZerosVarsDense,
@@ -674,135 +648,161 @@ public class KnitroResilientSolver extends AbstractAcSolver {
                 ));
             }
         }
-    }
 
-    /**
-     * Sets Knitro solver parameters based on the provided KnitroSolverParameters object.
-     *
-     * @param solver The Knitro solver instance to configure.
-     * @throws KNException if Knitro fails to accept a parameter.
-     */
-    private void setSolverParameters(KNSolver solver) throws KNException {
-        LOGGER.info("Configuring Knitro solver parameters...");
+        /**
+         * Callback used by Knitro to evaluate the non-linear parts of the objective and constraint functions.
+         */
+        private static final class CallbackEvalFC extends KNEvalFCCallback {
 
-        solver.setParam(KNConstants.KN_PARAM_GRADOPT, knitroParameters.getGradientComputationMode());
-        solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
-        solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
+            private final List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve;
+            private final List<Integer> nonLinearConstraintIds;
 
-        LOGGER.info("Knitro parameters set: GRADOPT={}, FEASTOL={}, MAXIT={}",
-                knitroParameters.getGradientComputationMode(),
-                knitroParameters.getConvEps(),
-                knitroParameters.getMaxIterations());
-    }
-
-    @Override
-    public AcSolverResult run(VoltageInitializer voltageInitializer, ReportNode reportNode) {
-        int nbIterations;
-        AcSolverStatus solverStatus;
-        ResilientKnitroProblem problemInstance;
-
-        try {
-            problemInstance = new ResilientKnitroProblem(network, equationSystem, targetVector, j, voltageInitializer);
-        } catch (KNException e) {
-            throw new PowsyblException("Exception while building Knitro problem", e);
-        }
-
-        try (KNSolver solver = new KNSolver(problemInstance)) {
-            solver.initProblem();
-            setSolverParameters(solver);
-            solver.solve();
-
-            KNSolution solution = solver.getSolution();
-            //List<Double> constraintValues = solver.getConstraintValues();
-            List<Double> x = solution.getX();
-            //List<Double> lambda = solution.getLambda();
-
-            solverStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
-            logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
-            nbIterations = solver.getNumberIters();
-
-            LOGGER.info("==== Solution Summary ====");
-            LOGGER.info("Objective value            = {}", solution.getObjValue());
-            LOGGER.info("Feasibility violation      = {}", solver.getAbsFeasError());
-            LOGGER.info("Optimality violation       = {}", solver.getAbsOptError());
-
-            // Log primal solution
-            //LOGGER.debug("==== Optimal variables ====");
-            //for (int i = 0; i < x.size(); i++) {
-            //    LOGGER.debug(" x[{}] = {}", i, x.get(i));
-            //}
-
-            //LOGGER.debug("==== Constraint values ====");
-            //for (int i = 0; i < problemInstance.getNumCons(); i++) {
-            //    LOGGER.debug(" c[{}] = {} (λ = {})", i, constraintValues.get(i), lambda.get(i));
-            //}
-
-            //LOGGER.debug("==== Constraint violations ====");
-            //for (int i = 0; i < problemInstance.getNumCons(); i++) {
-            //    LOGGER.debug(" violation[{}] = {}", i, solver.getConViol(i));
-            //}
-
-            // ========== Slack Logging ==========
-            //logSlackValues("P", slackPStartIndex, numPEquations, x);
-            //logSlackValues("Q", slackQStartIndex, numQEquations, x);
-            //logSlackValues("V", slackVStartIndex, numVEquations, x);
-
-            // ========== Penalty Computation ==========
-            double wK = 1.0;
-            double wP = 1000.0;
-            double wQ = 10.0;
-            double wV = 1.0;
-
-            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wK * wP);
-            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wK * wQ);
-            double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV);
-            double totalPenalty = penaltyP + penaltyQ + penaltyV;
-
-            LOGGER.info("==== Slack penalty details ====");
-            LOGGER.info("Penalty P = {}", penaltyP);
-            LOGGER.info("Penalty Q = {}", penaltyQ);
-            LOGGER.info("Penalty V = {}", penaltyV);
-            LOGGER.info("Total penalty = {}", totalPenalty);
-
-            // ========== Network Update ==========
-            if (solverStatus == AcSolverStatus.CONVERGED || knitroParameters.isAlwaysUpdateNetwork()) {
-                equationSystem.getStateVector().set(toArray(x));
-                for (Equation<AcVariableType, AcEquationType> equation : equationSystem.getEquations()) {
-                    for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                        term.setStateVector(equationSystem.getStateVector());
-                    }
-                }
-                AcSolverUtil.updateNetwork(network, equationSystem);
+            private CallbackEvalFC(List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+                                   List<Integer> nonLinearConstraintIds) {
+                this.sortedEquationsToSolve = sortedEquationsToSolve;
+                this.nonLinearConstraintIds = nonLinearConstraintIds;
             }
 
-        } catch (KNException e) {
-            throw new PowsyblException("Exception while solving with Knitro", e);
+            /**
+             * Knitro callback function that evaluates the non-linear constraints at the current point.
+             *
+             * @param x   Current point (primal variables).
+             * @param obj Output objective value (unused here).
+             * @param c   Output constraint values.
+             */
+            @Override
+            public void evaluateFC(final List<Double> x, final List<Double> obj, final List<Double> c) {
+                LOGGER.trace("============ Knitro evaluating callback function ============");
+
+                StateVector currentState = new StateVector(toArray(x));
+                LOGGER.trace("Current state vector: {}", currentState.get());
+                LOGGER.trace("Evaluating {} non-linear constraints", nonLinearConstraintIds.size());
+
+                int callbackConstraintIndex = 0;
+
+                for (int equationId : nonLinearConstraintIds) {
+                    Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
+                    AcEquationType type = equation.getType();
+
+                    // Ensure the constraint is non-linear
+                    if (NonLinearExternalSolverUtils.isLinear(type, equation.getTerms())) {
+                        throw new IllegalArgumentException(
+                                "Equation of type " + type + " is linear but passed to the non-linear callback");
+                    }
+
+                    // Evaluate equation using the current state
+                    double constraintValue = 0.0;
+                    for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
+                        term.setStateVector(currentState);
+                        if (term.isActive()) {
+                            constraintValue += term.eval();
+                        }
+                    }
+
+                    try {
+                        c.set(callbackConstraintIndex, constraintValue);
+                        LOGGER.trace("Added non-linear constraint #{} (type: {}) = {}", equationId, type, constraintValue);
+                    } catch (Exception e) {
+                        throw new PowsyblException("Error while adding non-linear constraint #" + equationId, e);
+                    }
+
+                    callbackConstraintIndex++;
+                }
+            }
         }
 
-        double slackBusMismatch = network.getSlackBuses().stream()
-                .mapToDouble(LfBus::getMismatchP)
-                .sum();
+        /**
+         * Callback used by Knitro to evaluate the gradient (Jacobian matrix) of the constraints.
+         * Only constraints (no objective) are handled here.
+         */
+        private static final class CallbackEvalG extends KNEvalGACallback {
 
-        return new AcSolverResult(solverStatus, nbIterations, slackBusMismatch);
-    }
+            private final JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix;
+            private final List<Integer> denseConstraintIndices;
+            private final List<Integer> denseVariableIndices;
+            private final List<Integer> sparseConstraintIndices;
+            private final List<Integer> sparseVariableIndices;
 
-    private void logSlackValues(String type, int startIndex, int count, List<Double> x) {
-        LOGGER.debug("==== Slack {} ====", type);
-        for (int i = 0; i < count; i++) {
-            double sm = x.get(startIndex + 2 * i);
-            double sp = x.get(startIndex + 2 * i + 1);
-            LOGGER.debug("Slack {}[{}] -> Sm = {}, Sp = {}", type, i, sm, sp);
+            private final LfNetwork network;
+            private final EquationSystem<AcVariableType, AcEquationType> equationSystem;
+            private final KnitroSolverParameters knitroParameters;
+
+            private CallbackEvalG(
+                    JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
+                    List<Integer> denseConstraintIndices,
+                    List<Integer> denseVariableIndices,
+                    List<Integer> sparseConstraintIndices,
+                    List<Integer> sparseVariableIndices,
+                    LfNetwork network,
+                    EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                    KnitroSolverParameters knitroParameters) {
+
+                this.jacobianMatrix = jacobianMatrix;
+                this.denseConstraintIndices = denseConstraintIndices;
+                this.denseVariableIndices = denseVariableIndices;
+                this.sparseConstraintIndices = sparseConstraintIndices;
+                this.sparseVariableIndices = sparseVariableIndices;
+                this.network = network;
+                this.equationSystem = equationSystem;
+                this.knitroParameters = knitroParameters;
+            }
+
+            @Override
+            public void evaluateGA(final List<Double> x, final List<Double> objGrad, final List<Double> jac) {
+                // Update internal state and Jacobian
+                equationSystem.getStateVector().set(toArray(x));
+                AcSolverUtil.updateNetwork(network, equationSystem);
+                jacobianMatrix.forceUpdate();
+
+                // Get sparse matrix representation
+                SparseMatrix sparseMatrix = jacobianMatrix.getMatrix().toSparse();
+                int[] columnStart = sparseMatrix.getColumnStart();
+                int[] rowIndices = sparseMatrix.getRowIndices();
+                double[] values = sparseMatrix.getValues();
+
+                // Determine which list to use based on Knitro settings
+                List<Integer> constraintIndices;
+                List<Integer> variableIndices;
+
+                int routineType = knitroParameters.getGradientUserRoutine();
+                if (routineType == 1) {
+                    constraintIndices = denseConstraintIndices;
+                    variableIndices = denseVariableIndices;
+                } else if (routineType == 2) {
+                    constraintIndices = sparseConstraintIndices;
+                    variableIndices = sparseVariableIndices;
+                } else {
+                    throw new IllegalArgumentException("Unsupported gradientUserRoutine value: " + routineType);
+                }
+
+                // Fill Jacobian values
+                for (int index = 0; index < constraintIndices.size(); index++) {
+                    try {
+                        int ct = constraintIndices.get(index);
+                        int var = variableIndices.get(index);
+
+                        double value = 0.0;
+
+                        // Find matching (var, ct) entry in sparse column
+                        int colStart = columnStart[ct];
+                        int colEnd = columnStart[ct + 1];
+
+                        for (int i = colStart; i < colEnd; i++) {
+                            if (rowIndices[i] == var) {
+                                value = values[i];
+                                break;
+                            }
+                        }
+
+                        jac.set(index, value);
+
+                    } catch (Exception e) {
+                        int varId = routineType == 1 ? denseVariableIndices.get(index) : sparseVariableIndices.get(index);
+                        int ctId = routineType == 1 ? denseConstraintIndices.get(index) : sparseConstraintIndices.get(index);
+                        LOGGER.error("Error while filling Jacobian term at var {} and constraint {}", varId, ctId, e);
+                    }
+                }
+            }
         }
-    }
-
-    private double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight) {
-        double penalty = 0.0;
-        for (int i = 0; i < count; i++) {
-            double sm = x.get(startIndex + 2 * i);
-            double sp = x.get(startIndex + 2 * i + 1);
-            double diff = sp - sm;
-            penalty += weight * (diff * diff + sp + sm);
-        }
-        return penalty;
     }
 }
