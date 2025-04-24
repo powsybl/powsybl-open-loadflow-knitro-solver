@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Supplier;
@@ -26,20 +27,46 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  */
 public class ResilientAcLoadFlowTest {
-
+    private static final String DEFAULT_OUTPUT_DIR = "./outputs/";
+    private static final double DEFAULT_TOLERANCE = 10e-3;
+    private static final double BASE_100MVA = 100.0;
+    private static final String RKN = "KNITRO";
+    private static final String NR = "NEWTON_RAPHSON";
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
 
-    private static final String DEFAULT_OUTPUT_DIR = "./outputs/";
+    static Stream<NetworkPair> provideNetworks() {
+        return Stream.of(
+                new NetworkPair(IeeeCdfNetworkFactory.create14(), IeeeCdfNetworkFactory.create14(), "ieee14"),
+                new NetworkPair(IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), "ieee30"),
+                new NetworkPair(IeeeCdfNetworkFactory.create118(), IeeeCdfNetworkFactory.create118(), "ieee118"),
+                new NetworkPair(IeeeCdfNetworkFactory.create300(), IeeeCdfNetworkFactory.create300(), "ieee300")
+        );
+    }
 
-    private static final double DEFAULT_P_TOLERANCE = 1e-2;
-    private static final double DEFAULT_Q_TOLERANCE = 1e-2;
-    private static final double DEFAULT_V_TOLERANCE = 1e-2;
-    private static final double DEFAULT_I_TOLERANCE = 1e-2;
-    private static final double DEFAULT_PHI_TOLERANCE = 1e-2;
+    static Stream<NetworkPair> provideRealNetworkData() {
+        Path baseDir = Path.of("../../data_confidential/HU");
+        String initFileName = "init.xiidm";
 
-    private static final String RKN = "KNITRO";
-    private static final String NR = "NEWTON_RAPHSON";
+        try {
+            List<NetworkPair> cases = Files.list(baseDir)
+                    .filter(Files::isDirectory)
+                    .map(subDir -> subDir.resolve(initFileName))
+                    .filter(Files::exists)
+                    .map(initPath -> {
+                        Network nrNetwork = Network.read(initPath).getNetwork();
+                        Network rknNetwork = Network.read(initPath).getNetwork();
+                        String name = initPath.getParent().getFileName().toString();
+                        return new NetworkPair(rknNetwork, nrNetwork, name);
+                    })
+                    .toList();
+
+            return cases.stream();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load HU real network cases", e);
+        }
+    }
 
     @BeforeEach
     void setUp() {
@@ -56,7 +83,6 @@ public class ResilientAcLoadFlowTest {
 
         if (RKN.equals(solver)) {
             KnitroLoadFlowParameters knitroParams = new KnitroLoadFlowParameters();
-            knitroParams.setGradientComputationMode(2);
             // Set the Knitro solver type to RESILIENT
             knitroParams.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.RESILIENT);
             parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
@@ -70,50 +96,78 @@ public class ResilientAcLoadFlowTest {
         network.write("XIIDM", properties, path);
     }
 
-    private void checkElectricalQuantities(Network n1, Network n2, double pTolerance, double qTolerance, double vTolerance, double iTolerance, double phiTolerance) {
-        // Check generator active and reactive powers
+    private void checkElectricalQuantities(Network n1, Network n2, double tolerance) {
+        // Check generators active and reactive per unit powers
         for (Generator g1 : n1.getGenerators()) {
             Generator g2 = n2.getGenerator(g1.getId());
             assertNotNull(g2, "Generator " + g1.getId() + " not found in second network");
             Terminal t1 = g1.getTerminal();
             Terminal t2 = g2.getTerminal();
 
-            assertEquals(t1.getP(), t2.getP(), pTolerance, "Mismatch on P for generator " + g1.getId());
-            assertEquals(t1.getQ(), t2.getQ(), qTolerance, "Mismatch on Q for generator " + g1.getId());
+            double p1 = t1.getP() / BASE_100MVA;
+            double p2 = t2.getP() / BASE_100MVA;
+            double q1 = t1.getQ() / BASE_100MVA;
+            double q2 = t2.getQ() / BASE_100MVA;
+
+            assertEquals(p1, p2, tolerance, "Mismatch on P for generator " + g1.getId());
+            assertEquals(q1, q2, tolerance, "Mismatch on Q for generator " + g1.getId());
         }
 
-        // Check load active and reactive powers
+        // Check loads active and reactive powers
         for (Load l1 : n1.getLoads()) {
             Load l2 = n2.getLoad(l1.getId());
             assertNotNull(l2, "Load " + l1.getId() + " not found in second network");
             Terminal t1 = l1.getTerminal();
             Terminal t2 = l2.getTerminal();
 
-            assertEquals(t1.getP(), t2.getP(), pTolerance, "Mismatch on P for load " + l1.getId());
-            assertEquals(t1.getQ(), t2.getQ(), qTolerance, "Mismatch on Q for load " + l1.getId());
+            double p1 = t1.getP() / BASE_100MVA;
+            double p2 = t2.getP() / BASE_100MVA;
+            double q1 = t1.getQ() / BASE_100MVA;
+            double q2 = t2.getQ() / BASE_100MVA;
+
+            assertEquals(p1, p2, tolerance, "Mismatch on P for load " + l1.getId());
+            assertEquals(q1, q2, tolerance, "Mismatch on Q for load " + l1.getId());
         }
 
-        // Check bus voltages and angles
+        // Check bus per unit voltages and angles (in degrees)
         for (Bus bus1 : n1.getBusView().getBuses()) {
             Bus bus2 = n2.getBusView().getBus(bus1.getId());
             assertNotNull(bus2, "Bus " + bus1.getId() + " not found in second network");
-            assertEquals(bus1.getV(), bus2.getV(), vTolerance, "Mismatch on V for bus " + bus1.getId());
-            assertEquals(bus1.getAngle(), bus2.getAngle(), phiTolerance, "Mismatch on Phi for bus " + bus1.getId());
+
+            double v1 = bus1.getV() / bus1.getVoltageLevel().getNominalV();
+            double v2 = bus2.getV() / bus2.getVoltageLevel().getNominalV();
+            double phi1 = bus1.getAngle();
+            double phi2 = bus2.getAngle();
+
+            assertEquals(v1, v2, tolerance, "Mismatch on V for bus " + bus1.getId());
+            assertEquals(phi1, phi2, tolerance, "Mismatch on Phi for bus " + bus1.getId());
         }
 
-        // Check line current magnitudes
+        // Check lines current magnitudes per unit
         for (Line line1 : n1.getLines()) {
             Line line2 = n2.getLine(line1.getId());
             assertNotNull(line2, "Line " + line1.getId() + " not found in second network");
 
-            double i1T1 = line1.getTerminal1().getI();
-            double i2T1 = line2.getTerminal1().getI();
-            assertEquals(i1T1, i2T1, iTolerance, "Mismatch on I (terminal1) for line " + line1.getId());
+            double vNom1T1 = line1.getTerminal1().getVoltageLevel().getNominalV();
+            double vNom1T2 = line1.getTerminal2().getVoltageLevel().getNominalV();
+            double vNom2T1 = line2.getTerminal1().getVoltageLevel().getNominalV();
+            double vNom2T2 = line2.getTerminal2().getVoltageLevel().getNominalV();
 
-            double i1T2 = line1.getTerminal2().getI();
-            double i2T2 = line2.getTerminal2().getI();
-            assertEquals(i1T2, i2T2, iTolerance, "Mismatch on I (terminal2) for line " + line1.getId());
+            assertEquals(vNom1T1, vNom2T1, "Mismatch on Vnom for line " + line1.getId() + " terminal 1");
+            assertEquals(vNom1T2, vNom2T2, "Mismatch on Vnom for line " + line1.getId() + " terminal 2");
+
+            double i1T1 = computePerUnitCurrent(vNom1T1, line1.getTerminal1().getI());
+            double i2T1 = computePerUnitCurrent(vNom2T1, line2.getTerminal1().getI());
+            double i1T2 = computePerUnitCurrent(vNom1T2, line1.getTerminal2().getI());
+            double i2T2 = computePerUnitCurrent(vNom2T2, line2.getTerminal2().getI());
+
+            assertEquals(i1T1, i2T1, tolerance, "Mismatch on I for line " + line1.getId() + " terminal 1");
+            assertEquals(i1T2, i2T2, tolerance, "Mismatch on I for line " + line1.getId() + " terminal 2");
         }
+    }
+
+    double computePerUnitCurrent(double vNom, double i) {
+        return ((Math.sqrt(3) * vNom) / (BASE_100MVA * 10e3)) * i;
     }
 
     private void compareSolvers(Network rknNetwork, Network nrNetwork, String baseFilename) {
@@ -125,7 +179,7 @@ public class ResilientAcLoadFlowTest {
         LoadFlowResult result2 = loadFlowRunner.run(nrNetwork, parameters);
         assertTrue(result2.isFullyConverged());
 
-        checkElectricalQuantities(rknNetwork, nrNetwork, DEFAULT_P_TOLERANCE, DEFAULT_Q_TOLERANCE, DEFAULT_V_TOLERANCE, DEFAULT_I_TOLERANCE, DEFAULT_PHI_TOLERANCE);
+        checkElectricalQuantities(rknNetwork, nrNetwork, DEFAULT_TOLERANCE);
 
         if (baseFilename != null) {
             writeXML(nrNetwork, baseFilename + "-NR.xml");
@@ -133,22 +187,10 @@ public class ResilientAcLoadFlowTest {
         }
     }
 
-    static Stream<NetworkPair> provideNetworks() {
-        return Stream.of(
-                new NetworkPair(IeeeCdfNetworkFactory.create14(), IeeeCdfNetworkFactory.create14(), "ieee14"),
-                new NetworkPair(IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), "ieee30"),
-                new NetworkPair(IeeeCdfNetworkFactory.create118(), IeeeCdfNetworkFactory.create118(), "ieee118"),
-                new NetworkPair(IeeeCdfNetworkFactory.create300(), IeeeCdfNetworkFactory.create300(), "ieee300")
-        );
-    }
-
     @ParameterizedTest
     @MethodSource("provideNetworks")
     void testLoadFlowComparisonOnVariousI3ENetworks(NetworkPair pair) {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
-    }
-
-    record NetworkPair(Network rknNetwork, Network nrNetwork, String baseFilename) {
     }
 
     @Test
@@ -297,20 +339,12 @@ public class ResilientAcLoadFlowTest {
                 .setB2(0.0);
     }
 
-    @Test
-    void testConvergenceOnRealNetworks() {
-        Path huData = Path.of("../../data_confidential/HU/20220226T2330Z_1D_002/init.xiidm");
-        Network n1 = Network.read(huData).getNetwork();
-        Network n2 = Network.read(huData).getNetwork();
+    @ParameterizedTest(name = "Test HU networks convergence: {0}")
+    @MethodSource("provideRealNetworkData")
+    void testConvergenceOnRealHUFiles(NetworkPair pair) {
+        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
+    }
 
-        configureSolver(NR);
-        LoadFlowResult resultNR = loadFlowRunner.run(n1, parameters);
-        assertTrue(resultNR.isFullyConverged(), "Newton-Raphson should converge");
-
-        configureSolver(RKN);
-        LoadFlowResult resultRKN = loadFlowRunner.run(n2, parameters);
-        assertTrue(resultRKN.isFullyConverged(), "Knitro should converge");
-
-        checkElectricalQuantities(n1, n2, DEFAULT_P_TOLERANCE, 10e-1, DEFAULT_V_TOLERANCE, 10e-1, DEFAULT_PHI_TOLERANCE);
+    record NetworkPair(Network rknNetwork, Network nrNetwork, String baseFilename) {
     }
 }

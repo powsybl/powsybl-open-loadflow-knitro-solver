@@ -7,7 +7,11 @@
  */
 package com.powsybl.openloadflow.knitro.solver;
 
-import com.powsybl.openloadflow.ac.solver.*;
+import com.artelys.knitro.api.KNConstants;
+import com.powsybl.openloadflow.ac.solver.AcSolverParameters;
+import com.powsybl.openloadflow.ac.solver.LineSearchStateVectorScaling;
+import com.powsybl.openloadflow.ac.solver.MaxVoltageChangeStateVectorScaling;
+import com.powsybl.openloadflow.ac.solver.StateVectorScalingMode;
 
 import java.util.Objects;
 
@@ -18,45 +22,27 @@ import java.util.Objects;
  */
 public class KnitroSolverParameters implements AcSolverParameters {
 
-    public enum KnitroSolverType {
-        STANDARD,
-        RESILIENT
-    }
-
     public static final int DEFAULT_GRADIENT_COMPUTATION_MODE = 1; // Specifies how the Jacobian matrix is computed
     public static final int DEFAULT_GRADIENT_USER_ROUTINE = 2; // If the user chooses to pass the exact Jacobian to knitro, specifies the sparsity pattern for the Jacobian matrix.
-    public static final double DEFAULT_LOWER_VOLTAGE_BOUND = 0.5; // Lower bound for voltage magnitude
-    public static final double DEFAULT_UPPER_VOLTAGE_BOUND = 1.5; // Upper bound for voltage magnitude
+    public static final double DEFAULT_LOWER_VOLTAGE_BOUND = 0; // Lower bound for voltage magnitude
+    public static final double DEFAULT_UPPER_VOLTAGE_BOUND = KNConstants.KN_INFINITY; // Upper bound for voltage magnitude
     public static final int DEFAULT_MAX_ITERATIONS = 200;
     public static final double DEFAULT_STOPPING_CRITERIA = Math.pow(10, -6);
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
     public static final KnitroSolverType DEFAULT_KNITRO_SOLVER_TYPE = KnitroSolverType.STANDARD;
-
     public KnitroSolverType knitroSolverType = DEFAULT_KNITRO_SOLVER_TYPE;
-
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
-
     private int lineSearchStateVectorScalingMaxIteration = LineSearchStateVectorScaling.DEFAULT_MAX_ITERATION;
-
     private double lineSearchStateVectorScalingStepFold = LineSearchStateVectorScaling.DEFAULT_STEP_FOLD;
-
     private double maxVoltageChangeStateVectorScalingMaxDv = MaxVoltageChangeStateVectorScaling.DEFAULT_MAX_DV;
-
     private double maxVoltageChangeStateVectorScalingMaxDphi = MaxVoltageChangeStateVectorScaling.DEFAULT_MAX_DPHI;
-
     private int gradientComputationMode = DEFAULT_GRADIENT_COMPUTATION_MODE;
-
     private int gradientUserRoutine = DEFAULT_GRADIENT_USER_ROUTINE;
-
     private double lowerVoltageBound = DEFAULT_LOWER_VOLTAGE_BOUND;
-
     private double upperVoltageBound = DEFAULT_UPPER_VOLTAGE_BOUND;
-
     private boolean alwaysUpdateNetwork = ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
-
     private int maxIterations = DEFAULT_MAX_ITERATIONS;
-
     private double convEps = DEFAULT_STOPPING_CRITERIA;
 
     public int getGradientComputationMode() {
@@ -203,5 +189,10 @@ public class KnitroSolverParameters implements AcSolverParameters {
                 ", maxIterations=" + maxIterations +
                 ", knitroSolverType=" + knitroSolverType +
                 ')';
+    }
+
+    public enum KnitroSolverType {
+        STANDARD,
+        RESILIENT
     }
 }
