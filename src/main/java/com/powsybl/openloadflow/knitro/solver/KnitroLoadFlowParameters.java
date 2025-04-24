@@ -30,7 +30,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
 
     public KnitroLoadFlowParameters setGradientComputationMode(int gradientComputationMode) {
         if (gradientComputationMode < 1 || gradientComputationMode > 3) {
-            throw new IllegalArgumentException("User routine must be between 1 and 3");
+            throw new IllegalArgumentException("Gradient mode must be between 1 and 3");
         }
         this.gradientComputationMode = gradientComputationMode;
         return this;
