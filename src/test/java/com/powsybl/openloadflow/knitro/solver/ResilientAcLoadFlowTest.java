@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class ResilientAcLoadFlowTest {
     private static final String DEFAULT_OUTPUT_DIR = "./outputs/";
-    private static final double DEFAULT_TOLERANCE = 10e-3;
+    private static final double DEFAULT_TOLERANCE = 1e-3;
     private static final double BASE_100MVA = 100.0;
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
@@ -170,7 +170,7 @@ public class ResilientAcLoadFlowTest {
     }
 
     double computePerUnitCurrent(double vNom, double i) {
-        return ((Math.sqrt(3) * vNom) / (BASE_100MVA * 10e3)) * i;
+        return ((Math.sqrt(3) * vNom) / (BASE_100MVA * 1e3)) * i;
     }
 
     private void compareSolvers(Network rknNetwork, Network nrNetwork, String baseFilename) {
@@ -261,7 +261,7 @@ public class ResilientAcLoadFlowTest {
 
     @ParameterizedTest(name = "Test HU networks convergence: {0}")
     @MethodSource("provideRealNetworkData")
-    void testConvergenceOnRealHUFiles(NetworkPair pair) {
+    void testConvergenceOnHUData(NetworkPair pair) {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
     }
 
