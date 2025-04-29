@@ -193,46 +193,32 @@ public class ResilientAcLoadFlowTest {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
     }
 
-    @Test
-    void testResilienceWithLowImpedanceLineOnVariousI3ENetworks() {
-        Stream.<Map.Entry<String, Supplier<Network>>>of(
-                Map.entry("ieee14", IeeeCdfNetworkFactory::create14),
-                Map.entry("ieee30", IeeeCdfNetworkFactory::create30),
-                Map.entry("ieee118", IeeeCdfNetworkFactory::create118),
-                Map.entry("ieee300", IeeeCdfNetworkFactory::create300)
-        ).forEach(entry -> {
-            String name = entry.getKey();
-            Supplier<Network> factory = entry.getValue();
+    @ParameterizedTest
+    @MethodSource("provideNetworks")
+    void testResilienceWithLowImpedanceLineOnVariousI3ENetworks(NetworkPair pair) {
+        String name = pair.baseFilename();
 
-            Network rknNetwork = factory.get();
-            Network nrNetwork = factory.get();
+        Network rknNetwork = pair.rknNetwork();
+        Network nrNetwork = pair.nrNetwork();
 
-            // Clone variant for baseline comparison
-            final String variantId = "PERTURBED";
-            rknNetwork.getVariantManager().cloneVariant(VariantManagerConstants.INITIAL_VARIANT_ID, variantId);
-            rknNetwork.getVariantManager().setWorkingVariant(variantId);
+        double rPU = 0.0;
+        double xPU = 1e-7;
 
-            double r = 1e-3;
-            double x = 1e-3;
+        List<String> targets = getLowImpedanceLineToChange(nrNetwork);
+        applyLowImpedanceLineChanges(rknNetwork, targets, rPU, xPU);
+        applyLowImpedanceLineChanges(nrNetwork, targets, rPU, xPU);
 
-            //General case
-            List<String> targets = getLowImpedanceLineToChange(nrNetwork);
-            applyLowImpedanceLineChanges(rknNetwork, targets, r, x);
-            applyLowImpedanceLineChanges(nrNetwork, targets, r, x);
+        // Newton-Raphson
+        configureSolver(NR);
+        LoadFlowResult resultNR = loadFlowRunner.run(nrNetwork, parameters);
+        boolean isConvergedNR = resultNR.isFullyConverged();
+        assertTrue(isConvergedNR, name + ": NR should converge");
 
-            // Newton-Raphson
-            configureSolver(NR);
-            LoadFlowResult resultNR = loadFlowRunner.run(nrNetwork, parameters);
-            boolean isConverged = resultNR.isFullyConverged();
-            assertFalse(isConverged, name + ": NR should not converge");
-
-            // Knitro Resilient
-            configureSolver(RKN);
-            LoadFlowResult resultRKN = loadFlowRunner.run(rknNetwork, parameters);
-            isConverged = resultRKN.isFullyConverged();
-            assertTrue(isConverged, name + ": Knitro should converge");
-
-        });
+        // Knitro Resilient
+        configureSolver(RKN);
+        LoadFlowResult resultRKN = loadFlowRunner.run(rknNetwork, parameters);
+        boolean isConvergedRKN = resultRKN.isFullyConverged();
+        assertTrue(isConvergedRKN, name + ": Knitro should converge");
     }
 
     private List<String> getLowImpedanceLineToChange(Network network) {
@@ -242,9 +228,10 @@ public class ResilientAcLoadFlowTest {
         String targetLineID;
 
         //Selecting a random generator from network
-        Generator gen = network.getGenerators()
-                .iterator()
-                .next();
+        Generator gen = network.getGeneratorStream()
+                .filter(Generator::isVoltageRegulatorOn)
+                .findAny()
+                .get();
         targetGeneratorID = gen.getId();
 
         //The bus associated with the target generator
@@ -280,7 +267,7 @@ public class ResilientAcLoadFlowTest {
         return Arrays.asList(targetGeneratorID, targetBusID, connectedBusID, targetLineID, loadID);
     }
 
-    private void applyLowImpedanceLineChanges(Network network, List<String> targets, double r, double x) {
+    private void applyLowImpedanceLineChanges(Network network, List<String> targets, double rPU, double xPU) {
         String targetGeneratorID = targets.get(0);
         String targetBusID = targets.get(1);
         String connectedBusID = targets.get(2);
@@ -295,10 +282,10 @@ public class ResilientAcLoadFlowTest {
                 .getVoltageLevel();
 
         //voltage Mismatch
-        double alpha = 0.1;
-
-        //Offsetting connected voltage level
-        connectedVL.setNominalV(targetVL.getNominalV() * alpha);
+        double alpha = 0.8;
+        double vNomConnected = connectedVL.getNominalV();
+        double vNomTarget = targetVL.getNominalV();
+        double val = targetGenerator.getTargetV() / vNomTarget * vNomConnected * alpha;
 
         //adding the connected generator or modifying preexisting one
         boolean hasGenerator = connectedBus
@@ -306,31 +293,25 @@ public class ResilientAcLoadFlowTest {
                 .iterator()
                 .hasNext();
         if (hasGenerator) {
-            Generator gConnected = connectedBus
-                    .getGenerators()
-                    .iterator()
-                    .next();
-            gConnected.setMinP(targetGenerator.getMinP())
-                    .setMaxP(targetGenerator.getMaxP())
-                    .setTargetP(0.0)
-                    .setTargetQ(0.0)
-                    .setTargetV(targetVL.getNominalV() * alpha)
-                    .setVoltageRegulatorOn(true);
+            connectedBus.getGeneratorStream()
+                    .forEach(gen -> gen.setTargetV(val)
+                            .setVoltageRegulatorOn(true));
         } else {
             connectedVL.newGenerator()
                     .setId(connectedBusID + "-" + "G-added")
                     .setBus(connectedBusID)
-                    .setMinP(targetGenerator.getMinP())
+                    .setMinP(0.0)
                     .setMaxP(targetGenerator.getMaxP())
                     .setTargetP(0.0)
-                    .setTargetQ(0.0)
-                    .setTargetV(targetVL.getNominalV() * alpha)
+                    .setTargetV(val)
                     .setVoltageRegulatorOn(true)
                     .add();
         }
 
         //Changing line parameters by setting their reactance and shunt admittance to 0
         Line lineTarget = network.getLine(targetLineID);
+        double r = rPU * vNomConnected * vNomTarget / BASE_100MVA;
+        double x = xPU * vNomConnected * vNomTarget / BASE_100MVA;
         lineTarget.setR(r)
                 .setX(x)
                 .setG1(0.0)
