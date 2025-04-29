@@ -41,6 +41,12 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ResilientKnitroSolver.class);
 
+    // Penalty weights in the objective function
+    private final double wK = 1.0;
+    private final double wP = 100.0;
+    private final double wQ = 100.0;
+    private final double wV = 1.0;
+
     // Number of Load Flows (LF) variables in the system
     private final int numLFVariables;
 
@@ -281,11 +287,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             //logSlackValues("V", slackVStartIndex, numVEquations, x);
 
             // ========== Penalty Computation ==========
-            double wK = 1.0;
-            double wP = 100.0;
-            double wQ = 100.0;
-            double wV = 1.0;
-
             double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wK * wP);
             double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wK * wQ);
             double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV);
@@ -452,11 +453,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             setConEqBnds(Arrays.stream(targetVector.getArray()).boxed().toList());
 
             // =============== Objective Function ===============
-            double wK = 1.0;
-            double wP = 100.0;
-            double wQ = 100.0;
-            double wV = 1.0;
-
             List<Integer> quadRows = new ArrayList<>();
             List<Integer> quadCols = new ArrayList<>();
             List<Double> quadCoefs = new ArrayList<>();
@@ -787,13 +783,17 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                         int colStart = columnStart[ct];
                         int colEnd = columnStart[ct + 1];
 
+                        boolean found = false;
                         for (int i = colStart; i < colEnd; i++) {
                             if (rowIndices[i] == var) {
                                 value = values[i];
+                                found = true;
                                 break;
                             }
                         }
-
+                        if (!found) {
+                            LOGGER.warn("Jacobian entry not found for constraint {} variable {}", ct, var);
+                        }
                         jac.set(index, value);
 
                     } catch (Exception e) {
