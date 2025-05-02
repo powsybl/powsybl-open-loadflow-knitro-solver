@@ -17,8 +17,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
-import java.util.function.Supplier;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,6 +33,7 @@ public class ResilientAcLoadFlowTest {
     private static final double BASE_100MVA = 100.0;
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
+    private static final String CONFIDENTIAL_DATA_DIR = "../../data_confidential/";
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
 
@@ -45,7 +47,7 @@ public class ResilientAcLoadFlowTest {
     }
 
     static Stream<NetworkPair> provideRealNetworkData() {
-        Path baseDir = Path.of("../../data_confidential/HU");
+        Path baseDir = Path.of(CONFIDENTIAL_DATA_DIR, "HU");
         String initFileName = "init.xiidm";
 
         try {
@@ -324,6 +326,14 @@ public class ResilientAcLoadFlowTest {
     @MethodSource("provideRealNetworkData")
     void testConvergenceOnHUData(NetworkPair pair) {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
+    }
+
+    @Test
+    void testConvergenceOnTYNDPData() {
+        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, "CGM_TYNDP22.xiidm");
+        Network nrNetwork = Network.read(fileName).getNetwork();
+        Network rknNetwork = Network.read(fileName).getNetwork();
+        compareSolvers(rknNetwork, nrNetwork, null);
     }
 
     record NetworkPair(Network rknNetwork, Network nrNetwork, String baseFilename) {
