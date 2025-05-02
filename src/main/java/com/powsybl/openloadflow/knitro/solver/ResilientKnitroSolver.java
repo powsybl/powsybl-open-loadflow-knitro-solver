@@ -791,8 +791,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                                 break;
                             }
                         }
-                        if (!found) {
-                            LOGGER.warn("Jacobian entry not found for constraint {} variable {}", ct, var);
+                        if (!found && knitroParameters.getGradientUserRoutine() == 1) {
+                            LOGGER.warn("Dense Jacobian entry not found for constraint {} variable {}", ct, var);
                         }
                         jac.set(index, value);
 
