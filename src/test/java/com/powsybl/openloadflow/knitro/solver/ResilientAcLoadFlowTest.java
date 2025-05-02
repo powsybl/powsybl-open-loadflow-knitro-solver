@@ -17,8 +17,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Stream;
 
@@ -74,7 +74,6 @@ public class ResilientAcLoadFlowTest {
     void setUp() {
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
         parameters = new LoadFlowParameters()
-                .setUseReactiveLimits(false)
                 .setDistributedSlack(false);
     }
 
@@ -197,6 +196,238 @@ public class ResilientAcLoadFlowTest {
 
     @ParameterizedTest
     @MethodSource("provideNetworks")
+    void testResilienceWithThreeBusConfiguration(NetworkPair pair) {
+        String name = pair.baseFilename;
+
+        Network rknNetwork = pair.rknNetwork();
+        Network nrNetwork = pair.nrNetwork();
+
+        double rPU = 0.0;
+        double xPU = 1e-7;
+
+        ThreeBusPerturbation perturbation = getThreeBusConfiguration(nrNetwork);
+        applyThreeBusConfiguration(rknNetwork, perturbation, rPU, xPU);
+        applyThreeBusConfiguration(nrNetwork, perturbation, rPU, xPU);
+
+        // Newton-Raphson
+        configureSolver(NR);
+        for (Generator g : nrNetwork.getGenerators()){
+            System.out.println(g.getId() + g.getReactiveLimits().getMaxQ(1.0));
+        }
+        LoadFlowResult resultNR = loadFlowRunner.run(nrNetwork, parameters);
+        boolean isConvergedNR = resultNR.isFullyConverged();
+        for (Generator g : nrNetwork.getGenerators()){
+            System.out.println(g.getId() + g.getReactiveLimits().getMaxQ(1.0));
+        }
+        assertFalse(isConvergedNR, name + ": NR should not converge");
+
+        // Knitro Resilient
+        configureSolver(RKN);
+        LoadFlowResult resultRKN = loadFlowRunner.run(rknNetwork, parameters);
+        boolean isConvergedRKN = resultRKN.isFullyConverged();
+        assertTrue(isConvergedRKN, name + ": Knitro should converge");
+
+        writeXML(nrNetwork, name + "-ThreeBusConfig.xml");
+    }
+
+    private ThreeBusPerturbation getThreeBusConfiguration(Network network) {
+        String noGeneratorBusID = "";
+        String regulatingBusID = "";
+        String generatorID = "";
+        String lowImpedanceLineID = "";
+
+        List<Generator> generators;
+        List<Line> lowImpedanceLines;
+        List<Line> normalLines;
+
+        generators = network.getGeneratorStream()
+                .filter(Generator::isVoltageRegulatorOn)
+                .toList();
+
+        boolean hasRegulatingGenerator = true;
+        boolean hasGenerators;
+        boolean isLowImpedanceLine;
+
+        Terminal terminal11;
+        Terminal terminal12;
+        Terminal terminal21;
+        Terminal terminal22;
+        Terminal dummyT;
+
+        Bus noGeneratorBus;
+
+        String terminal11ID;
+        String terminal12ID;
+        String dummyS;
+
+        String terminal21ID;
+        String terminal22ID;
+
+        outerLoop :
+        for (Generator generator : generators) {
+            terminal11 = generator.getTerminal();
+            terminal11ID = terminal11.getBusBreakerView()
+                    .getBus()
+                    .getId();
+
+            lowImpedanceLines = terminal11.getBusBreakerView()
+                    .getBus()
+                    .getLineStream()
+                    .toList();
+
+            for (Line lowImpedanceLine : lowImpedanceLines) {
+                // Obtain the terminal at the other end of the line
+                terminal12 = lowImpedanceLine.getTerminal1();
+                terminal12ID = terminal12.getBusBreakerView()
+                        .getBus()
+                        .getId();
+
+                if (terminal12ID.equals(terminal11ID)) {
+                    terminal12 = lowImpedanceLine.getTerminal2();
+                    terminal12ID = terminal12.getBusBreakerView()
+                            .getBus()
+                            .getId();
+                }
+
+                // Check if this terminal is connected to a bus with no generators
+                hasGenerators = terminal12.getBusBreakerView()
+                        .getBus()
+                        .getGenerators()
+                        .iterator()
+                        .hasNext();
+
+                if (hasGenerators)
+                    continue;
+
+                noGeneratorBus = terminal12.getBusBreakerView()
+                        .getBus();
+                noGeneratorBusID = noGeneratorBus.getId();
+
+                // Get the related buses and their generators
+                normalLines = noGeneratorBus.getLineStream()
+                        .toList();
+
+
+                for (Line normalLine : normalLines) {
+                    // Get the two terminals of each line that is connected to the noGeneratorBus
+                    terminal21 = normalLine.getTerminal1();
+                    terminal21ID = terminal21.getBusBreakerView()
+                            .getBus()
+                            .getId();
+                    terminal22 = normalLine.getTerminal2();
+                    terminal22ID = terminal22.getBusBreakerView()
+                            .getBus()
+                            .getId();
+
+                    // terminal21 is connected to the noGeneratorBus
+                    if (terminal22ID.equals(noGeneratorBusID)) {
+                        dummyT = terminal22;
+                        dummyS = terminal22ID;
+
+                        terminal22 = terminal21;
+                        terminal22ID = terminal21ID;
+
+                        terminal21 = dummyT;
+                        terminal21ID = dummyS;
+                    }
+
+                    // Check that this line is not the same as lowImpedanceLine
+                    isLowImpedanceLine = generator.getTerminal()
+                            .getBusBreakerView()
+                            .getBus()
+                            .getId()
+                            .equals(terminal22ID);
+
+                    if (isLowImpedanceLine)
+                        continue;
+
+                    hasRegulatingGenerator = terminal22.getBusBreakerView()
+                            .getBus()
+                            .getGenerators()
+                            .iterator()
+                            .hasNext();
+
+                    if (!hasRegulatingGenerator) {
+                        generatorID = generator.getId();
+                        lowImpedanceLineID = lowImpedanceLine.getId();
+                        regulatingBusID = terminal22.getBusBreakerView()
+                                .getBus()
+                                .getId();
+                        break outerLoop;
+                    }
+                }
+            }
+        }
+
+        //assertTrue(hasFictitious, "No fictitious was found!");
+        assertFalse(hasRegulatingGenerator, "No match was found!");
+        return new ThreeBusPerturbation(noGeneratorBusID, regulatingBusID, generatorID, lowImpedanceLineID);
+    }
+
+    private void applyThreeBusConfiguration(Network network, ThreeBusPerturbation perturbation, double rPU, double xPU) {
+        String noGeneratorBusID = perturbation.noGeneratorBusID();
+        String regulatingBusID = perturbation.regulatingBusID();
+        String generatorID = perturbation.generatorID();
+        String lowImpedanceLineID = perturbation.lowImpedanceLineID();
+
+        Bus noGeneratorBus = network.getBusBreakerView()
+                .getBus(noGeneratorBusID);
+        Bus regulatingBus = network.getBusBreakerView()
+                .getBus(regulatingBusID);
+        Generator generator = network.getGenerator(generatorID);
+        Line lowImpedanceLine = network.getLine(lowImpedanceLineID);
+
+        VoltageLevel generatorBusVL = generator.getTerminal()
+                .getVoltageLevel();
+        VoltageLevel regulatingBusVL = regulatingBus
+                .getVoltageLevel();
+        VoltageLevel noGeneratorBusVL = noGeneratorBus.getVoltageLevel();
+
+        // Voltage mismatch
+        double alpha = 0.8;
+        double vNomGenerator = generatorBusVL.getNominalV();
+        double vNomRegulator = regulatingBusVL.getNominalV();
+        double vNomNoGenerator = noGeneratorBusVL.getNominalV();
+        double targetV = generator.getTargetV() / vNomRegulator * vNomGenerator * alpha;
+
+        // get Regulating terminal
+        Terminal regulatingTerminal;
+        Optional<? extends Terminal> regulatingTerminalOp =lowImpedanceLine.getTerminals()
+                .stream()
+                .filter(terminal -> terminal.getBusBreakerView()
+                        .getBus()
+                        .getId()
+                        .equals(noGeneratorBusID))
+                .findAny();
+        assertFalse(regulatingTerminalOp.isEmpty(), "Regulating bus' terminal not found");
+        regulatingTerminal = regulatingTerminalOp.get();
+
+        // Add a regulating generator on the regulating bus
+        noGeneratorBusVL.newGenerator()
+                .setId(noGeneratorBusID + "-" + "G-added")
+                .setBus(noGeneratorBusID)
+                .setMinP(0.0)
+                .setMaxP(generator.getMaxP())
+                .setTargetP(0.0)
+                .setTargetV(targetV)
+                .setVoltageRegulatorOn(true)
+                .setRegulatingTerminal(regulatingTerminal)
+                .add();
+
+        // Changing line parameters by setting their reactance and shunt admittance to 0
+        Line lineTarget = network.getLine(lowImpedanceLineID);
+        double r = rPU * vNomGenerator * vNomNoGenerator / BASE_100MVA;
+        double x = xPU * vNomGenerator * vNomNoGenerator / BASE_100MVA;
+        lineTarget.setR(r)
+                .setX(x)
+                .setG1(0.0)
+                .setB1(0.0)
+                .setG2(0.0)
+                .setB2(0.0);
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideNetworks")
     void testResilienceWithLowImpedanceLineOnVariousI3ENetworks(NetworkPair pair) {
         String name = pair.baseFilename();
 
@@ -206,9 +437,9 @@ public class ResilientAcLoadFlowTest {
         double rPU = 0.0;
         double xPU = 1e-7;
 
-        List<String> targets = getLowImpedanceLineToChange(nrNetwork);
-        applyLowImpedanceLineChanges(rknNetwork, targets, rPU, xPU);
-        applyLowImpedanceLineChanges(nrNetwork, targets, rPU, xPU);
+        LowImpedancePerturbation perturbation = getLowImpedanceLineToChange(nrNetwork);
+        applyLowImpedanceLineChanges(rknNetwork, perturbation, rPU, xPU);
+        applyLowImpedanceLineChanges(nrNetwork, perturbation, rPU, xPU);
 
         // Newton-Raphson
         configureSolver(NR);
@@ -221,19 +452,23 @@ public class ResilientAcLoadFlowTest {
         LoadFlowResult resultRKN = loadFlowRunner.run(rknNetwork, parameters);
         boolean isConvergedRKN = resultRKN.isFullyConverged();
         assertTrue(isConvergedRKN, name + ": Knitro should converge");
+
+        writeXML(nrNetwork, name + "-lil-test.xml");
     }
 
-    private List<String> getLowImpedanceLineToChange(Network network) {
+    private LowImpedancePerturbation getLowImpedanceLineToChange(Network network) {
         String targetBusID;
         String connectedBusID;
         String targetGeneratorID;
         String targetLineID;
 
         //Selecting a random generator from network
-        Generator gen = network.getGeneratorStream()
+        Optional<Generator> genOp = network.getGeneratorStream()
                 .filter(Generator::isVoltageRegulatorOn)
-                .findAny()
-                .get();
+                .findAny();
+        assertFalse(genOp.isEmpty(), "No Generator was found in the network.");
+
+        Generator gen = genOp.get();
         targetGeneratorID = gen.getId();
 
         //The bus associated with the target generator
@@ -263,17 +498,14 @@ public class ResilientAcLoadFlowTest {
                     .getId();
         }
 
-        //Choosing a random load for total balance if needed
-        String loadID = network.getLoads().iterator().next().getId();
-
-        return Arrays.asList(targetGeneratorID, targetBusID, connectedBusID, targetLineID, loadID);
+        return new LowImpedancePerturbation(targetGeneratorID, targetBusID, connectedBusID, targetLineID);
     }
 
-    private void applyLowImpedanceLineChanges(Network network, List<String> targets, double rPU, double xPU) {
-        String targetGeneratorID = targets.get(0);
-        String targetBusID = targets.get(1);
-        String connectedBusID = targets.get(2);
-        String targetLineID = targets.get(3);
+    private void applyLowImpedanceLineChanges(Network network, LowImpedancePerturbation perturbation, double rPU, double xPU) {
+        String targetGeneratorID = perturbation.targetGeneratorID();
+        String targetBusID = perturbation.targetBusID();
+        String connectedBusID = perturbation.connectedBusID();
+        String targetLineID = perturbation.targetLineID();
 
         Bus connectedBus = network.getBusBreakerView().getBus(connectedBusID);
         Generator targetGenerator = network.getGenerator(targetGeneratorID);
@@ -287,7 +519,7 @@ public class ResilientAcLoadFlowTest {
         double alpha = 0.8;
         double vNomConnected = connectedVL.getNominalV();
         double vNomTarget = targetVL.getNominalV();
-        double val = targetGenerator.getTargetV() / vNomTarget * vNomConnected * alpha;
+        double targetV = targetGenerator.getTargetV() / vNomTarget * vNomConnected * alpha;
 
         //adding the connected generator or modifying preexisting one
         boolean hasGenerator = connectedBus
@@ -296,7 +528,7 @@ public class ResilientAcLoadFlowTest {
                 .hasNext();
         if (hasGenerator) {
             connectedBus.getGeneratorStream()
-                    .forEach(gen -> gen.setTargetV(val)
+                    .forEach(gen -> gen.setTargetV(targetV)
                             .setVoltageRegulatorOn(true));
         } else {
             connectedVL.newGenerator()
@@ -305,13 +537,14 @@ public class ResilientAcLoadFlowTest {
                     .setMinP(0.0)
                     .setMaxP(targetGenerator.getMaxP())
                     .setTargetP(0.0)
-                    .setTargetV(val)
+                    .setTargetV(targetV)
                     .setVoltageRegulatorOn(true)
                     .add();
         }
 
         //Changing line parameters by setting their reactance and shunt admittance to 0
         Line lineTarget = network.getLine(targetLineID);
+
         double r = rPU * vNomConnected * vNomTarget / BASE_100MVA;
         double x = xPU * vNomConnected * vNomTarget / BASE_100MVA;
         lineTarget.setR(r)
@@ -337,5 +570,17 @@ public class ResilientAcLoadFlowTest {
     }
 
     record NetworkPair(Network rknNetwork, Network nrNetwork, String baseFilename) {
+    }
+
+    record LowImpedancePerturbation(String targetGeneratorID,
+                                    String targetBusID,
+                                    String connectedBusID,
+                                    String targetLineID) {
+    }
+
+    record ThreeBusPerturbation(String noGeneratorBusID,
+                               String regulatingBusID,
+                               String generatorID,
+                               String lowImpedanceLineID) {
     }
 }
