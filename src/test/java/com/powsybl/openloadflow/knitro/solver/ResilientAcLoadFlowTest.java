@@ -562,7 +562,7 @@ public class ResilientAcLoadFlowTest {
     }
 
     @Test
-    void testConvergenceOnTYNDPData() {
+    void testConvergenceOnTyndpData() {
         Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, "CGM_TYNDP22.xiidm");
         Network nrNetwork = Network.read(fileName).getNetwork();
         Network rknNetwork = Network.read(fileName).getNetwork();
