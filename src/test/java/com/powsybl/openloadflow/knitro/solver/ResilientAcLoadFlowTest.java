@@ -1,6 +1,8 @@
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.ieeecdf.converter.IeeeCdfNetworkFactory;
+import com.powsybl.iidm.modification.SetGeneratorToLocalRegulation;
+import com.powsybl.iidm.modification.topology.RemoveFeederBay;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.serde.XMLExporter;
 import com.powsybl.loadflow.LoadFlow;
@@ -33,6 +35,8 @@ public class ResilientAcLoadFlowTest {
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
     private static final String CONFIDENTIAL_DATA_DIR = "../../data_confidential/";
+    private static final String CONFIDENTIAL_DATA_DIR_BUS_BREAKER = "../../data_confidential_bus_breaker/";
+    private static final String HU_FILENAME_TEST_INSTANCE = "HU/20220226T2330Z_1D_002/init.xiidm";
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
 
@@ -45,13 +49,12 @@ public class ResilientAcLoadFlowTest {
         );
     }
 
-    static Stream<NetworkPair> provideRealNetworkData() {
-        Path baseDir = Path.of(CONFIDENTIAL_DATA_DIR, "HU");
+    static Stream<NetworkPair> provideHUNetworks(String dir) {
+        Path baseDir = Path.of(dir, "HU");
         String initFileName = "init.xiidm";
 
-        try {
-            List<NetworkPair> cases = Files.list(baseDir)
-                    .filter(Files::isDirectory)
+        try (Stream<Path> cases = Files.list(baseDir)) {
+            List<NetworkPair> networkPairs = cases.filter(Files::isDirectory)
                     .map(subDir -> subDir.resolve(initFileName))
                     .filter(Files::exists)
                     .map(initPath -> {
@@ -61,12 +64,19 @@ public class ResilientAcLoadFlowTest {
                         return new NetworkPair(rknNetwork, nrNetwork, name);
                     })
                     .toList();
-
-            return cases.stream();
+            return networkPairs.stream();
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to load HU real network cases", e);
         }
+    }
+
+    static Stream<NetworkPair> provideNodeBreakerHUNetworks() {
+        return provideHUNetworks(CONFIDENTIAL_DATA_DIR);
+    }
+
+    static Stream<NetworkPair> provideBusBreakerHUNetworks() {
+        return provideHUNetworks(CONFIDENTIAL_DATA_DIR_BUS_BREAKER);
     }
 
     static Stream<VoltagePerturbation> getAllVoltagePerturbationsOnHUNetworks() {
@@ -81,7 +91,7 @@ public class ResilientAcLoadFlowTest {
         List<Line> lowImpedanceLines;
         List<Line> normalLines;
 
-        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, "HU/20220226T2330Z_1D_002/init.xiidm");
+        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, HU_FILENAME_TEST_INSTANCE);
         Network network = Network.read(fileName).getNetwork();
         generators = network.getGeneratorStream()
                 .toList();
@@ -192,6 +202,47 @@ public class ResilientAcLoadFlowTest {
         return perturbations.stream();
     }
 
+    static Stream<ReactivePowerPerturbation> getAllReactivePowerPerturbationsOnHUNetworks() {
+        List<ReactivePowerPerturbation> perturbations = new ArrayList<>();
+
+        String targetBusID;
+        String targetGeneratorID;
+        String targetShuntID;
+
+        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR_BUS_BREAKER, HU_FILENAME_TEST_INSTANCE);
+        Network network = Network.read(fileName).getNetwork();
+
+        List<Bus> networkBuses = network.getBusBreakerView()
+                .getBusStream()
+                .toList();
+
+        boolean hasGenerators;
+        boolean hasShunts;
+
+        for (Bus bus : networkBuses) {
+            hasGenerators = bus.getGenerators()
+                    .iterator()
+                    .hasNext();
+            hasShunts = bus.getShuntCompensatorStream()
+                    .iterator()
+                    .hasNext();
+            if (!hasGenerators || !hasShunts) {
+                continue;
+            }
+            for (Generator generator : bus.getGenerators()) {
+                for (ShuntCompensator shuntCompensator : bus.getShuntCompensators()) {
+                    targetBusID = bus.getId();
+                    targetGeneratorID = generator.getId();
+                    targetShuntID = shuntCompensator.getId();
+                    perturbations.add(new ReactivePowerPerturbation(targetBusID, targetGeneratorID, targetShuntID));
+                }
+            }
+        }
+
+        assertFalse(perturbations.isEmpty(), "No match was found");
+        return perturbations.stream();
+    }
+
     @BeforeEach
     void setUp() {
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
@@ -218,6 +269,16 @@ public class ResilientAcLoadFlowTest {
         properties.put(XMLExporter.VERSION, "1.12");
         Path path = Path.of(DEFAULT_OUTPUT_DIR, name);
         network.write("XIIDM", properties, path);
+    }
+
+    private void exportAsBusBreakerTopology(Path initPath, Path endPath) {
+        Network network = Network.read(initPath).getNetwork();
+        for (VoltageLevel vl : network.getVoltageLevels()) {
+            vl.convertToTopology(TopologyKind.BUS_BREAKER);
+        }
+        Properties exportParameters = new Properties();
+        exportParameters.put(XMLExporter.TOPOLOGY_LEVEL, "BUS_BREAKER");
+        network.write("XIIDM", exportParameters, endPath);
     }
 
     private void checkElectricalQuantities(Network n1, Network n2, double tolerance) {
@@ -336,9 +397,120 @@ public class ResilientAcLoadFlowTest {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
     }
 
-    @ParameterizedTest(name = "Test resilience of RKN to an active power perturbation on IEEE networks: {0}")
-    @MethodSource("provideRealNetworkData")
-    void testActivePowerPerturbationOnVariousI3ENetworks(NetworkPair pair) {
+    @ParameterizedTest(name = "Test resilience of RKN to all possible reactive power perturbations on HU networks: {0}")
+    @MethodSource("getAllReactivePowerPerturbationsOnHUNetworks")
+    void testAllReactivePowerPerturbationsOnHUData(ReactivePowerPerturbation perturbation) {
+        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR_BUS_BREAKER, HU_FILENAME_TEST_INSTANCE);
+
+        Network nrNetwork = Network.read(fileName).getNetwork();
+        Network rknNetwork = Network.read(fileName).getNetwork();
+
+        // Target reactive power injection by the shunt section in VArs
+        double targetQ = 4e8;
+
+        applyReactivePowerPerturbation(nrNetwork, perturbation, targetQ);
+        applyReactivePowerPerturbation(rknNetwork, perturbation, targetQ);
+
+        compareResilience(rknNetwork, nrNetwork, "HU", null);
+    }
+
+    @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on HU networks: {0}")
+    @MethodSource("provideBusBreakerHUNetworks")
+    void testReactivePowerPerturbationOnHUData(NetworkPair pair) {
+        String baseFilename = pair.baseFilename;
+
+        Network rknNetwork = pair.rknNetwork();
+        Network nrNetwork = pair.nrNetwork();
+
+        // Target reactive power injection by the shunt section in VArs
+        double targetQ = 1e9;
+
+        ReactivePowerPerturbation perturbation = getReactivePowerPerturbation(nrNetwork);
+
+        applyReactivePowerPerturbation(rknNetwork, perturbation, targetQ);
+        applyReactivePowerPerturbation(nrNetwork, perturbation, targetQ);
+
+        compareResilience(rknNetwork, nrNetwork, baseFilename, null);
+    }
+
+    private ReactivePowerPerturbation getReactivePowerPerturbation(Network network) {
+        String targetBusID = "";
+        String targetGeneratorID = "";
+        String targetShuntID = "";
+
+        List<Bus> networkBuses = network.getBusBreakerView()
+                .getBusStream()
+                .toList();
+
+        boolean hasGenerators = false;
+        boolean hasShunts = false;
+
+        for (Bus bus : networkBuses) {
+            hasGenerators = bus.getGenerators()
+                    .iterator()
+                    .hasNext();
+            hasShunts = bus.getShuntCompensatorStream()
+                    .iterator()
+                    .hasNext();
+            if (hasGenerators && hasShunts) {
+                targetBusID = bus.getId();
+                targetGeneratorID = bus.getGenerators()
+                        .iterator()
+                        .next()
+                        .getId();
+                targetShuntID = bus.getShuntCompensators()
+                        .iterator()
+                        .next()
+                        .getId();
+                break;
+            }
+        }
+
+        assertTrue(hasGenerators && hasShunts, "No match was found");
+        return new ReactivePowerPerturbation(targetBusID, targetGeneratorID, targetShuntID);
+    }
+
+    private void applyReactivePowerPerturbation(Network network, ReactivePowerPerturbation perturbation, double targetQ) {
+        String targetBusID = perturbation.targetBusID;
+        String targetGeneratorID = perturbation.targetGeneratorID;
+        String targetShuntID = perturbation.targetShuntID;
+
+        Bus targetBus = network.getBusBreakerView()
+                .getBus(targetBusID);
+        Generator targetGenerator = network.getGenerator(targetGeneratorID);
+
+        // Make the generator control the voltage locally
+        SetGeneratorToLocalRegulation generatorModification = new SetGeneratorToLocalRegulation(targetGeneratorID);
+        generatorModification.apply(network);
+
+        // Get the susceptance value to inject targetQ of reactive power
+        double generatorVoltage = targetGenerator.getTargetV();
+        double targetB = targetQ / Math.pow(generatorVoltage * 1e3, 2);
+
+        VoltageLevel targetVL = targetBus.getVoltageLevel();
+
+        // Removing the old shunt compensator
+        RemoveFeederBay removedShuntCompensator = new RemoveFeederBay(targetShuntID);
+        removedShuntCompensator.apply(network);
+
+        // Creating the new shunt with the modified parameters
+        ShuntCompensatorAdder modifiedShuntAdder = targetVL.newShuntCompensator()
+                .setId(targetShuntID + "-modified")
+                .setName(targetShuntID + "-modified")
+                .setBus(targetBusID)
+                .setSectionCount(1);
+
+        modifiedShuntAdder.newLinearModel()
+                .setMaximumSectionCount(1)
+                .setBPerSection(targetB)
+                .add();
+
+        modifiedShuntAdder.add();
+    }
+
+    @ParameterizedTest(name = "Test resilience of RKN to an active power perturbation on HU networks: {0}")
+    @MethodSource("provideNodeBreakerHUNetworks")
+    void testActivePowerPerturbationOnHUData(NetworkPair pair) {
         String baseFilename = pair.baseFilename;
 
         Network rknNetwork = pair.rknNetwork();
@@ -403,7 +575,7 @@ public class ResilientAcLoadFlowTest {
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on HU networks: {0}")
-    @MethodSource("provideRealNetworkData")
+    @MethodSource("provideNodeBreakerHUNetworks")
     void testVoltagePerturbationOnHUData(NetworkPair pair) {
         String baseFilename = pair.baseFilename;
 
@@ -627,7 +799,7 @@ public class ResilientAcLoadFlowTest {
     }
 
     @ParameterizedTest(name = "Test HU networks convergence: {0}")
-    @MethodSource("provideRealNetworkData")
+    @MethodSource("provideNodeBreakerHUNetworks")
     void testConvergenceOnHUData(NetworkPair pair) {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
     }
@@ -640,6 +812,33 @@ public class ResilientAcLoadFlowTest {
         compareSolvers(rknNetwork, nrNetwork, null);
     }
 
+    @Test
+    void convertHUDataToBusBreakerTopology() {
+        String dataSource = "HU";
+        Path initRoot = Path.of(CONFIDENTIAL_DATA_DIR, dataSource);
+        Path endRoot = Path.of(CONFIDENTIAL_DATA_DIR_BUS_BREAKER, dataSource);
+
+        String initFileName = "init.xiidm";
+
+        try (Stream<Path> pathStream = Files.list(initRoot)) {
+            pathStream.filter(Files::isDirectory)
+                    .map(subDir -> subDir.resolve(initFileName))
+                    .filter(Files::exists)
+                    .forEach(initFile -> {
+                        try {
+                            Path relativePath = initRoot.relativize(initFile);
+                            Path outputFile = endRoot.resolve(relativePath);
+                            Files.createDirectories(outputFile.getParent());
+                            exportAsBusBreakerTopology(initFile, outputFile);
+                        } catch (Exception e) {
+                            throw new RuntimeException("Failed to convert the files", e);
+                        }
+                    });
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load HU real network cases", e);
+        }
+    }
+
     record NetworkPair(Network rknNetwork, Network nrNetwork, String baseFilename) {
     }
 
@@ -647,5 +846,11 @@ public class ResilientAcLoadFlowTest {
                                String regulatingBusID,
                                String generatorID,
                                String lowImpedanceLineID) {
+    }
+
+    record ReactivePowerPerturbation(String targetBusID,
+                                     String targetGeneratorID,
+                                     String targetShuntID) {
+
     }
 }
