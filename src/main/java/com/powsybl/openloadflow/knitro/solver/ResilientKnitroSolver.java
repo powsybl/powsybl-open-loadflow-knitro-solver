@@ -227,6 +227,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_GRADOPT, knitroParameters.getGradientComputationMode());
         solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
+        solver.setParam(KNConstants.KN_PARAM_ALG, 2);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
@@ -341,17 +342,82 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     }
 
     /**
-     * Enum representing possible status codes returned by Knitro,
-     * grouped by ranges and associated with a corresponding AcSolverStatus.
+     * Enum representing specific status codes returned by the Knitro solver,
+     * grouped either individually or by ranges, and mapped to corresponding {@link AcSolverStatus} values.
+     * This mapping allows a more fine-grained interpretation of solver termination reasons,
+     * distinguishing between convergence, infeasibility, modeling errors, evaluation issues, etc...
      */
     public enum KnitroStatus {
 
+        /**
+         * Successful convergence to a local optimum.
+         */
         CONVERGED_TO_LOCAL_OPTIMUM(0, 0, AcSolverStatus.CONVERGED),
+
+        /**
+         * Converged to a feasible but not necessarily optimal solution.
+         */
         CONVERGED_TO_FEASIBLE_APPROXIMATE_SOLUTION(-199, -100, AcSolverStatus.CONVERGED),
+
+        /**
+         * Solver terminated at an infeasible point.
+         */
         TERMINATED_AT_INFEASIBLE_POINT(-299, -200, AcSolverStatus.SOLVER_FAILED),
+
+        /**
+         * The problem was detected as unbounded.
+         */
         PROBLEM_UNBOUNDED(-399, -300, AcSolverStatus.SOLVER_FAILED),
+
+        /**
+         * Optimization stopped due to reaching iteration or time limits.
+         */
         TERMINATED_DUE_TO_PRE_DEFINED_LIMIT(-499, -400, AcSolverStatus.MAX_ITERATION_REACHED),
-        INPUT_OR_NON_STANDARD_ERROR(-599, -500, AcSolverStatus.SOLVER_FAILED);
+
+        /**
+         * Failure in a user-defined callback function.
+         */
+        CALLBACK_ERROR(-500, -500, AcSolverStatus.SOLVER_FAILED),
+
+        /**
+         * Internal LP solver failure in active-set method.
+         */
+        LP_SOLVER_ERROR(-501, -501, AcSolverStatus.SOLVER_FAILED),
+
+        /**
+         * Evaluation failure (e.g., division by zero or invalid sqrt).
+         */
+        EVALUATION_ERROR(-502, -502, AcSolverStatus.SOLVER_FAILED),
+
+        /**
+         * Insufficient memory to solve the problem.
+         */
+        OUT_OF_MEMORY(-503, -503, AcSolverStatus.SOLVER_FAILED),
+
+        /**
+         * Solver was stopped manually by the user.
+         */
+        USER_TERMINATION(-504, -504, AcSolverStatus.SOLVER_FAILED),
+
+        /**
+         * File open error when trying to read input.
+         */
+        INPUT_FILE_ERROR(-505, -505, AcSolverStatus.SOLVER_FAILED),
+
+        /**
+         * Modeling error: invalid variable/constraint setup.
+         */
+        MODEL_DEFINITION_ERROR(-530, -506, AcSolverStatus.SOLVER_FAILED),
+
+        /**
+         * Internal Knitro error – contact support.
+         */
+        INTERNAL_ERROR(-600, -600, AcSolverStatus.SOLVER_FAILED),
+
+        /**
+         * Fallback for unknown status codes.
+         */
+        UNKNOWN_STATUS(Integer.MIN_VALUE, Integer.MAX_VALUE, AcSolverStatus.SOLVER_FAILED);
 
         private final Range<Integer> codeRange;
         private final AcSolverStatus mappedStatus;
@@ -372,18 +438,17 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
          * Returns the KnitroStatus corresponding to the given status code.
          *
          * @param statusCode the status code returned by Knitro
-         * @return the matching KnitroStatus enum constant
-         * @throws IllegalArgumentException if the status code does not match any known range
+         * @return the matching KnitroStatus enum constant, or UNKNOWN_STATUS if unknown
          */
         public static KnitroStatus fromStatusCode(int statusCode) {
             return Arrays.stream(KnitroStatus.values())
                     .filter(status -> status.codeRange.contains(statusCode))
                     .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Unknown Knitro status code: " + statusCode));
+                    .orElse(UNKNOWN_STATUS);
         }
 
         /**
-         * Returns the AcSolverStatus associated with this KnitroStatus.
+         * Returns the {@link AcSolverStatus} associated with this KnitroStatus.
          *
          * @return the corresponding AcSolverStatus
          */
