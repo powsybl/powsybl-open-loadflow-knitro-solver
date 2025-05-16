@@ -534,7 +534,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             setObjectiveLinearPart(linIndexes, linCoefs);
 
             // =============== Callbacks and Jacobian ===============
-            setObjEvalCallback(new CallbackEvalFC(activeConstraints, nonlinearConstraintIndexes));
+            setObjEvalCallback(new CallbackEvalFC(this, activeConstraints, nonlinearConstraintIndexes));
 
             List<Integer> jacCstDense = new ArrayList<>();
             List<Integer> jacVarDense = new ArrayList<>();
@@ -717,9 +717,12 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
             private final List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve;
             private final List<Integer> nonLinearConstraintIds;
+            private final ResilientKnitroProblem problemInstance;
 
-            private CallbackEvalFC(List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+
+            private CallbackEvalFC(ResilientKnitroProblem problemInstance, List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
                                    List<Integer> nonLinearConstraintIds) {
+                this.problemInstance = problemInstance;
                 this.sortedEquationsToSolve = sortedEquationsToSolve;
                 this.nonLinearConstraintIds = nonLinearConstraintIds;
             }
@@ -758,6 +761,13 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                         if (term.isActive()) {
                             constraintValue += term.eval();
                         }
+                    }
+
+                    int slackIndexBase = problemInstance.getSlackIndexBase(type, equationId);
+                    if (slackIndexBase >= 0) {
+                        double sm = x.get(slackIndexBase);        // negative slack
+                        double sp = x.get(slackIndexBase + 1);    // positive slack
+                        constraintValue += (sm - sp);             // add slack contribution
                     }
 
                     try {
