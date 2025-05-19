@@ -43,8 +43,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
     // Penalty weights in the objective function
     private final double wK = 1.0;
-    private final double wP = 10.0;
-    private final double wQ = 10.0;
+    private final double wP = 100.0;
+    private final double wQ = 50.0;
     private final double wV = 1.0;
 
     // Number of Load Flows (LF) variables in the system
@@ -227,7 +227,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_GRADOPT, knitroParameters.getGradientComputationMode());
         solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
-        solver.setParam(KNConstants.KN_PARAM_ALG, 2);
+        //solver.setParam(KNConstants.KN_PARAM_ALG, 2);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
@@ -544,9 +544,10 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             List<Double> linCoefs = new ArrayList<>();
 
             // Slack penalty terms: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
-            addSlackObjectiveTerms(numPEquations, slackPStartIndex, wK * wP, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numQEquations, slackQStartIndex, wK * wQ, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numVEquations, slackVStartIndex, wV, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            double lambda = 2.0;
+            addSlackObjectiveTerms(numPEquations, slackPStartIndex, wK * wP, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numQEquations, slackQStartIndex, wK * wQ, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numVEquations, slackVStartIndex, wV, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
 
             setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
             setObjectiveLinearPart(linIndexes, linCoefs);
@@ -572,6 +573,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 int numEquations,
                 int slackStartIdx,
                 double weight,
+                double lambda,
                 List<Integer> quadRows,
                 List<Integer> quadCols,
                 List<Double> quadCoefs,
@@ -582,22 +584,25 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 int idxSm = slackStartIdx + 2 * i;
                 int idxSp = slackStartIdx + 2 * i + 1;
 
-                // Quadratic terms
+                // Quadratic terms: weight * (sp^2 + sm^2 - 2 * sp * sm)
                 quadRows.add(idxSp);
                 quadCols.add(idxSp);
                 quadCoefs.add(weight);
+
                 quadRows.add(idxSm);
                 quadCols.add(idxSm);
                 quadCoefs.add(weight);
+
                 quadRows.add(idxSp);
                 quadCols.add(idxSm);
                 quadCoefs.add(-2 * weight);
 
-                // Linear terms
+                // Linear terms: lambda * (sp + sm)
                 linIndexes.add(idxSp);
-                linCoefs.add(weight);
+                linCoefs.add(lambda);
+
                 linIndexes.add(idxSm);
-                linCoefs.add(weight);
+                linCoefs.add(lambda);
             }
         }
 
