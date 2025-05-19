@@ -322,8 +322,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     }
 
     private void logSlackValues(String type, int startIndex, int count, List<Double> x) {
-        final double THRESHOLD = 1e-4;  // Threshold for significant slack values
-        final double SBASE = 100.0;     // Base power in MVA
+        final double threshold = 1e-4;  // Threshold for significant slack values
+        final double sbase = 100.0;     // Base power in MVA
 
         LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
 
@@ -333,11 +333,11 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             double epsilon = sp - sm;
             double absEpsilon = Math.abs(epsilon);
 
-            if (absEpsilon > THRESHOLD) {
+            if (absEpsilon > threshold) {
                 String interpretation;
                 switch (type) {
-                    case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * SBASE);
-                    case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * SBASE);
+                    case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * sbase);
+                    case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * sbase);
                     case "V" -> interpretation = String.format("ΔV = %.4f p.u.", epsilon);
                     default -> interpretation = String.format("Δ = %.4f p.u.", epsilon);
                 }
@@ -742,9 +742,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             private final List<Integer> nonLinearConstraintIds;
             private final ResilientKnitroProblem problemInstance;
 
-
-            private CallbackEvalFC(ResilientKnitroProblem problemInstance, List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
-                                   List<Integer> nonLinearConstraintIds) {
+            private CallbackEvalFC(ResilientKnitroProblem problemInstance, List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> nonLinearConstraintIds) {
                 this.problemInstance = problemInstance;
                 this.sortedEquationsToSolve = sortedEquationsToSolve;
                 this.nonLinearConstraintIds = nonLinearConstraintIds;
@@ -790,7 +788,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     if (slackIndexBase >= 0) {
                         double sm = x.get(slackIndexBase);        // negative slack
                         double sp = x.get(slackIndexBase + 1);    // positive slack
-                        constraintValue += (sm - sp);             // add slack contribution
+                        constraintValue += sm - sp;               // add slack contribution
                     }
 
                     try {
