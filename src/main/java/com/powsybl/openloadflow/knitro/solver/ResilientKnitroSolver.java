@@ -43,8 +43,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
     // Penalty weights in the objective function
     private final double wK = 1.0;
-    private final double wP = 100.0;
-    private final double wQ = 100.0;
+    private final double wP = 10.0;
+    private final double wQ = 10.0;
     private final double wV = 1.0;
 
     // Number of Load Flows (LF) variables in the system
@@ -283,9 +283,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             //}
 
             // ========== Slack Logging ==========
-            //logSlackValues("P", slackPStartIndex, numPEquations, x);
-            //logSlackValues("Q", slackQStartIndex, numQEquations, x);
-            //logSlackValues("V", slackVStartIndex, numVEquations, x);
+            logSlackValues("P", slackPStartIndex, numPEquations, x);
+            logSlackValues("Q", slackQStartIndex, numQEquations, x);
+            logSlackValues("V", slackVStartIndex, numVEquations, x);
 
             // ========== Penalty Computation ==========
             double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wK * wP);
@@ -322,11 +322,29 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     }
 
     private void logSlackValues(String type, int startIndex, int count, List<Double> x) {
-        LOGGER.debug("==== Slack {} ====", type);
+        final double THRESHOLD = 1e-4;  // Threshold for significant slack values
+        final double SBASE = 100.0;     // Base power in MVA
+
+        LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
+
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
-            LOGGER.debug("Slack {}[{}] -> Sm = {}, Sp = {}", type, i, sm, sp);
+            double epsilon = sp - sm;
+            double absEpsilon = Math.abs(epsilon);
+
+            if (absEpsilon > THRESHOLD) {
+                String interpretation;
+                switch (type) {
+                    case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * SBASE);
+                    case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * SBASE);
+                    case "V" -> interpretation = String.format("ΔV = %.4f p.u.", epsilon);
+                    default -> interpretation = String.format("Δ = %.4f p.u.", epsilon);
+                }
+
+                String msg = String.format("Slack %s[%d] → Sm = %.4f, Sp = %.4f → %s", type, i, sm, sp, interpretation);
+                LOGGER.info(msg);
+            }
         }
     }
 
