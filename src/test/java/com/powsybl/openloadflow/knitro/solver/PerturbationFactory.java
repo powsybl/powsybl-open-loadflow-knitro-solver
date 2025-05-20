@@ -26,7 +26,7 @@ public final class PerturbationFactory {
     /**
      * Finds all possible voltage perturbations of a network until a maximum number is reached.
      *
-     * @param network The network to perturb.
+     * @param network          The network to perturb.
      * @param maxPerturbations The maximum possible number of perturbations to extract.
      * @return ALL possible voltage perturbations.
      */
@@ -110,11 +110,11 @@ public final class PerturbationFactory {
     /**
      * Creates a voltage perturbation of a given network.
      *
-     * @param network The network to perturb.
+     * @param network      The network to perturb.
      * @param perturbation The perturbation to apply.
-     * @param rPU The per-unit resistance of the modified line.
-     * @param xPU The per-unit reactance of the modified line.
-     * @param alpha The voltage mismatch to apply on the regulating generator.
+     * @param rPU          The per-unit resistance of the modified line.
+     * @param xPU          The per-unit reactance of the modified line.
+     * @param alpha        The voltage mismatch to apply on the regulating generator.
      */
     public static void applyVoltagePerturbation(Network network, VoltagePerturbation perturbation, double rPU, double xPU, double alpha) {
         String noGeneratorBusID = perturbation.noGeneratorBusID();
@@ -197,9 +197,9 @@ public final class PerturbationFactory {
     /**
      * Creates an active power perturbation of a given network.
      *
-     * @param network The network to perturb.
+     * @param network      The network to perturb.
      * @param targetLoadID The ID of the load to perturb.
-     * @param alpha The active load mismatch to apply on the target load.
+     * @param alpha        The active load mismatch to apply on the target load.
      */
     public static void applyActivePowerPerturbation(Network network, String targetLoadID, double alpha) {
         double totalActiveLoad = network.getLoadStream()
@@ -214,7 +214,7 @@ public final class PerturbationFactory {
     /**
      * Finds all possible reactive power perturbations of a network until a maximum number is reached.
      *
-     * @param network The network to perturb.
+     * @param network          The network to perturb.
      * @param maxPerturbations The maximum possible number of perturbations to extract.
      * @return ALL possible reactive power perturbations.
      */
@@ -262,9 +262,9 @@ public final class PerturbationFactory {
     /**
      * Creates a reactive power perturbation of a given network.
      *
-     * @param network The network to perturb.
+     * @param network      The network to perturb.
      * @param perturbation The perturbation to apply.
-     * @param targetQ The target reactive power to inject.
+     * @param targetQ      The target reactive power to inject.
      */
     public static void applyReactivePowerPerturbation(Network network, ReactivePowerPerturbation perturbation, double targetQ) {
         String targetBusID = perturbation.targetBusID;
@@ -362,14 +362,14 @@ public final class PerturbationFactory {
     }
 
     public record VoltagePerturbation(String noGeneratorBusID,
-                               String regulatingBusID,
-                               String generatorID,
-                               String lowImpedanceLineID) {
+                                      String regulatingBusID,
+                                      String generatorID,
+                                      String lowImpedanceLineID) {
     }
 
     public record ReactivePowerPerturbation(String targetBusID,
-                                     String targetGeneratorID,
-                                     String targetShuntID) {
+                                            String targetGeneratorID,
+                                            String targetShuntID) {
     }
 
 }
