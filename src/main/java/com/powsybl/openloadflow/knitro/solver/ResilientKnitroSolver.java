@@ -332,6 +332,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             double sp = x.get(startIndex + 2 * i + 1);
             double epsilon = sp - sm;
             double absEpsilon = Math.abs(epsilon);
+            String name = getSlackVariableBusName(i, type);
 
             if (absEpsilon > threshold) {
                 String interpretation;
@@ -342,10 +343,35 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     default -> interpretation = String.format("Δ = %.4f p.u.", epsilon);
                 }
 
-                String msg = String.format("Slack %s[%d] → Sm = %.4f, Sp = %.4f → %s", type, i, sm, sp, interpretation);
+                String msg = String.format("Slack %s[ %s ] → Sm = %.4f, Sp = %.4f → %s", type, name, sm, sp, interpretation);
                 LOGGER.info(msg);
             }
         }
+    }
+
+    private String getSlackVariableBusName(Integer index, String type) {
+        Set<Map.Entry<Integer, Integer>> equationSet = switch (type) {
+            case "P" -> pEquationLocalIds.entrySet();
+            case "Q" -> qEquationLocalIds.entrySet();
+            case "V" -> vEquationLocalIds.entrySet();
+            default -> throw new IllegalStateException("Unexpected variable type: " + type);
+        };
+
+        Optional<Integer> varIndexOptional = equationSet.stream()
+                .filter(entry -> index.equals(entry.getValue()))
+                .map(Map.Entry::getKey)
+                .findAny();
+
+        int varIndex;
+        if (varIndexOptional.isPresent()) {
+            varIndex = varIndexOptional.get();
+        } else {
+            throw new RuntimeException("Variable index associated with slack variable " + type + "was not found");
+        }
+
+        LfBus bus = network.getBus(equationSystem.getIndex().getSortedEquationsToSolve().get(varIndex).getElementNum());
+
+        return bus.getId();
     }
 
     private double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight) {
