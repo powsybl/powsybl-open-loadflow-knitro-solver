@@ -209,6 +209,14 @@ public class ResilientAcLoadFlowUnitTest {
     }
 
     @Test
+    void testConvergenceOnESData() {
+        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, "20250830T1330Z_1D_ES_006.xiidm");
+        Network nrNetwork = Network.read(fileName).getNetwork();
+        Network rknNetwork = Network.read(fileName).getNetwork();
+        compareSolvers(rknNetwork, nrNetwork, null);
+    }
+
+    @Test
     void testConvergenceOnTyndpData() {
         Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, "CGM_TYNDP22.xiidm");
         Network nrNetwork = Network.read(fileName).getNetwork();

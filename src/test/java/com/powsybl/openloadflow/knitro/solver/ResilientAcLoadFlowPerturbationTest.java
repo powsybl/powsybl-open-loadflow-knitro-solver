@@ -79,42 +79,25 @@ public class ResilientAcLoadFlowPerturbationTest {
         }
     }
 
-    @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on HU networks: {0}")
-    @MethodSource("provideBusBreakerHUNetworks")
-    void testReactivePowerPerturbationOnHUData(ResilientAcLoadFlowUnitTest.NetworkPair pair) {
+    @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on IEEE networks: {0}")
+    @MethodSource("provideI3ENetworks")
+    void testVoltagePerturbationOnVariousI3ENetworks(ResilientAcLoadFlowUnitTest.NetworkPair pair) {
         String baseFilename = pair.baseFilename();
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
 
-        // Target reactive power injection by the shunt section in VArs
-        double targetQ = 4.5e8;
+        // Line Characteristics in per-unit
+        double rPU = 0.0;
+        double xPU = 1e-5;
+        // Voltage Mismatch
+        double alpha = 0.95;
 
-        PerturbationFactory.ReactivePowerPerturbation perturbation = PerturbationFactory.getReactivePowerPerturbation(nrNetwork);
+        PerturbationFactory.VoltagePerturbation perturbation = PerturbationFactory.getVoltagePerturbation(nrNetwork);
+        PerturbationFactory.applyVoltagePerturbation(rknNetwork, perturbation, rPU, xPU, alpha);
+        PerturbationFactory.applyVoltagePerturbation(nrNetwork, perturbation, rPU, xPU, alpha);
 
-        PerturbationFactory.applyReactivePowerPerturbation(rknNetwork, perturbation, targetQ);
-        PerturbationFactory.applyReactivePowerPerturbation(nrNetwork, perturbation, targetQ);
-
-        compareResilience(rknNetwork, nrNetwork, baseFilename, null);
-    }
-
-    @ParameterizedTest(name = "Test resilience of RKN to an active power perturbation on HU networks: {0}")
-    @MethodSource("provideBusBreakerHUNetworks")
-    void testActivePowerPerturbationOnHUData(ResilientAcLoadFlowUnitTest.NetworkPair pair) {
-        String baseFilename = pair.baseFilename();
-
-        Network rknNetwork = pair.rknNetwork();
-        Network nrNetwork = pair.nrNetwork();
-
-        // Final perturbed load's percentage
-        double alpha = 0.06;
-
-        String targetLoadID = PerturbationFactory.getActivePowerPerturbation(nrNetwork);
-
-        PerturbationFactory.applyActivePowerPerturbation(rknNetwork, targetLoadID, alpha);
-        PerturbationFactory.applyActivePowerPerturbation(nrNetwork, targetLoadID, alpha);
-
-        compareResilience(rknNetwork, nrNetwork, baseFilename, null);
+        compareResilience(rknNetwork, nrNetwork, baseFilename, "voltagePerturbation");
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on HU networks: {0}")
@@ -138,24 +121,41 @@ public class ResilientAcLoadFlowPerturbationTest {
         compareResilience(rknNetwork, nrNetwork, baseFilename, null);
     }
 
-    @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on IEEE networks: {0}")
-    @MethodSource("provideI3ENetworks")
-    void testVoltagePerturbationOnVariousI3ENetworks(ResilientAcLoadFlowUnitTest.NetworkPair pair) {
+    @ParameterizedTest(name = "Test resilience of RKN to an active power perturbation on HU networks: {0}")
+    @MethodSource("provideBusBreakerHUNetworks")
+    void testActivePowerPerturbationOnHUData(ResilientAcLoadFlowUnitTest.NetworkPair pair) {
         String baseFilename = pair.baseFilename();
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
 
-        // Line Characteristics in per-unit
-        double rPU = 0.0;
-        double xPU = 1e-5;
-        // Voltage Mismatch
-        double alpha = 0.95;
+        // Final perturbed load's percentage
+        double alpha = 0.06;
 
-        PerturbationFactory.VoltagePerturbation perturbation = PerturbationFactory.getVoltagePerturbation(nrNetwork);
-        PerturbationFactory.applyVoltagePerturbation(rknNetwork, perturbation, rPU, xPU, alpha);
-        PerturbationFactory.applyVoltagePerturbation(nrNetwork, perturbation, rPU, xPU, alpha);
+        String targetLoadID = PerturbationFactory.getActivePowerPerturbation(nrNetwork);
 
-        compareResilience(rknNetwork, nrNetwork, baseFilename, "voltagePerturbation");
+        PerturbationFactory.applyActivePowerPerturbation(rknNetwork, targetLoadID, alpha);
+        PerturbationFactory.applyActivePowerPerturbation(nrNetwork, targetLoadID, alpha);
+
+        compareResilience(rknNetwork, nrNetwork, baseFilename, null);
+    }
+
+    @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on HU networks: {0}")
+    @MethodSource("provideBusBreakerHUNetworks")
+    void testReactivePowerPerturbationOnHUData(ResilientAcLoadFlowUnitTest.NetworkPair pair) {
+        String baseFilename = pair.baseFilename();
+
+        Network rknNetwork = pair.rknNetwork();
+        Network nrNetwork = pair.nrNetwork();
+
+        // Target reactive power injection by the shunt section in VArs
+        double targetQ = 4.5e8;
+
+        PerturbationFactory.ReactivePowerPerturbation perturbation = PerturbationFactory.getReactivePowerPerturbation(nrNetwork);
+
+        PerturbationFactory.applyReactivePowerPerturbation(rknNetwork, perturbation, targetQ);
+        PerturbationFactory.applyReactivePowerPerturbation(nrNetwork, perturbation, targetQ);
+
+        compareResilience(rknNetwork, nrNetwork, baseFilename, null);
     }
 }
