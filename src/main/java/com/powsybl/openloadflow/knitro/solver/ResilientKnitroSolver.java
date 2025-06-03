@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.primitives.Doubles.toArray;
+import static com.powsybl.openloadflow.ac.equations.AcEquationType.BUS_TARGET_PHI;
 
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
@@ -48,7 +49,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private final double wV = 1.0;
 
     // Number of Load Flows (LF) variables in the system
-    private final int numLFVariables;
+    static int numLFVariables = 0;
 
     // Total number of variables including slack variables
     private final int numTotalVariables;
@@ -83,14 +84,17 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         super(network, equationSystem, jacobian, targetVector, equationVector, detailedReport);
         this.knitroParameters = knitroParameters;
 
-        this.numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
+        numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
 
         List<Equation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedEquationsToSolve();
+
+        // Count number of Slack Buses
+        long numSlackBuses = sortedEquations.stream().filter(e -> e.getType() == BUS_TARGET_PHI).count();
 
         // Count number of equations by type
         this.numPEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_P).count();
         this.numQEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count();
-        this.numVEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count();
+        this.numVEquations = (int) (sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count() - numSlackBuses);
 
         int numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations);
         this.numTotalVariables = numLFVariables + numSlackVariables;
@@ -111,6 +115,14 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
         for (int i = 0; i < sortedEquations.size(); i++) {
             AcEquationType type = sortedEquations.get(i).getType();
+            int elementNum = sortedEquations.get(i).getElementNum();
+
+            // Check voltage constraint is not on slack bus
+            boolean isSlackBus = sortedEquations.stream().filter(eq -> eq.getElementNum() == elementNum)
+                    .anyMatch(eq -> eq.getType().equals(BUS_TARGET_PHI));
+            if (isSlackBus)
+                continue;
+
             switch (type) {
                 case BUS_TARGET_P -> pEquationLocalIds.put(i, pCounter++);
                 case BUS_TARGET_Q -> qEquationLocalIds.put(i, qCounter++);
@@ -540,6 +552,13 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 lowerBounds.set(i, 0.0);
             }
 
+            for (int i = 0; i < numLFVariables; i++) {
+                if (equationSystem.getIndex().getSortedVariablesToFind().get(i).getType() == AcVariableType.BUS_V) {
+                    lowerBounds.set(i, knitroParameters.getLowerVoltageBound());
+                    upperBounds.set(i, knitroParameters.getUpperVoltageBound());
+                }
+            }
+
             LOGGER.info("Voltage initialization strategy: {}", voltageInitializer);
 
             // Set bounds and initial state
@@ -623,12 +642,12 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 quadCols.add(idxSm);
                 quadCoefs.add(-2 * weight);
 
-                // Linear terms: lambda * (sp + sm)
+                // Linear terms: weight * lambda * (sp + sm)
                 linIndexes.add(idxSp);
-                linCoefs.add(lambda);
+                linCoefs.add(lambda * weight);
 
                 linIndexes.add(idxSm);
-                linCoefs.add(lambda);
+                linCoefs.add(lambda * weight);
             }
         }
 
@@ -911,6 +930,16 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                                 value = values[i];
                                 found = true;
                                 break;
+                            }
+                        }
+                        // Check if var is a slack variable
+                        if (var >= numLFVariables) {
+                            // set Jacobian entry to 1.0 if slack variable is Sm
+                            // set Jacobian entry to -1.0 if slack variable is Sp
+                            if ((var & 1) == 0) {
+                                value = 1.0;
+                            } else {
+                                value = -1.0;
                             }
                         }
                         if (!found && knitroParameters.getGradientUserRoutine() == 1) {
