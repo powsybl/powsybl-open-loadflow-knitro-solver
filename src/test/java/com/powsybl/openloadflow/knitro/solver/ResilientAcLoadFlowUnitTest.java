@@ -17,7 +17,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.List;
+import java.util.Properties;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -76,6 +77,13 @@ public class ResilientAcLoadFlowUnitTest {
         return provideHUNetworks(CONFIDENTIAL_DATA_DIR_BUS_BREAKER);
     }
 
+    public static void writeXML(Network network, String name) {
+        Properties properties = new Properties();
+        properties.put(XMLExporter.VERSION, "1.12");
+        Path path = Path.of(DEFAULT_OUTPUT_DIR, name);
+        network.write("XIIDM", properties, path);
+    }
+
     @BeforeEach
     void setUp() {
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
@@ -95,13 +103,6 @@ public class ResilientAcLoadFlowUnitTest {
             knitroParams.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.RESILIENT);
             parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
         }
-    }
-
-    public static void writeXML(Network network, String name) {
-        Properties properties = new Properties();
-        properties.put(XMLExporter.VERSION, "1.12");
-        Path path = Path.of(DEFAULT_OUTPUT_DIR, name);
-        network.write("XIIDM", properties, path);
     }
 
     private void checkElectricalQuantities(Network n1, Network n2, double tolerance) {
