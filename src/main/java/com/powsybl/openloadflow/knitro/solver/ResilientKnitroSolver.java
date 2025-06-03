@@ -37,6 +37,7 @@ import static com.powsybl.openloadflow.ac.equations.AcEquationType.BUS_TARGET_PH
 
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
+ * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 public class ResilientKnitroSolver extends AbstractAcSolver {
 
@@ -49,7 +50,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private final double wV = 1.0;
 
     // Number of Load Flows (LF) variables in the system
-    static int numLFVariables = 0;
+    private final int numLFVariables;
 
     // Total number of variables including slack variables
     private final int numTotalVariables;
@@ -84,7 +85,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         super(network, equationSystem, jacobian, targetVector, equationVector, detailedReport);
         this.knitroParameters = knitroParameters;
 
-        numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
+        this.numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
 
         List<Equation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedEquationsToSolve();
 
@@ -120,8 +121,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             // Check voltage constraint is not on slack bus
             boolean isSlackBus = sortedEquations.stream().filter(eq -> eq.getElementNum() == elementNum)
                     .anyMatch(eq -> eq.getType().equals(BUS_TARGET_PHI));
-            if (isSlackBus)
+            if (isSlackBus) {
                 continue;
+            }
 
             switch (type) {
                 case BUS_TARGET_P -> pEquationLocalIds.put(i, pCounter++);
@@ -264,9 +266,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             solver.solve();
 
             KNSolution solution = solver.getSolution();
-            //List<Double> constraintValues = solver.getConstraintValues();
             List<Double> x = solution.getX();
-            //List<Double> lambda = solution.getLambda();
 
             solverStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
             logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
@@ -276,22 +276,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             LOGGER.info("Objective value            = {}", solution.getObjValue());
             LOGGER.info("Feasibility violation      = {}", solver.getAbsFeasError());
             LOGGER.info("Optimality violation       = {}", solver.getAbsOptError());
-
-            // Log primal solution
-            //LOGGER.debug("==== Optimal variables ====");
-            //for (int i = 0; i < x.size(); i++) {
-            //    LOGGER.debug(" x[{}] = {}", i, x.get(i));
-            //}
-
-            //LOGGER.debug("==== Constraint values ====");
-            //for (int i = 0; i < problemInstance.getNumCons(); i++) {
-            //    LOGGER.debug(" c[{}] = {} (λ = {})", i, constraintValues.get(i), lambda.get(i));
-            //}
-
-            //LOGGER.debug("==== Constraint violations ====");
-            //for (int i = 0; i < problemInstance.getNumCons(); i++) {
-            //    LOGGER.debug(" violation[{}] = {}", i, solver.getConViol(i));
-            //}
 
             // ========== Slack Logging ==========
             logSlackValues("P", slackPStartIndex, numPEquations, x);
@@ -551,6 +535,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 lowerBounds.set(i, 0.0);
             }
 
+            // Set bounds for voltage variables based on Knitro parameters
             for (int i = 0; i < numLFVariables; i++) {
                 if (equationSystem.getIndex().getSortedVariablesToFind().get(i).getType() == AcVariableType.BUS_V) {
                     lowerBounds.set(i, knitroParameters.getLowerVoltageBound());
@@ -764,7 +749,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     this.setJacNnzPattern(listNonZerosCtsSparse, listNonZerosVarsSparse);
                 }
                 // Set the callback for gradient evaluations if the user directly passes the Jacobian to the solver.
-                this.setGradEvalCallback(new ResilientKnitroSolver.ResilientKnitroProblem.CallbackEvalG(
+                this.setGradEvalCallback(new CallbackEvalG(
                         jacobianMatrix,
                         listNonZerosCtsDense,
                         listNonZerosVarsDense,
@@ -931,13 +916,14 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                                 break;
                             }
                         }
-                        // Check if var is a slack variable
-                        if (var >= numLFVariables) {
-                            // set Jacobian entry to 1.0 if slack variable is Sm
-                            // set Jacobian entry to -1.0 if slack variable is Sp
+
+                        // Check if var is a slack variable (i.e. outside the main variable range)
+                        if (var >= equationSystem.getIndex().getSortedVariablesToFind().size()) {
                             if ((var & 1) == 0) {
+                                // set Jacobian entry to 1.0 if slack variable is Sm
                                 value = 1.0;
                             } else {
+                                // set Jacobian entry to -1.0 if slack variable is Sp
                                 value = -1.0;
                             }
                         }
