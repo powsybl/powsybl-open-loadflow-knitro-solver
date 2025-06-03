@@ -89,13 +89,25 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
         List<Equation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedEquationsToSolve();
 
-        // Count number of Slack Buses
-        long numSlackBuses = sortedEquations.stream().filter(e -> e.getType() == BUS_TARGET_PHI).count();
+        // Count the number of slack buses by their type
+        List<Integer> slackBuses = network.getSlackBuses().stream()
+                .map(LfBus::getNum)
+                .toList();
+
+        Map<AcEquationType, Long> slackBusCounts = slackBuses.stream()
+                .map(slackBusID -> equationSystem.getIndex().getSortedEquationsToSolve().stream()
+                        .filter(e -> e.getElementNum() == slackBusID)
+                        .findAny()
+                        .orElseThrow())
+                .collect(Collectors.groupingBy(Equation::getType, Collectors.counting()));
+
+        long numSlackBusesPQ = slackBusCounts.getOrDefault(AcEquationType.BUS_TARGET_Q, 0L);
+        long numSlackBusesPV = slackBusCounts.getOrDefault(AcEquationType.BUS_TARGET_V, 0L);
 
         // Count number of equations by type
         this.numPEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_P).count();
-        this.numQEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count();
-        this.numVEquations = (int) (sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count() - numSlackBuses);
+        this.numQEquations = (int) (sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count() - numSlackBusesPQ);
+        this.numVEquations = (int) (sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count() - numSlackBusesPV);
 
         int numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations);
         this.numTotalVariables = numLFVariables + numSlackVariables;
