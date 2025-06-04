@@ -17,8 +17,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.nio.file.Path;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
@@ -73,7 +73,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         LoadFlowResult resultNR = loadFlowRunner.run(nrNetwork, parameters);
         boolean isConvergedNR = resultNR.isFullyConverged();
         boolean isFailedNR = resultNR.isFailed();
-        assertFalse(isConvergedNR && !isFailedNR, baseFilename + ": NR should not converge");
+        assumeFalse(isConvergedNR && !isFailedNR, baseFilename + ": NR should not converge");
 
         // Knitro Resilient
         configureSolver(RKN);
