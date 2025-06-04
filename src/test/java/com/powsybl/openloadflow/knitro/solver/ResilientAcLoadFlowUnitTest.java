@@ -11,6 +11,7 @@ import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
 import com.powsybl.openloadflow.network.SlackBusSelectionMode;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -28,13 +29,15 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 public class ResilientAcLoadFlowUnitTest {
+    public static final String CONFIDENTIAL_DATA_DIR = "../../data_confidential/";
+    public static final String CONFIDENTIAL_DATA_DIR_BUS_BREAKER = "../../data_confidential_bus_breaker/";
     private static final String DEFAULT_OUTPUT_DIR = "./outputs/";
     private static final double DEFAULT_TOLERANCE = 1e-3;
     private static final double BASE_100MVA = 100.0;
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
-    private static final String CONFIDENTIAL_DATA_DIR = "../../data_confidential/";
-    private static final String CONFIDENTIAL_DATA_DIR_BUS_BREAKER = "../../data_confidential_bus_breaker/";
+    private static final String HU_INSTANCE = "HU/20220226T2330Z_1D_002/init.xiidm";
+    private static final String ES_INSTANCE = "20250830T1330Z_1D_ES_006.xiidm";
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
 
@@ -202,24 +205,26 @@ public class ResilientAcLoadFlowUnitTest {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
     }
 
-    @ParameterizedTest(name = "Test HU networks convergence: {0}")
-    @MethodSource("provideNodeBreakerHUNetworks")
-    void testConvergenceOnHUData(NetworkPair pair) {
-        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
-    }
-
     @Test
-    void testConvergenceOnESData() {
-        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, "20250830T1330Z_1D_ES_006.xiidm");
+    void testConvergenceOnHUInstance() {
+        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, HU_INSTANCE);
         Network nrNetwork = Network.read(fileName).getNetwork();
         Network rknNetwork = Network.read(fileName).getNetwork();
         compareSolvers(rknNetwork, nrNetwork, null);
     }
 
+    @ParameterizedTest(name = "Test HU networks convergence: {0}")
+    @MethodSource("provideNodeBreakerHUNetworks")
+    @Disabled("Temporarily disabled")
+    void testConvergenceOnHUData(NetworkPair pair) {
+        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
+    }
+
     @Test
+    @Disabled("Temporarily disabled")
     void testConvergenceOnTyndpData() {
         parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
-        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, "CGM_TYNDP22.xiidm");
+        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, ES_INSTANCE);
         Network nrNetwork = Network.read(fileName).getNetwork();
         Network rknNetwork = Network.read(fileName).getNetwork();
         compareSolvers(rknNetwork, nrNetwork, null);

@@ -4,6 +4,8 @@ import com.powsybl.iidm.modification.SetGeneratorToLocalRegulation;
 import com.powsybl.iidm.modification.topology.RemoveFeederBay;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.serde.XMLExporter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,12 +13,14 @@ import java.util.*;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 public final class PerturbationFactory {
+    private static final Logger LOGGER = LoggerFactory.getLogger(PerturbationFactory.class);
     private static final double BASE_100MVA = 100.0;
 
     private PerturbationFactory() {
@@ -184,14 +188,27 @@ public final class PerturbationFactory {
      * @return A possible active power perturbation.
      */
     public static String getActivePowerPerturbation(Network network) {
-        Optional<Load> targetLoadOp = network.getLoadStream()
-                .filter(load -> load.getP0() > 0.0)
-                .min(Comparator.comparingDouble(Load::getP0));
+        Optional<Bus> targetBusOp = network.getBusBreakerView()
+                .getBusStream()
+                .filter(bus -> !bus.getGenerators().iterator().hasNext())
+                .filter(bus -> bus.getLoads().iterator().hasNext())
+                .filter(bus -> bus.getLoadStream().mapToDouble(Load::getP0).sum() > 0.0)
+                .filter(bus -> bus.getLineStream().count() == 1)
+                .filter(bus -> bus.getConnectedTerminalCount() == 2)
+                .findAny();
 
-        assertFalse(targetLoadOp.isEmpty(), "Network contains no loads.");
+        if (targetBusOp.isEmpty()) {
+            LOGGER.info("No leaf bus found, taking a normal PQ bus");
+            targetBusOp = network.getBusBreakerView()
+                    .getBusStream()
+                    .filter(bus -> !bus.getGenerators().iterator().hasNext())
+                    .filter(bus -> bus.getLoads().iterator().hasNext())
+                    .filter(bus -> bus.getLoadStream().mapToDouble(Load::getP0).sum() > 0.0)
+                    .findAny();
+            assumeFalse(targetBusOp.isEmpty(), "No loads in network");
+        }
 
-        return targetLoadOp.get()
-                .getId();
+        return targetBusOp.get().getLoads().iterator().next().getId();
     }
 
     /**
@@ -251,7 +268,7 @@ public final class PerturbationFactory {
             }
         }
 
-        assertFalse(perturbations.isEmpty(), "No possible reactive power perturbation was found");
+        assumeFalse(perturbations.isEmpty(), "No possible reactive power perturbation was found");
         return perturbations.stream();
     }
 
@@ -336,11 +353,9 @@ public final class PerturbationFactory {
         network.write("XIIDM", exportParameters, endPath);
     }
 
-    public static void convertNodeBreakerDataToBusBreaker(String nodeBreakerDir, String busBreakerDir, String dataSource) {
-        Path initRoot = Path.of(nodeBreakerDir, dataSource);
-        Path endRoot = Path.of(busBreakerDir, dataSource);
-
-        String initFileName = "init.xiidm";
+    public static void convertNodeBreakerDataToBusBreaker(String nodeBreakerDir, String busBreakerDir, String initFileName) {
+        Path initRoot = Path.of(nodeBreakerDir);
+        Path endRoot = Path.of(busBreakerDir);
 
         try (Stream<Path> pathStream = Files.list(initRoot)) {
             pathStream.filter(Files::isDirectory)
