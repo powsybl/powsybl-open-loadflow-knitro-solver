@@ -107,6 +107,7 @@ class AcloadFlowReactiveLimitsTest {
                 .setDistributedSlack(false);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
         knitroLoadFlowParameters.setGradientComputationMode(2);
+        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.REACTIVLIMITS);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters).setAcSolverType(KnitroSolverFactory.NAME);
     }
