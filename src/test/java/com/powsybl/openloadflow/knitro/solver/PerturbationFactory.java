@@ -190,25 +190,17 @@ public final class PerturbationFactory {
     public static String getActivePowerPerturbation(Network network) {
         Optional<Bus> targetBusOp = network.getBusBreakerView()
                 .getBusStream()
-                .filter(bus -> !bus.getGenerators().iterator().hasNext())
-                .filter(bus -> bus.getLoads().iterator().hasNext())
-                .filter(bus -> bus.getLoadStream().mapToDouble(Load::getP0).sum() > 0.0)
-                .filter(bus -> bus.getLineStream().count() == 1)
-                .filter(bus -> bus.getConnectedTerminalCount() == 2)
+                .filter(bus -> bus.getLoadStream().findAny().isPresent())
+                .filter(bus -> bus.getLoadStream().anyMatch(load -> load.getP0() > 0.0))
                 .findAny();
 
-        if (targetBusOp.isEmpty()) {
-            LOGGER.info("No leaf bus found, taking a normal PQ bus");
-            targetBusOp = network.getBusBreakerView()
-                    .getBusStream()
-                    .filter(bus -> !bus.getGenerators().iterator().hasNext())
-                    .filter(bus -> bus.getLoads().iterator().hasNext())
-                    .filter(bus -> bus.getLoadStream().mapToDouble(Load::getP0).sum() > 0.0)
-                    .findAny();
-            assumeFalse(targetBusOp.isEmpty(), "No loads in network");
-        }
+        assumeFalse(targetBusOp.isEmpty(), "Network has no loads");
 
-        return targetBusOp.get().getLoads().iterator().next().getId();
+        Bus targetBus = targetBusOp.get();
+        Optional<Load> targetLoadOp = targetBus.getLoadStream().filter(load -> load.getP0() > 0.0).findAny();
+
+        assumeFalse(targetLoadOp.isEmpty());
+        return targetLoadOp.get().getId();
     }
 
     /**
