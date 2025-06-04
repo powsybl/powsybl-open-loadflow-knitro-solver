@@ -24,6 +24,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     public static final int DEFAULT_GRADIENT_COMPUTATION_MODE = 1; // Specifies how the Jacobian matrix is computed
     public static final int DEFAULT_GRADIENT_USER_ROUTINE = 2; // If the user chooses to pass the exact Jacobian to knitro, specifies the sparsity pattern for the Jacobian matrix.
+    public static final int DEFAULT_HESSIAN_COMPUTATION_MODE = 6; // Specifies how the Hessian matrix is computed. 6 means that the Hessian is approximated using the L-BFGS method, which is a quasi-Newton method.
     public static final double DEFAULT_LOWER_VOLTAGE_BOUND = 0; // Lower bound for voltage magnitude
     public static final double DEFAULT_UPPER_VOLTAGE_BOUND = KNConstants.KN_INFINITY; // Upper bound for voltage magnitude
     public static final int DEFAULT_MAX_ITERATIONS = 200;
@@ -44,6 +45,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
     private boolean alwaysUpdateNetwork = ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
     private int maxIterations = DEFAULT_MAX_ITERATIONS;
     private double convEps = DEFAULT_STOPPING_CRITERIA;
+    private int hessianComputationMode = DEFAULT_HESSIAN_COMPUTATION_MODE;
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -66,6 +68,18 @@ public class KnitroSolverParameters implements AcSolverParameters {
             throw new IllegalArgumentException("User routine must be between 1 and 2");
         }
         this.gradientUserRoutine = gradientUserRoutine;
+        return this;
+    }
+
+    public int getHessianComputationMode() {
+        return hessianComputationMode;
+    }
+
+    public KnitroSolverParameters setHessianComputationMode(int hessianComputationMode) {
+        if (hessianComputationMode < 1 || hessianComputationMode > 7) {
+            throw new IllegalArgumentException("Knitro hessian computation mode must be between 1 and 7. Please refer to the Knitro documentation for more details.");
+        }
+        this.hessianComputationMode = hessianComputationMode;
         return this;
     }
 
@@ -173,9 +187,8 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return knitroSolverType;
     }
 
-    public KnitroSolverParameters setKnitroSolverType(KnitroSolverType knitroSolverType) {
+    public void setKnitroSolverType(KnitroSolverType knitroSolverType) {
         this.knitroSolverType = Objects.requireNonNull(knitroSolverType);
-        return this;
     }
 
     @Override

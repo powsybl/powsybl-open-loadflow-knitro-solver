@@ -49,6 +49,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private final double wQ = 50.0;
     private final double wV = 1.0;
 
+    // Lambda
+    private final double lambda = 2.0;
+
     // Number of Load Flows (LF) variables in the system
     private final int numLFVariables;
 
@@ -253,9 +256,11 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_GRADOPT, knitroParameters.getGradientComputationMode());
         solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
+        solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
 
-        LOGGER.info("Knitro parameters set: GRADOPT={}, FEASTOL={}, MAXIT={}",
+        LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
+                knitroParameters.getHessianComputationMode(),
                 knitroParameters.getConvEps(),
                 knitroParameters.getMaxIterations());
     }
@@ -295,9 +300,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             logSlackValues("V", slackVStartIndex, numVEquations, x);
 
             // ========== Penalty Computation ==========
-            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wK * wP);
-            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wK * wQ);
-            double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV);
+            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wK * wP, lambda);
+            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wK * wQ, lambda);
+            double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV, lambda);
             double totalPenalty = penaltyP + penaltyQ + penaltyV;
 
             LOGGER.info("==== Slack penalty details ====");
@@ -329,7 +334,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     }
 
     private void logSlackValues(String type, int startIndex, int count, List<Double> x) {
-        final double threshold = 1e-4;  // Threshold for significant slack values
+        final double threshold = 1e-3;  // Threshold for significant slack values
         final double sbase = 100.0;     // Base power in MVA
 
         LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
@@ -381,15 +386,23 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         return bus.getId();
     }
 
-    private double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight) {
+    private double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight, double lambda) {
         double penalty = 0.0;
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
             double diff = sp - sm;
-            penalty += weight * (diff * diff + sp + sm);
+            penalty += weight * (diff * diff); // Quadratic terms
+            penalty += weight * lambda * (sp + sm); // Linear terms
         }
         return penalty;
+    }
+
+    private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols() {
+        return new AbstractMap.SimpleEntry<>(
+                IntStream.range(slackStartIndex, numTotalVariables).boxed().toList(),
+                IntStream.range(slackStartIndex, numTotalVariables).boxed().toList()
+        );
     }
 
     /**
@@ -585,7 +598,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             List<Double> linCoefs = new ArrayList<>();
 
             // Slack penalty terms: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
-            double lambda = 2.0;
             addSlackObjectiveTerms(numPEquations, slackPStartIndex, wK * wP, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
             addSlackObjectiveTerms(numQEquations, slackQStartIndex, wK * wQ, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
             addSlackObjectiveTerms(numVEquations, slackVStartIndex, wV, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
@@ -605,6 +617,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     network, jacobianMatrix, activeConstraints, nonlinearConstraintIndexes,
                     jacCstDense, jacVarDense, jacCstSparse, jacVarSparse
             );
+
+            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols();
+            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
         }
 
         /**
