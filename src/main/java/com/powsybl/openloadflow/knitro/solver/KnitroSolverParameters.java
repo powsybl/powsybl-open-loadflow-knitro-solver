@@ -218,6 +218,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     public enum KnitroSolverType {
         STANDARD,
-        RESILIENT
+        RESILIENT,
+        REACTIVLIMITS,
     }
 }
