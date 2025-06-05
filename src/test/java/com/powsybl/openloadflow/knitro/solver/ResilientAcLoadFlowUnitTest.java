@@ -1,8 +1,6 @@
 package com.powsybl.openloadflow.knitro.solver;
 
-import com.powsybl.ieeecdf.converter.IeeeCdfNetworkFactory;
 import com.powsybl.iidm.network.*;
-import com.powsybl.iidm.serde.XMLExporter;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
@@ -16,76 +14,28 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Properties;
-import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
+
+import com.powsybl.openloadflow.knitro.solver.NetworkProviders.NetworkPair;
+
+import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR;
+import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.HU_INSTANCE;
+import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.ES_INSTANCE;
+import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.TYNDP_INSTANCE;
 
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 public class ResilientAcLoadFlowUnitTest {
-    public static final String CONFIDENTIAL_DATA_DIR = "../../data_confidential/";
-    public static final String CONFIDENTIAL_DATA_DIR_BUS_BREAKER = "../../data_confidential_bus_breaker/";
-    private static final String DEFAULT_OUTPUT_DIR = "./outputs/";
     private static final double DEFAULT_TOLERANCE = 1e-3;
     private static final double BASE_100MVA = 100.0;
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
-    private static final String HU_INSTANCE = "HU/20220226T2330Z_1D_002/init.xiidm";
-    private static final String ES_INSTANCE = "20250830T1330Z_1D_ES_006.xiidm";
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
-
-    static Stream<NetworkPair> provideI3ENetworks() {
-        return Stream.of(
-                new NetworkPair(IeeeCdfNetworkFactory.create14(), IeeeCdfNetworkFactory.create14(), "ieee14"),
-                new NetworkPair(IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), "ieee30"),
-                new NetworkPair(IeeeCdfNetworkFactory.create118(), IeeeCdfNetworkFactory.create118(), "ieee118"),
-                new NetworkPair(IeeeCdfNetworkFactory.create300(), IeeeCdfNetworkFactory.create300(), "ieee300")
-        );
-    }
-
-    static Stream<NetworkPair> provideHUNetworks(String dir) {
-        Path baseDir = Path.of(dir, "HU");
-        String initFileName = "init.xiidm";
-
-        try (Stream<Path> cases = Files.list(baseDir)) {
-            List<NetworkPair> networkPairs = cases.filter(Files::isDirectory)
-                    .map(subDir -> subDir.resolve(initFileName))
-                    .filter(Files::exists)
-                    .map(initPath -> {
-                        Network nrNetwork = Network.read(initPath).getNetwork();
-                        Network rknNetwork = Network.read(initPath).getNetwork();
-                        String name = initPath.getParent().getFileName().toString();
-                        return new NetworkPair(rknNetwork, nrNetwork, name);
-                    })
-                    .toList();
-            return networkPairs.stream();
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to load HU real network cases", e);
-        }
-    }
-
-    static Stream<NetworkPair> provideNodeBreakerHUNetworks() {
-        return provideHUNetworks(CONFIDENTIAL_DATA_DIR);
-    }
-
-    static Stream<NetworkPair> provideBusBreakerHUNetworks() {
-        return provideHUNetworks(CONFIDENTIAL_DATA_DIR_BUS_BREAKER);
-    }
-
-    public static void writeXML(Network network, String name) {
-        Properties properties = new Properties();
-        properties.put(XMLExporter.VERSION, "1.12");
-        Path path = Path.of(DEFAULT_OUTPUT_DIR, name);
-        network.write("XIIDM", properties, path);
-    }
 
     @BeforeEach
     void setUp() {
@@ -194,13 +144,13 @@ public class ResilientAcLoadFlowUnitTest {
         checkElectricalQuantities(rknNetwork, nrNetwork, DEFAULT_TOLERANCE);
 
         if (baseFilename != null) {
-            writeXML(nrNetwork, baseFilename + "-NR.xml");
-            writeXML(rknNetwork, baseFilename + "-RKN.xml");
+            NetworkProviders.writeXML(nrNetwork, baseFilename + "-NR.xml");
+            NetworkProviders.writeXML(rknNetwork, baseFilename + "-RKN.xml");
         }
     }
 
     @ParameterizedTest
-    @MethodSource("provideI3ENetworks")
+    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
     void testLoadFlowComparisonOnVariousI3ENetworks(NetworkPair pair) {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
     }
@@ -214,22 +164,27 @@ public class ResilientAcLoadFlowUnitTest {
     }
 
     @ParameterizedTest(name = "Test HU networks convergence: {0}")
-    @MethodSource("provideNodeBreakerHUNetworks")
+    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideNodeBreakerHUNetworks")
     @Disabled("Temporarily disabled")
     void testConvergenceOnHUData(NetworkPair pair) {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
     }
 
     @Test
-    @Disabled("Temporarily disabled")
-    void testConvergenceOnTyndpData() {
-        parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
+    void testConvergenceOnESData() {
         Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, ES_INSTANCE);
         Network nrNetwork = Network.read(fileName).getNetwork();
         Network rknNetwork = Network.read(fileName).getNetwork();
         compareSolvers(rknNetwork, nrNetwork, null);
     }
 
-    public record NetworkPair(Network rknNetwork, Network nrNetwork, String baseFilename) {
+    @Test
+    @Disabled("Temporarily disabled")
+    void testConvergenceOnTyndpData() {
+        parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
+        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, TYNDP_INSTANCE);
+        Network nrNetwork = Network.read(fileName).getNetwork();
+        Network rknNetwork = Network.read(fileName).getNetwork();
+        compareSolvers(rknNetwork, nrNetwork, null);
     }
 }
