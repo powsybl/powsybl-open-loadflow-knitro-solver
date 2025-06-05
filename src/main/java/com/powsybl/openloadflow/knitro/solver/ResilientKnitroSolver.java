@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.primitives.Doubles.toArray;
-import static com.powsybl.openloadflow.ac.equations.AcEquationType.BUS_TARGET_PHI;
 
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
@@ -92,25 +91,10 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
         List<Equation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedEquationsToSolve();
 
-        // Count the number of slack buses by their type
-        List<Integer> slackBuses = network.getSlackBuses().stream()
-                .map(LfBus::getNum)
-                .toList();
-
-        Map<AcEquationType, Long> slackBusCounts = slackBuses.stream()
-                .map(slackBusID -> equationSystem.getIndex().getSortedEquationsToSolve().stream()
-                        .filter(e -> e.getElementNum() == slackBusID)
-                        .findAny()
-                        .orElseThrow())
-                .collect(Collectors.groupingBy(Equation::getType, Collectors.counting()));
-
-        long numSlackBusesPQ = slackBusCounts.getOrDefault(AcEquationType.BUS_TARGET_Q, 0L);
-        long numSlackBusesPV = slackBusCounts.getOrDefault(AcEquationType.BUS_TARGET_V, 0L);
-
         // Count number of equations by type
         this.numPEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_P).count();
-        this.numQEquations = (int) (sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count() - numSlackBusesPQ);
-        this.numVEquations = (int) (sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count() - numSlackBusesPV);
+        this.numQEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count();
+        this.numVEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count();
 
         int numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations);
         this.numTotalVariables = numLFVariables + numSlackVariables;
@@ -131,14 +115,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
         for (int i = 0; i < sortedEquations.size(); i++) {
             AcEquationType type = sortedEquations.get(i).getType();
-            int elementNum = sortedEquations.get(i).getElementNum();
-
-            // Check voltage constraint is not on slack bus
-            boolean isSlackBus = sortedEquations.stream().filter(eq -> eq.getElementNum() == elementNum)
-                    .anyMatch(eq -> eq.getType().equals(BUS_TARGET_PHI));
-            if (isSlackBus) {
-                continue;
-            }
 
             switch (type) {
                 case BUS_TARGET_P -> pEquationLocalIds.put(i, pCounter++);
