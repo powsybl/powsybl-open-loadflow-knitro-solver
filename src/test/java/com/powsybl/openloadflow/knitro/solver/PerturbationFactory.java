@@ -3,12 +3,9 @@ package com.powsybl.openloadflow.knitro.solver;
 import com.powsybl.iidm.modification.SetGeneratorToLocalRegulation;
 import com.powsybl.iidm.modification.topology.RemoveFeederBay;
 import com.powsybl.iidm.network.*;
-import com.powsybl.iidm.serde.XMLExporter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -333,39 +330,6 @@ public final class PerturbationFactory {
                 .getGenerators()
                 .iterator()
                 .hasNext();
-    }
-
-    public static void exportNetworkAsBusBreakerTopology(Path initPath, Path endPath) {
-        Network network = Network.read(initPath).getNetwork();
-        for (VoltageLevel vl : network.getVoltageLevels()) {
-            vl.convertToTopology(TopologyKind.BUS_BREAKER);
-        }
-        Properties exportParameters = new Properties();
-        exportParameters.put(XMLExporter.TOPOLOGY_LEVEL, "BUS_BREAKER");
-        network.write("XIIDM", exportParameters, endPath);
-    }
-
-    public static void convertNodeBreakerDataToBusBreaker(String nodeBreakerDir, String busBreakerDir, String initFileName) {
-        Path initRoot = Path.of(nodeBreakerDir);
-        Path endRoot = Path.of(busBreakerDir);
-
-        try (Stream<Path> pathStream = Files.list(initRoot)) {
-            pathStream.filter(Files::isDirectory)
-                    .map(subDir -> subDir.resolve(initFileName))
-                    .filter(Files::exists)
-                    .forEach(initFile -> {
-                        try {
-                            Path relativePath = initRoot.relativize(initFile);
-                            Path outputFile = endRoot.resolve(relativePath);
-                            Files.createDirectories(outputFile.getParent());
-                            exportNetworkAsBusBreakerTopology(initFile, outputFile);
-                        } catch (Exception e) {
-                            throw new RuntimeException("Failed to convert the files", e);
-                        }
-                    });
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to load HU real network cases", e);
-        }
     }
 
     public record VoltagePerturbation(String noGeneratorBusID,
