@@ -922,6 +922,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
                         // Check if var is a slack variable (i.e. outside the main variable range)
                         if (var >= equationSystem.getIndex().getSortedVariablesToFind().size()) {
+                            found = true;
                             if ((var & 1) == 0) {
                                 // set Jacobian entry to 1.0 if slack variable is Sm
                                 value = 1.0;
@@ -930,8 +931,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                                 value = -1.0;
                             }
                         }
-                        if (!found && knitroParameters.getGradientUserRoutine() == 1) {
-                            LOGGER.warn("Dense Jacobian entry not found for constraint {} variable {}", ct, var);
+                        if (!found && knitroParameters.getGradientUserRoutine() == 2) {
+                            LOGGER.warn("Sparse Jacobian entry not found for constraint {} variable {}", ct, var);
                         }
                         jac.set(index, value);
 
