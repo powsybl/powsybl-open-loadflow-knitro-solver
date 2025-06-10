@@ -43,13 +43,13 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResilientKnitroSolver.class);
 
     // Penalty weights in the objective function
-    private final double wK = 1.0;
-    private final double wP = 100.0;
-    private final double wQ = 50.0;
+    private final double wK = 10.0;
+    private final double wP = 1.0;
+    private final double wQ = 1.0;
     private final double wV = 1.0;
 
     // Lambda
-    private final double lambda = 2.0;
+    private final double lambda = 5.0;
 
     // Number of Load Flows (LF) variables in the system
     private final int numLFVariables;
@@ -820,7 +820,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     if (slackIndexBase >= 0) {
                         double sm = x.get(slackIndexBase);        // negative slack
                         double sp = x.get(slackIndexBase + 1);    // positive slack
-                        constraintValue += sm - sp;               // add slack contribution
+                        constraintValue += -sm + sp;               // add slack contribution
                     }
 
                     try {
@@ -927,10 +927,10 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                         if (var >= numVariables) {
                             if ((var & 1) == 0) {
                                 // set Jacobian entry to -1.0 if slack variable is Sm
-                                value = 1.0;
+                                value = -1.0;
                             } else {
                                 // set Jacobian entry to +1.0 if slack variable is Sp
-                                value = -1.0;
+                                value = 1.0;
                             }
                         } else {
                             value = values[colStart + iRowIndices++];

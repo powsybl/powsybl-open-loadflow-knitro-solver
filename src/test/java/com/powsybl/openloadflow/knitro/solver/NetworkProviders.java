@@ -12,6 +12,10 @@ import java.util.List;
 import java.util.Properties;
 import java.util.stream.Stream;
 
+/**
+ * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
+ * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
+ */
 public final class NetworkProviders {
     public static final String CONFIDENTIAL_DATA_DIR = "../../data_confidential/";
     public static final String CONFIDENTIAL_DATA_DIR_BUS_BREAKER = "../../data_confidential_bus_breaker/";
