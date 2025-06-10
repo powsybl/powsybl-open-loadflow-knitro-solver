@@ -881,7 +881,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 // Get sparse matrix representation
                 SparseMatrix sparseMatrix = jacobianMatrix.getMatrix().toSparse();
                 int[] columnStart = sparseMatrix.getColumnStart();
-                int[] rowIndices = sparseMatrix.getRowIndices();
                 double[] values = sparseMatrix.getValues();
 
                 // Determine which list to use based on Knitro settings
@@ -900,41 +899,46 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 }
 
                 // Fill Jacobian values
+                boolean firstIteration = true;
+                int iRowIndices = 0;
+                int currentConstraint = -1;
+                int numVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
                 for (int index = 0; index < constraintIndices.size(); index++) {
                     try {
+                        if (firstIteration) {
+                            currentConstraint = constraintIndices.get(index);
+                        }
+
                         int ct = constraintIndices.get(index);
                         int var = variableIndices.get(index);
 
-                        double value = 0.0;
+                        double value;
 
                         // Find matching (var, ct) entry in sparse column
                         int colStart = columnStart[ct];
-                        int colEnd = columnStart[ct + 1];
 
-                        boolean found = false;
-                        for (int i = colStart; i < colEnd; i++) {
-                            if (rowIndices[i] == var) {
-                                value = values[i];
-                                found = true;
-                                break;
+                        if (!firstIteration) {
+                            if (currentConstraint != ct) {
+                                iRowIndices = 0;
+                                currentConstraint = ct;
                             }
                         }
 
-                        // Check if var is a slack variable (i.e. outside the main variable range)
-                        if (var >= equationSystem.getIndex().getSortedVariablesToFind().size()) {
-                            found = true;
+                        if (var >= numVariables) {
                             if ((var & 1) == 0) {
-                                // set Jacobian entry to 1.0 if slack variable is Sm
+                                // set Jacobian entry to -1.0 if slack variable is Sm
                                 value = 1.0;
                             } else {
-                                // set Jacobian entry to -1.0 if slack variable is Sp
+                                // set Jacobian entry to +1.0 if slack variable is Sp
                                 value = -1.0;
                             }
-                        }
-                        if (!found && knitroParameters.getGradientUserRoutine() == 2) {
-                            LOGGER.warn("Sparse Jacobian entry not found for constraint {} variable {}", ct, var);
+                        } else {
+                            value = values[colStart + iRowIndices++];
                         }
                         jac.set(index, value);
+                        if (firstIteration) {
+                            firstIteration = false;
+                        }
 
                     } catch (Exception e) {
                         int varId = routineType == 1 ? denseVariableIndices.get(index) : sparseVariableIndices.get(index);
