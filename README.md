@@ -96,12 +96,12 @@ dependencies to respectively have access to network model, IEEE test networks an
 <dependency>
     <groupId>com.powsybl</groupId>
     <artifactId>powsybl-iidm-impl</artifactId>
-    <version>6.6.0</version>
+    <version>6.7.0</version>
 </dependency>
 <dependency>
     <groupId>com.powsybl</groupId>
     <artifactId>powsybl-ieee-cdf-converter</artifactId>
-    <version>6.6.0</version>
+    <version>6.7.0</version>
 </dependency>
 <dependency>
     <groupId>org.slf4j</groupId>
@@ -120,7 +120,7 @@ After adding dependency on both Open Load Flow implementation and Knitro Solver 
 <dependency>
     <groupId>com.powsybl</groupId>
     <artifactId>powsybl-open-loadflow</artifactId>
-    <version>1.14.0</version>
+    <version>1.15.0</version>
 </dependency>
 <dependency>
     <groupId>com.powsybl</groupId>
