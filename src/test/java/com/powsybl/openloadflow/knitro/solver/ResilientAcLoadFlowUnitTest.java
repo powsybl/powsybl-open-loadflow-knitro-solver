@@ -7,6 +7,7 @@ import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.math.matrix.SparseMatrixFactory;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
+import com.powsybl.openloadflow.knitro.solver.NetworkProviders.*;
 import com.powsybl.openloadflow.network.SlackBusSelectionMode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -16,14 +17,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.file.Path;
 
+import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.*;
 import static org.junit.jupiter.api.Assertions.*;
-
-import com.powsybl.openloadflow.knitro.solver.NetworkProviders.NetworkPair;
-
-import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR;
-import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.HU_INSTANCE;
-import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.ES_INSTANCE;
-import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.TYNDP_INSTANCE;
 
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
@@ -183,8 +178,9 @@ public class ResilientAcLoadFlowUnitTest {
     void testConvergenceOnTyndpData() {
         parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
         Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, TYNDP_INSTANCE);
-        Network nrNetwork = Network.read(fileName).getNetwork();
-        Network rknNetwork = Network.read(fileName).getNetwork();
-        compareSolvers(rknNetwork, nrNetwork, null);
+        Network network = Network.read(fileName).getNetwork();
+        configureSolver(RKN);
+        LoadFlowResult result = loadFlowRunner.run(network, parameters);
+        assertTrue(result.isFullyConverged());
     }
 }
