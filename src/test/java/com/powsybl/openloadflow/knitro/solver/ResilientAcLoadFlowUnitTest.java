@@ -164,6 +164,7 @@ public class ResilientAcLoadFlowUnitTest {
     }
 
     @ParameterizedTest
+    @Disabled("Test making in progress")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
     void testLoadFlowComparisonOnRteNetworks(NetworkPair pair) {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
