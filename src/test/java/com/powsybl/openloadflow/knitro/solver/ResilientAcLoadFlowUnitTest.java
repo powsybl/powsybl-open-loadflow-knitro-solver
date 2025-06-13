@@ -19,6 +19,8 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.powsybl.openloadflow.knitro.solver.NetworkProviders.NetworkPair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR;
 import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.HU_INSTANCE;
@@ -30,8 +32,10 @@ import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.TYNDP_INST
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 public class ResilientAcLoadFlowUnitTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ResilientAcLoadFlowUnitTest.class);
     private static final double DEFAULT_TOLERANCE = 1e-3;
     private static final double BASE_100MVA = 100.0;
+    private static final boolean EXPORT = false;
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
     private LoadFlow.Runner loadFlowRunner;
@@ -133,26 +137,42 @@ public class ResilientAcLoadFlowUnitTest {
     }
 
     private void compareSolvers(Network rknNetwork, Network nrNetwork, String baseFilename) {
-        configureSolver(RKN);
-        LoadFlowResult result1 = loadFlowRunner.run(rknNetwork, parameters);
-        assertTrue(result1.isFullyConverged());
-
+        // Newton-Raphson
         configureSolver(NR);
         LoadFlowResult result2 = loadFlowRunner.run(nrNetwork, parameters);
+        LOGGER.info("==== Test Information ====");
+        LOGGER.info("Algorithm : NR");
+        LOGGER.info("Type : unit");
+        LOGGER.info("Network name : {}", baseFilename);
         assertTrue(result2.isFullyConverged());
+
+        // Knitro Resilient
+        configureSolver(RKN);
+        LoadFlowResult result1 = loadFlowRunner.run(rknNetwork, parameters);
+        LOGGER.info("==== Test Information ====");
+        LOGGER.info("Algorithm : RKN");
+        LOGGER.info("Type : unit");
+        LOGGER.info("Network name : {}", baseFilename);
+        assertTrue(result1.isFullyConverged());
 
         checkElectricalQuantities(rknNetwork, nrNetwork, DEFAULT_TOLERANCE);
 
-        if (baseFilename != null) {
+        if (EXPORT) {
             NetworkProviders.writeXML(nrNetwork, baseFilename + "-NR.xml");
             NetworkProviders.writeXML(rknNetwork, baseFilename + "-RKN.xml");
         }
     }
 
     @ParameterizedTest
+    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
+    void testLoadFlowComparisonOnRteNetworks(NetworkPair pair) {
+        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
+    }
+
+    @ParameterizedTest
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
     void testLoadFlowComparisonOnVariousI3ENetworks(NetworkPair pair) {
-        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
+        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
     }
 
     @Test
@@ -160,14 +180,14 @@ public class ResilientAcLoadFlowUnitTest {
         Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, HU_INSTANCE);
         Network nrNetwork = Network.read(fileName).getNetwork();
         Network rknNetwork = Network.read(fileName).getNetwork();
-        compareSolvers(rknNetwork, nrNetwork, null);
+        compareSolvers(rknNetwork, nrNetwork, "HU_INSTANCE");
     }
 
     @ParameterizedTest(name = "Test HU networks convergence: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideNodeBreakerHUNetworks")
     @Disabled("Temporarily disabled")
     void testConvergenceOnHUData(NetworkPair pair) {
-        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), null);
+        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
     }
 
     @Test
@@ -175,7 +195,7 @@ public class ResilientAcLoadFlowUnitTest {
         Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, ES_INSTANCE);
         Network nrNetwork = Network.read(fileName).getNetwork();
         Network rknNetwork = Network.read(fileName).getNetwork();
-        compareSolvers(rknNetwork, nrNetwork, null);
+        compareSolvers(rknNetwork, nrNetwork, "ES");
     }
 
     @Test
@@ -185,6 +205,6 @@ public class ResilientAcLoadFlowUnitTest {
         Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, TYNDP_INSTANCE);
         Network nrNetwork = Network.read(fileName).getNetwork();
         Network rknNetwork = Network.read(fileName).getNetwork();
-        compareSolvers(rknNetwork, nrNetwork, null);
+        compareSolvers(rknNetwork, nrNetwork, "TYNDP");
     }
 }
