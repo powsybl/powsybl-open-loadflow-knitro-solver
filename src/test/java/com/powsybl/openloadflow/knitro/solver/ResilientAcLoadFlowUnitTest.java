@@ -157,13 +157,6 @@ public class ResilientAcLoadFlowUnitTest {
         }
     }
 
-//    @ParameterizedTest
-//    @Disabled("Test making in progress")
-//    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
-//    void testLoadFlowComparisonOnRteNetworks(NetworkPair pair) {
-//        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
-//    }
-
     @ParameterizedTest
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
     void testLoadFlowComparisonOnVariousI3ENetworks(NetworkPair pair) {
@@ -198,8 +191,9 @@ public class ResilientAcLoadFlowUnitTest {
     void testConvergenceOnTyndpData() {
         parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
         Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, TYNDP_INSTANCE);
-        Network nrNetwork = Network.read(fileName).getNetwork();
-        Network rknNetwork = Network.read(fileName).getNetwork();
-        compareSolvers(rknNetwork, nrNetwork, "TYNDP");
+        Network network = Network.read(fileName).getNetwork();
+        configureSolver(RKN);
+        LoadFlowResult result = loadFlowRunner.run(network, parameters);
+        assertTrue(result.isFullyConverged());
     }
 }
