@@ -13,19 +13,13 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.*;
-
-import com.powsybl.openloadflow.knitro.solver.NetworkProviders.NetworkPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR;
-import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.HU_INSTANCE;
-import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.ES_INSTANCE;
-import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.TYNDP_INSTANCE;
+import java.nio.file.Path;
+
+import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
@@ -163,12 +157,12 @@ public class ResilientAcLoadFlowUnitTest {
         }
     }
 
-    @ParameterizedTest
-    @Disabled("Test making in progress")
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
-    void testLoadFlowComparisonOnRteNetworks(NetworkPair pair) {
-        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
-    }
+//    @ParameterizedTest
+//    @Disabled("Test making in progress")
+//    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
+//    void testLoadFlowComparisonOnRteNetworks(NetworkPair pair) {
+//        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
+//    }
 
     @ParameterizedTest
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
