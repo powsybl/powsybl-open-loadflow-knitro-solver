@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import com.powsybl.openloadflow.knitro.solver.NetworkProviders.NetworkPair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR;
 import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR_BUS_BREAKER;
@@ -31,11 +33,13 @@ import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.ES_INSTANC
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 public class ResilientAcLoadFlowPerturbationTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ResilientAcLoadFlowPerturbationTest.class);
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
     private static final String VOLTAGE_PERTURBATION = "voltage-perturbation";
     private static final String ACTIVE_POWER_PERTURBATION = "active-perturbation";
     private static final String REACTIVE_POWER_PERTURBATION = "reactive-perturbation";
+    private static final boolean EXPORT = false;
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
 
@@ -66,15 +70,23 @@ public class ResilientAcLoadFlowPerturbationTest {
         LoadFlowResult resultNR = loadFlowRunner.run(nrNetwork, parameters);
         boolean isConvergedNR = resultNR.isFullyConverged();
         boolean isFailedNR = resultNR.isFailed();
+        LOGGER.info("==== Test Information ====");
+        LOGGER.info("Algorithm : NR");
+        LOGGER.info("Type : {}", perturbationType);
+        LOGGER.info("Network name : {}", baseFilename);
         assumeFalse(isConvergedNR && !isFailedNR, baseFilename + ": NR should not converge");
 
         // Knitro Resilient
         configureSolver(RKN);
         LoadFlowResult resultRKN = loadFlowRunner.run(rknNetwork, parameters);
         boolean isConvergedRKN = resultRKN.isFullyConverged();
+        LOGGER.info("==== Test Information ====");
+        LOGGER.info("Algorithm : RKN");
+        LOGGER.info("Type : {}", perturbationType);
+        LOGGER.info("Network name : {}", baseFilename);
         assertTrue(isConvergedRKN, baseFilename + ": Knitro should converge");
 
-        if (perturbationType != null) {
+        if (EXPORT) {
             NetworkProviders.writeXML(rknNetwork, baseFilename + "-" + perturbationType + ".xml");
         }
     }
@@ -157,7 +169,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         Network nrNetwork = pair.nrNetwork();
 
         // Final perturbed load's percentage
-        double alpha = 0.10;
+        double alpha = 0.30;
 
         activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha);
     }
@@ -194,7 +206,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         Network rknNetwork = Network.read(fileName).getNetwork();
 
         // Final perturbed load's percentage
-        double alpha = 0.1;
+        double alpha = 0.10;
 
         activePowerPerturbationTest(rknNetwork, nrNetwork, "ES", alpha);
     }
