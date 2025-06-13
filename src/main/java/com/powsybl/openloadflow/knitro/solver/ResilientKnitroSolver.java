@@ -43,13 +43,13 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResilientKnitroSolver.class);
 
     // Penalty weights in the objective function
-    private final double wK = 10.0;
+    private final double wK = 1.0;
     private final double wP = 1.0;
     private final double wQ = 1.0;
     private final double wV = 1.0;
 
     // Lambda
-    private final double lambda = 5.0;
+    private final double lambda = 3.0;
 
     // Number of Load Flows (LF) variables in the system
     private final int numLFVariables;
@@ -258,7 +258,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             setSolverParameters(solver);
             solver.solve();
 
-            KNSolution solution = solver.getSolution();
+            KNSolution solution = solver.getBestFeasibleIterate();
             List<Double> x = solution.getX();
 
             solverStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
@@ -525,7 +525,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
             setVarTypes(variableTypes);
 
-            // Compute initial voltage state using the given initializer
+            // Compute initial state (V, Theta) using the given initializer
             AcSolverUtil.initStateVector(network, equationSystem, voltageInitializer);
             for (int i = 0; i < numLFVariables; i++) {
                 initialValues.set(i, equationSystem.getStateVector().get(i));
@@ -820,7 +820,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     if (slackIndexBase >= 0) {
                         double sm = x.get(slackIndexBase);        // negative slack
                         double sp = x.get(slackIndexBase + 1);    // positive slack
-                        constraintValue += -sm + sp;               // add slack contribution
+                        constraintValue += -sm + sp;              // add slack contribution
                     }
 
                     try {
