@@ -23,9 +23,20 @@ public final class NetworkProviders {
     public static final String HU_INSTANCE = "HU/20220226T2330Z_1D_002/init.xiidm";
     public static final String ES_INSTANCE = "20250830T1330Z_1D_ES_006.xiidm";
     public static final String TYNDP_INSTANCE = "CGM_TYNDP22.xiidm";
+    public static final String RTE6515_INSTANCE = "rte6515.xiidm";
+    public static final String RTE1888_INSTANCE = "rte1888.xiidm";
 
     private NetworkProviders() {
 
+    }
+
+    public static Stream<NetworkPair> provideRteNetworks() {
+        Path fileNameRte6515 = Path.of(CONFIDENTIAL_DATA_DIR, RTE6515_INSTANCE);
+        Path fileNameRte1888 = Path.of(CONFIDENTIAL_DATA_DIR, RTE1888_INSTANCE);
+        return Stream.of(
+                new NetworkPair(Network.read(fileNameRte1888).getNetwork(), Network.read(fileNameRte1888).getNetwork(), "rte1888"),
+                new NetworkPair(Network.read(fileNameRte6515).getNetwork(), Network.read(fileNameRte6515).getNetwork(), "rte6515")
+        );
     }
 
     public static Stream<NetworkPair> provideI3ENetworks() {
