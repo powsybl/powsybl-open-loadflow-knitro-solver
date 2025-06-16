@@ -186,6 +186,12 @@ public class ResilientAcLoadFlowUnitTest {
         compareSolvers(rknNetwork, nrNetwork, "ES");
     }
 
+    @ParameterizedTest
+    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
+    void testLoadFlowComparisonOnRteNetworks(NetworkPair pair) {
+        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
+    }
+
     @Test
     @Disabled("Temporarily disabled")
     void testConvergenceOnTyndpData() {
