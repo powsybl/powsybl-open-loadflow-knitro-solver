@@ -162,9 +162,23 @@ public class ResilientAcLoadFlowPerturbationTest {
         voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha);
     }
 
+    @Test
+    void testVoltagePerturbationOnESData() {
+        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, ES_INSTANCE);
+        Network nrNetwork = Network.read(fileName).getNetwork();
+        Network rknNetwork = Network.read(fileName).getNetwork();
+
+        // Line Characteristics in per-unit
+        double rPU = 0.0;
+        double xPU = 1e-5;
+        // Voltage Mismatch
+        double alpha = 0.95;
+
+        voltagePerturbationTest(rknNetwork, nrNetwork, "ES", rPU, xPU, alpha);
+    }
+
     @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on RTE networks: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
-    @Disabled("Temporarily disabled")
     void testVoltagePerturbationOnRteNetworks(NetworkPair pair) {
         String baseFilename = pair.baseFilename();
 

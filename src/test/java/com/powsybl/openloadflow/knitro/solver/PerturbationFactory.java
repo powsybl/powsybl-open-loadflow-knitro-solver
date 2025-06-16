@@ -3,10 +3,10 @@ package com.powsybl.openloadflow.knitro.solver;
 import com.powsybl.iidm.modification.SetGeneratorToLocalRegulation;
 import com.powsybl.iidm.modification.topology.RemoveFeederBay;
 import com.powsybl.iidm.network.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 public final class PerturbationFactory {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PerturbationFactory.class);
     private static final double BASE_100MVA = 100.0;
 
     private PerturbationFactory() {
@@ -48,9 +47,15 @@ public final class PerturbationFactory {
             }
 
             generatorTerminal = generator.getTerminal();
-            List<Line> lowImpedanceLines = generatorTerminal
+            Bus generatorBus = generatorTerminal
                     .getBusBreakerView()
-                    .getBus()
+                    .getBus();
+            // Check if the generator is connected to a bus
+            if (generatorBus == null) {
+                continue;
+            }
+
+            List<Line> lowImpedanceLines = generatorBus
                     .getLineStream()
                     .toList();
 
