@@ -13,7 +13,14 @@ import com.artelys.knitro.api.callbacks.KNEvalFCCallback;
 import com.artelys.knitro.api.callbacks.KNEvalGACallback;
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.commons.report.ReportNode;
+import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.math.matrix.SparseMatrix;
+import com.powsybl.math.matrix.SparseMatrixFactory;
+import com.powsybl.openloadflow.OpenLoadFlowParameters;
+import com.powsybl.openloadflow.ac.AcLoadFlowContext;
+import com.powsybl.openloadflow.ac.AcLoadFlowParameters;
+import com.powsybl.openloadflow.ac.AcLoadFlowResult;
+import com.powsybl.openloadflow.ac.AcloadFlowEngine;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.ac.equations.AcVariableType;
 import com.powsybl.openloadflow.ac.solver.AbstractAcSolver;
@@ -21,8 +28,11 @@ import com.powsybl.openloadflow.ac.solver.AcSolverResult;
 import com.powsybl.openloadflow.ac.solver.AcSolverStatus;
 import com.powsybl.openloadflow.ac.solver.AcSolverUtil;
 import com.powsybl.openloadflow.equations.*;
+import com.powsybl.openloadflow.graph.EvenShiloachGraphDecrementalConnectivityFactory;
 import com.powsybl.openloadflow.network.LfBus;
 import com.powsybl.openloadflow.network.LfNetwork;
+import com.powsybl.openloadflow.network.SlackBusSelectionMode;
+import com.powsybl.openloadflow.network.VoltageControl;
 import com.powsybl.openloadflow.network.util.VoltageInitializer;
 import org.apache.commons.lang3.Range;
 import org.slf4j.Logger;
@@ -72,6 +82,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private final Map<Integer, Integer> pEquationLocalIds;
     private final Map<Integer, Integer> qEquationLocalIds;
     private final Map<Integer, Integer> vEquationLocalIds;
+
+    // Mapping of slacked bus
+    private final Map<String, Double> slackContributions = new HashMap<>();
 
     protected KnitroSolverParameters knitroParameters;
 
@@ -288,7 +301,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             LOGGER.info("Total penalty = {}", totalPenalty);
 
             // ========== Network Update ==========
+            // Update the network values if the solver converged or if the network should always be updated
             if (solverStatus == AcSolverStatus.CONVERGED || knitroParameters.isAlwaysUpdateNetwork()) {
+                //Update the state vector with the solution
                 equationSystem.getStateVector().set(toArray(x));
                 for (Equation<AcVariableType, AcEquationType> equation : equationSystem.getEquations()) {
                     for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
@@ -296,11 +311,50 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     }
                 }
                 AcSolverUtil.updateNetwork(network, equationSystem);
+
+                //Update the target vector with the solution
+                slackContributions.forEach((busId, contribution) -> {
+                    LfBus bus = network.getBusById(busId);
+                    if (bus == null) {
+                        LOGGER.warn("Bus {} not found in the network.", busId);
+                        return;
+                    }
+
+                    Optional<VoltageControl<?>> maybeControl = bus.getVoltageControls().stream()
+                            .filter(vc -> vc.getControlledBus().getId().equals(bus.getId()))
+                            .findFirst();
+
+                    maybeControl.ifPresent(vc -> {
+                        double targetV = vc.getTargetValue();
+                        double slackContribution = contribution;
+                        vc.setTargetValue(targetV + slackContribution);
+                    });
+                });
+                //TODO: do the same thing for targetP and targetQ if slack P/Q > 0
             }
 
         } catch (KNException e) {
             throw new PowsyblException("Exception while solving with Knitro", e);
         }
+
+        LOGGER.info("==== Load flow validation ====");
+        LoadFlowParameters parameters = new LoadFlowParameters()
+                .setUseReactiveLimits(false)
+                .setDistributedSlack(false)
+                .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
+
+        OpenLoadFlowParameters parametersExt = OpenLoadFlowParameters.create(parameters)
+                .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
+                .setAcSolverType("NEWTON_RAPHSON")
+                .setMinPlausibleTargetVoltage(KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND)
+                .setMinRealisticVoltage(KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND)
+                .setMaxPlausibleTargetVoltage(KnitroSolverParameters.DEFAULT_UPPER_VOLTAGE_BOUND)
+                .setMaxRealisticVoltage(KnitroSolverParameters.DEFAULT_UPPER_VOLTAGE_BOUND);
+
+        AcLoadFlowParameters param = OpenLoadFlowParameters.createAcParameters(parameters, parametersExt, new SparseMatrixFactory(), new EvenShiloachGraphDecrementalConnectivityFactory<>(), false, false);
+        AcLoadFlowContext context = new AcLoadFlowContext(network, param);
+        AcLoadFlowResult r = new AcloadFlowEngine(context).run();
+        LOGGER.info("Load flow status after Knitro solution: {}", r.getSolverStatus());
 
         double slackBusMismatch = network.getSlackBuses().stream()
                 .mapToDouble(LfBus::getMismatchP)
@@ -319,21 +373,31 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
             double epsilon = sp - sm;
-            double absEpsilon = Math.abs(epsilon);
-            String name = getSlackVariableBusName(i, type);
 
-            if (absEpsilon > threshold) {
-                String interpretation;
-                switch (type) {
-                    case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * sbase);
-                    case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * sbase);
-                    case "V" -> interpretation = String.format("ΔV = %.4f p.u.", epsilon);
-                    default -> interpretation = String.format("Δ = %.4f p.u.", epsilon);
-                }
-
-                String msg = String.format("Slack %s[ %s ] → Sm = %.4f, Sp = %.4f → %s", type, name, sm, sp, interpretation);
-                LOGGER.info(msg);
+            if (Math.abs(epsilon) <= threshold) {
+                continue;
             }
+
+            String name = getSlackVariableBusName(i, type);
+            String interpretation;
+
+            switch (type) {
+                case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * sbase);
+                case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * sbase);
+                case "V" -> {
+                    var bus = network.getBusById(name);
+                    if (bus == null) {
+                        LOGGER.warn("Bus {} not found while logging V slack.", name);
+                        continue;
+                    }
+                    interpretation = String.format("ΔV = %.4f p.u. (%.1f kV)", epsilon, epsilon * bus.getNominalV());
+                }
+                default -> interpretation = "Unknown slack type";
+            }
+
+            slackContributions.put(name, epsilon);
+            String msg = String.format("Slack %s[ %s ] → Sm = %.4f, Sp = %.4f → %s", type, name, sm, sp, interpretation);
+            LOGGER.info(msg);
         }
     }
 
