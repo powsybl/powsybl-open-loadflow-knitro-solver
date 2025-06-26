@@ -25,6 +25,7 @@ import com.powsybl.openloadflow.network.LfNetwork;
 /**
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
+ * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 @AutoService(AcSolverFactory.class)
 public class KnitroSolverFactory implements AcSolverFactory {
@@ -50,10 +51,13 @@ public class KnitroSolverFactory implements AcSolverFactory {
             knitroSolverParameters
                     .setGradientComputationMode(parameters.getExtension(KnitroLoadFlowParameters.class).getGradientComputationMode())
                     .setGradientUserRoutine(parameters.getExtension(KnitroLoadFlowParameters.class).getGradientUserRoutine())
+                    .setHessianComputationMode(parameters.getExtension(KnitroLoadFlowParameters.class).getHessianComputationMode())
                     .setLowerVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getLowerVoltageBound())
                     .setUpperVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getUpperVoltageBound())
                     .setMaxIterations(parameters.getExtension(KnitroLoadFlowParameters.class).getMaxIterations())
                     .setConvEps(parameters.getExtension(KnitroLoadFlowParameters.class).getConvEps())
+                    .setAlwaysUpdateNetwork(parameters.getExtension(KnitroLoadFlowParameters.class).isAlwaysUpdateNetwork())
+                    .setCheckLoadFlowSolution(parameters.getExtension(KnitroLoadFlowParameters.class).isCheckLoadFlowSolution())
                     .setKnitroSolverType(parameters.getExtension(KnitroLoadFlowParameters.class).getKnitroSolverType());
 
         }
