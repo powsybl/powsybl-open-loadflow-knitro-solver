@@ -29,10 +29,7 @@ import com.powsybl.openloadflow.ac.solver.AcSolverStatus;
 import com.powsybl.openloadflow.ac.solver.AcSolverUtil;
 import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.graph.EvenShiloachGraphDecrementalConnectivityFactory;
-import com.powsybl.openloadflow.network.LfBus;
-import com.powsybl.openloadflow.network.LfNetwork;
-import com.powsybl.openloadflow.network.SlackBusSelectionMode;
-import com.powsybl.openloadflow.network.VoltageControl;
+import com.powsybl.openloadflow.network.*;
 import com.powsybl.openloadflow.network.util.VoltageInitializer;
 import org.apache.commons.lang3.Range;
 import org.slf4j.Logger;
@@ -84,7 +81,11 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private final Map<Integer, Integer> vEquationLocalIds;
 
     // Mapping of slacked bus
-    private final Map<String, Double> slackContributions = new HashMap<>();
+    private final ArrayList<SlackKey> slackContributions = new ArrayList<>();
+
+    record SlackKey(String type, String busId, double contribution) {
+
+    }
 
     protected KnitroSolverParameters knitroParameters;
 
@@ -313,48 +314,74 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 AcSolverUtil.updateNetwork(network, equationSystem);
 
                 //Update the target vector with the solution
-                slackContributions.forEach((busId, contribution) -> {
-                    LfBus bus = network.getBusById(busId);
-                    if (bus == null) {
-                        LOGGER.warn("Bus {} not found in the network.", busId);
-                        return;
-                    }
+                if (knitroParameters.isCheckLoadFlowSolution()) {
+                    slackContributions.forEach(slackKey -> {
+                        String type = slackKey.type();
+                        String busId = slackKey.busId();
+                        double contribution = slackKey.contribution();
 
-                    Optional<VoltageControl<?>> maybeControl = bus.getVoltageControls().stream()
-                            .filter(vc -> vc.getControlledBus().getId().equals(bus.getId()))
-                            .findFirst();
+                        LfBus bus = network.getBusById(busId);
+                        if (bus == null) {
+                            LOGGER.warn("Bus {} not found in the network.", busId);
+                            return;
+                        }
+                        // ToDo is here !
+                        switch (type) {
+                            case "P" -> {
+                                Optional<LfLoad> maybeLoadP = bus.getLoads().stream().findAny();
+                                maybeLoadP.ifPresent(l -> l.setTargetP(l.getTargetP() + contribution));
+                            }
+                            case "Q" -> {
+                                Optional<LfLoad> maybeLoadQ = bus.getLoads().stream().findAny();
+                                maybeLoadQ.ifPresent(l -> l.setTargetQ(l.getTargetQ() + contribution));
+                            }
+                            case "V" -> {
+                                Optional<VoltageControl<?>> maybeControl = bus.getVoltageControls().stream()
+                                        .filter(vc -> vc.getControlledBus().getId().equals(bus.getId()))
+                                        .findFirst();
 
-                    maybeControl.ifPresent(vc -> {
-                        double targetV = vc.getTargetValue();
-                        double slackContribution = contribution;
-                        vc.setTargetValue(targetV + slackContribution);
+                                maybeControl.ifPresent(vc -> {
+                                    double targetV = vc.getTargetValue();
+                                    vc.setTargetValue(targetV + contribution);
+                                });
+                            }
+                        }
                     });
-                });
-                //TODO: do the same thing for targetP and targetQ if slack P/Q > 0
-            }
 
+                    LOGGER.info("==== Load flow validation ====");
+                    LoadFlowParameters parameters = new LoadFlowParameters()
+                            .setUseReactiveLimits(false)
+                            .setDistributedSlack(false)
+                            .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
+
+                    OpenLoadFlowParameters parametersExt = OpenLoadFlowParameters.create(parameters)
+                            .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
+                            .setVoltageRemoteControl(false)
+                            .setAcSolverType("NEWTON_RAPHSON");
+                            /*.setNewtonRaphsonConvEpsPerEq(1.0)
+                            .setNewtonRaphsonStoppingCriteriaType(NewtonRaphsonStoppingCriteriaType.PER_EQUATION_TYPE_CRITERIA)
+                            .setMaxActivePowerMismatch(0.1)
+                            .setMaxReactivePowerMismatch(0.1)
+                            .setMaxVoltageMismatch(0.1)
+                            .setMaxAngleMismatch(0.1)
+                            .setMaxRatioMismatch(0.1)
+                            .setMaxSusceptanceMismatch(0.1)
+                            .setStateVectorScalingMode(StateVectorScalingMode.LINE_SEARCH)
+                            .setLineSearchStateVectorScalingMaxIteration(100)
+                            .setMinPlausibleTargetVoltage(0.001)
+                            .setMinRealisticVoltage(0.4)
+                            .setMaxPlausibleTargetVoltage(5.0)
+                            .setMaxRealisticVoltage(2.0);*/
+
+                    AcLoadFlowParameters param = OpenLoadFlowParameters.createAcParameters(parameters, parametersExt, new SparseMatrixFactory(), new EvenShiloachGraphDecrementalConnectivityFactory<>(), false, false);
+                    AcLoadFlowContext context = new AcLoadFlowContext(network, param);
+                    AcLoadFlowResult r = new AcloadFlowEngine(context).run();
+                    LOGGER.info("Load flow status after Knitro solution: {}", r.getSolverStatus());
+                }
+            }
         } catch (KNException e) {
             throw new PowsyblException("Exception while solving with Knitro", e);
         }
-
-        LOGGER.info("==== Load flow validation ====");
-        LoadFlowParameters parameters = new LoadFlowParameters()
-                .setUseReactiveLimits(false)
-                .setDistributedSlack(false)
-                .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
-
-        OpenLoadFlowParameters parametersExt = OpenLoadFlowParameters.create(parameters)
-                .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
-                .setAcSolverType("NEWTON_RAPHSON")
-                .setMinPlausibleTargetVoltage(KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND)
-                .setMinRealisticVoltage(KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND)
-                .setMaxPlausibleTargetVoltage(KnitroSolverParameters.DEFAULT_UPPER_VOLTAGE_BOUND)
-                .setMaxRealisticVoltage(KnitroSolverParameters.DEFAULT_UPPER_VOLTAGE_BOUND);
-
-        AcLoadFlowParameters param = OpenLoadFlowParameters.createAcParameters(parameters, parametersExt, new SparseMatrixFactory(), new EvenShiloachGraphDecrementalConnectivityFactory<>(), false, false);
-        AcLoadFlowContext context = new AcLoadFlowContext(network, param);
-        AcLoadFlowResult r = new AcloadFlowEngine(context).run();
-        LOGGER.info("Load flow status after Knitro solution: {}", r.getSolverStatus());
 
         double slackBusMismatch = network.getSlackBuses().stream()
                 .mapToDouble(LfBus::getMismatchP)
@@ -395,7 +422,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 default -> interpretation = "Unknown slack type";
             }
 
-            slackContributions.put(name, epsilon);
+            slackContributions.add(new SlackKey(type, name, epsilon));
             String msg = String.format("Slack %s[ %s ] → Sm = %.4f, Sp = %.4f → %s", type, name, sm, sp, interpretation);
             LOGGER.info(msg);
         }
@@ -438,11 +465,75 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         return penalty;
     }
 
-    private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols() {
-        return new AbstractMap.SimpleEntry<>(
-                IntStream.range(slackStartIndex, numTotalVariables).boxed().toList(),
-                IntStream.range(slackStartIndex, numTotalVariables).boxed().toList()
-        );
+    private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols(List<Integer> nonlinearConstraintIndexes) {
+        // Custom record to store hessian pair of coordinates
+        record NnzCoordinates(int iRow, int iCol) {
+        }
+        List<NnzCoordinates> hessPoints = new ArrayList<>();
+
+        // Non-linear constraints' contributions to the hessian
+        for (int index : nonlinearConstraintIndexes) {
+            Equation<AcVariableType, AcEquationType> equation = equationSystem.getIndex().getSortedEquationsToSolve().get(index);
+            for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
+                for (Variable<AcVariableType> variable0 : term.getVariables()) {
+                    int iVar = variable0.getRow();
+                    for (Variable<AcVariableType> variable1 : term.getVariables()) {
+                        int jVar = variable1.getRow();
+                        if (jVar >= iVar) {
+                            hessPoints.add(new NnzCoordinates(iVar, jVar));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Objective function's contribution to the hessian
+        for (int iSlack = slackStartIndex; iSlack < numTotalVariables; iSlack++) {
+            hessPoints.add(new NnzCoordinates(iSlack, iSlack));
+            if (((iSlack - slackStartIndex) & 1) == 0) {
+                hessPoints.add(new NnzCoordinates(iSlack, iSlack + 1));
+            }
+        }
+
+        // Sorting the hessian pair of points
+        hessPoints = hessPoints.stream().sorted((NnzCoordinates a, NnzCoordinates b) -> {
+            int ai = a.iRow();
+            int aj = a.iCol();
+            int bi = b.iRow();
+            int bj = b.iCol();
+            if (ai < bi) {
+                return -1;
+            } else if (ai > bi) {
+                return 1;
+            } else {
+                return Integer.compare(aj, bj);
+            }
+        }).toList();
+
+        List<Integer> hessRows = new ArrayList<>();
+        List<Integer> hessCols = new ArrayList<>();
+
+        int pCol = -1;
+        int pRow = -1;
+        // Getting rid of redundant pairs
+        for (int i = 0; i < hessPoints.size(); i++) {
+            NnzCoordinates hessPoint = hessPoints.get(i);
+            if (i == 0) {
+                pRow = hessPoint.iRow();
+                pCol = hessPoint.iCol();
+                hessRows.add(pRow);
+                hessCols.add(pCol);
+            } else {
+                if (pRow != hessPoint.iRow() || pCol != hessPoint.iCol()) {
+                    pRow = hessPoint.iRow();
+                    pCol = hessPoint.iCol();
+                    hessRows.add(pRow);
+                    hessCols.add(pCol);
+                }
+            }
+        }
+
+        return new AbstractMap.SimpleEntry<>(hessRows, hessCols);
     }
 
     /**
@@ -658,7 +749,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     jacCstDense, jacVarDense, jacCstSparse, jacVarSparse
             );
 
-            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols();
+            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes);
             setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
         }
 
@@ -750,8 +841,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     if (slackBase >= 0) {
                         varIndices.add(slackBase);       // Sm
                         varIndices.add(slackBase + 1);   // Sp
-                        coefficients.add(1.0);
                         coefficients.add(-1.0);
+                        coefficients.add(1.0);
                     }
 
                     for (int i = 0; i < varIndices.size(); i++) {
