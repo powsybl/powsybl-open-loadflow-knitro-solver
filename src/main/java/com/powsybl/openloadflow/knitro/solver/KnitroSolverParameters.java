@@ -18,6 +18,7 @@ import java.util.Objects;
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
+ * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 public class KnitroSolverParameters implements AcSolverParameters {
 
@@ -29,7 +30,8 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final int DEFAULT_MAX_ITERATIONS = 400;
     public static final double DEFAULT_STOPPING_CRITERIA = Math.pow(10, -6);
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
-    public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
+    public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = true;
+    public static final boolean CHECK_lOAD_FLOW_SOLUTION_DEFAULT_VALUE = true; // If the solver converges, launches a load flow taking into account slack variable results to check if the solution is a real load flow solution
     public static final KnitroSolverType DEFAULT_KNITRO_SOLVER_TYPE = KnitroSolverType.STANDARD;
     public KnitroSolverType knitroSolverType = DEFAULT_KNITRO_SOLVER_TYPE;
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
@@ -42,6 +44,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
     private double lowerVoltageBound = DEFAULT_LOWER_VOLTAGE_BOUND;
     private double upperVoltageBound = DEFAULT_UPPER_VOLTAGE_BOUND;
     private boolean alwaysUpdateNetwork = ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
+    private boolean checkLoadFlowSolution = CHECK_lOAD_FLOW_SOLUTION_DEFAULT_VALUE;
     private int maxIterations = DEFAULT_MAX_ITERATIONS;
     private double convEps = DEFAULT_STOPPING_CRITERIA;
     private int hessianComputationMode = DEFAULT_HESSIAN_COMPUTATION_MODE;
@@ -127,6 +130,15 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return this;
     }
 
+    public boolean isCheckLoadFlowSolution() {
+        return checkLoadFlowSolution;
+    }
+
+    public KnitroSolverParameters setCheckLoadFlowSolution(boolean checkLoadFlowSolution) {
+        this.checkLoadFlowSolution = checkLoadFlowSolution;
+        return this;
+    }
+
     public int getLineSearchStateVectorScalingMaxIteration() {
         return lineSearchStateVectorScalingMaxIteration;
     }
@@ -198,6 +210,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
                 ", minRealisticVoltage=" + lowerVoltageBound +
                 ", maxRealisticVoltage=" + upperVoltageBound +
                 ", alwaysUpdateNetwork=" + alwaysUpdateNetwork +
+                ", checkLoadFlowSolution=" + checkLoadFlowSolution +
                 ", maxIterations=" + maxIterations +
                 ", knitroSolverType=" + knitroSolverType +
                 ')';
