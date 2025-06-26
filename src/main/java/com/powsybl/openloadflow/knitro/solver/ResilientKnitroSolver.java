@@ -358,20 +358,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                             .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
                             .setVoltageRemoteControl(false)
                             .setAcSolverType("NEWTON_RAPHSON");
-                            /*.setNewtonRaphsonConvEpsPerEq(1.0)
-                            .setNewtonRaphsonStoppingCriteriaType(NewtonRaphsonStoppingCriteriaType.PER_EQUATION_TYPE_CRITERIA)
-                            .setMaxActivePowerMismatch(0.1)
-                            .setMaxReactivePowerMismatch(0.1)
-                            .setMaxVoltageMismatch(0.1)
-                            .setMaxAngleMismatch(0.1)
-                            .setMaxRatioMismatch(0.1)
-                            .setMaxSusceptanceMismatch(0.1)
-                            .setStateVectorScalingMode(StateVectorScalingMode.LINE_SEARCH)
-                            .setLineSearchStateVectorScalingMaxIteration(100)
-                            .setMinPlausibleTargetVoltage(0.001)
-                            .setMinRealisticVoltage(0.4)
-                            .setMaxPlausibleTargetVoltage(5.0)
-                            .setMaxRealisticVoltage(2.0);*/
 
                     AcLoadFlowParameters param = OpenLoadFlowParameters.createAcParameters(parameters, parametersExt, new SparseMatrixFactory(), new EvenShiloachGraphDecrementalConnectivityFactory<>(), false, false);
                     AcLoadFlowContext context = new AcLoadFlowContext(network, param);
