@@ -46,6 +46,8 @@ public class ResilientAcLoadFlowUnitTest {
     private void configureSolver(String solver) {
         OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
+                .setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE)
+                .setVoltageRemoteControl(false)
                 .setAcSolverType(solver);
 
         if (RKN.equals(solver)) {
@@ -195,7 +197,6 @@ public class ResilientAcLoadFlowUnitTest {
     @Test
     @Disabled("Temporarily disabled")
     void testConvergenceOnTyndpData() {
-        parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
         Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, TYNDP_INSTANCE);
         Network network = Network.read(fileName).getNetwork();
         configureSolver(RKN);
