@@ -55,8 +55,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private final double wQ = 1.0;
     private final double wV = 1.0;
 
-    // Lambda
-    private final double lambda = 3.0;
+    // Weights of the linear and quadratic terms in the objective function
+    private final double lambda = 3;
+    private final double mu = 1.0;
 
     // Number of Load Flows (LF) variables in the system
     private final int numLFVariables;
@@ -247,6 +248,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
+        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
@@ -290,9 +292,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             logSlackValues("V", slackVStartIndex, numVEquations, x);
 
             // ========== Penalty Computation ==========
-            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wK * wP, lambda);
-            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wK * wQ, lambda);
-            double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV, lambda);
+            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wK * wP, lambda, mu);
+            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wK * wQ, lambda, mu);
+            double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV, lambda, mu);
             double totalPenalty = penaltyP + penaltyQ + penaltyV;
 
             LOGGER.info("==== Slack penalty details ====");
@@ -312,58 +314,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     }
                 }
                 AcSolverUtil.updateNetwork(network, equationSystem);
-
-                //Update the target vector with the solution
-                if (knitroParameters.isCheckLoadFlowSolution()) {
-                    slackContributions.forEach(slackKey -> {
-                        String type = slackKey.type();
-                        String busId = slackKey.busId();
-                        double contribution = slackKey.contribution();
-
-                        LfBus bus = network.getBusById(busId);
-                        if (bus == null) {
-                            LOGGER.warn("Bus {} not found in the network.", busId);
-                            return;
-                        }
-                        // ToDo is here !
-                        switch (type) {
-                            case "P" -> {
-                                Optional<LfLoad> maybeLoadP = bus.getLoads().stream().findAny();
-                                maybeLoadP.ifPresent(l -> l.setTargetP(l.getTargetP() + contribution));
-                            }
-                            case "Q" -> {
-                                Optional<LfLoad> maybeLoadQ = bus.getLoads().stream().findAny();
-                                maybeLoadQ.ifPresent(l -> l.setTargetQ(l.getTargetQ() + contribution));
-                            }
-                            case "V" -> {
-                                Optional<VoltageControl<?>> maybeControl = bus.getVoltageControls().stream()
-                                        .filter(vc -> vc.getControlledBus().getId().equals(bus.getId()))
-                                        .findFirst();
-
-                                maybeControl.ifPresent(vc -> {
-                                    double targetV = vc.getTargetValue();
-                                    vc.setTargetValue(targetV + contribution);
-                                });
-                            }
-                        }
-                    });
-
-                    LOGGER.info("==== Load flow validation ====");
-                    LoadFlowParameters parameters = new LoadFlowParameters()
-                            .setUseReactiveLimits(false)
-                            .setDistributedSlack(false)
-                            .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
-
-                    OpenLoadFlowParameters parametersExt = OpenLoadFlowParameters.create(parameters)
-                            .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
-                            .setVoltageRemoteControl(false)
-                            .setAcSolverType("NEWTON_RAPHSON");
-
-                    AcLoadFlowParameters param = OpenLoadFlowParameters.createAcParameters(parameters, parametersExt, new SparseMatrixFactory(), new EvenShiloachGraphDecrementalConnectivityFactory<>(), false, false);
-                    AcLoadFlowContext context = new AcLoadFlowContext(network, param);
-                    AcLoadFlowResult r = new AcloadFlowEngine(context).run();
-                    LOGGER.info("Load flow status after Knitro solution: {}", r.getSolverStatus());
-                }
             }
         } catch (KNException e) {
             throw new PowsyblException("Exception while solving with Knitro", e);
@@ -372,6 +322,57 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         double slackBusMismatch = network.getSlackBuses().stream()
                 .mapToDouble(LfBus::getMismatchP)
                 .sum();
+
+        // Update the target vector with the solution to check load flow validity
+        if (knitroParameters.isCheckLoadFlowSolution()) {
+            slackContributions.forEach(slackKey -> {
+                String type = slackKey.type();
+                String busId = slackKey.busId();
+                double contribution = slackKey.contribution();
+
+                LfBus bus = network.getBusById(busId);
+                if (bus == null) {
+                    LOGGER.warn("Bus {} not found in the network.", busId);
+                    return;
+                }
+                switch (type) {
+                    case "P" -> {
+                        Optional<LfLoad> maybeLoadP = bus.getLoads().stream().findAny();
+                        maybeLoadP.ifPresent(l -> l.setTargetP(l.getTargetP() + contribution));
+                    }
+                    case "Q" -> {
+                        Optional<LfLoad> maybeLoadQ = bus.getLoads().stream().findAny();
+                        maybeLoadQ.ifPresent(l -> l.setTargetQ(l.getTargetQ() + contribution));
+                    }
+                    case "V" -> {
+                        Optional<VoltageControl<?>> maybeControl = bus.getVoltageControls().stream()
+                                .filter(vc -> vc.getControlledBus().getId().equals(bus.getId()))
+                                .findFirst();
+
+                        maybeControl.ifPresent(vc -> {
+                            double targetV = vc.getTargetValue();
+                            vc.setTargetValue(targetV + contribution);
+                        });
+                    }
+                }
+            });
+
+            LOGGER.info("==== Load flow validation ====");
+            LoadFlowParameters parameters = new LoadFlowParameters()
+                    .setUseReactiveLimits(false)
+                    .setDistributedSlack(false)
+                    .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
+
+            OpenLoadFlowParameters parametersExt = OpenLoadFlowParameters.create(parameters)
+                    .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
+                    .setVoltageRemoteControl(false)
+                    .setAcSolverType("NEWTON_RAPHSON");
+
+            AcLoadFlowParameters param = OpenLoadFlowParameters.createAcParameters(parameters, parametersExt, new SparseMatrixFactory(), new EvenShiloachGraphDecrementalConnectivityFactory<>(), false, false);
+            AcLoadFlowContext context = new AcLoadFlowContext(network, param);
+            AcLoadFlowResult r = new AcloadFlowEngine(context).run();
+            LOGGER.info("Load flow status after Knitro solution: {}", r.getSolverStatus());
+        }
 
         return new AcSolverResult(solverStatus, nbIterations, slackBusMismatch);
     }
@@ -439,18 +440,24 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         return bus.getId();
     }
 
-    private double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight, double lambda) {
+    private double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight, double lambda, double mu) {
         double penalty = 0.0;
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
             double diff = sp - sm;
-            penalty += weight * (diff * diff); // Quadratic terms
+            penalty += weight * mu * (diff * diff); // Quadratic terms
             penalty += weight * lambda * (sp + sm); // Linear terms
         }
         return penalty;
     }
 
+    /**
+     * Returns the sparsity patterns of the hessian matrix associated to the problem.
+     *
+     * @param nonlinearConstraintIndexes A list of the indexes of non-linear equations.
+     * @return row and column coordinates of non-zero entries in the hessian matrix.
+     */
     private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols(List<Integer> nonlinearConstraintIndexes) {
         // Custom record to store hessian pair of coordinates
         record NnzCoordinates(int iRow, int iCol) {
@@ -715,9 +722,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             List<Double> linCoefs = new ArrayList<>();
 
             // Slack penalty terms: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
-            addSlackObjectiveTerms(numPEquations, slackPStartIndex, wK * wP, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numQEquations, slackQStartIndex, wK * wQ, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numVEquations, slackVStartIndex, wV, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numPEquations, slackPStartIndex, wK * wP, lambda, mu, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numQEquations, slackQStartIndex, wK * wQ, lambda, mu, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numVEquations, slackVStartIndex, wV, lambda, mu, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
 
             setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
             setObjectiveLinearPart(linIndexes, linCoefs);
@@ -747,6 +754,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 int slackStartIdx,
                 double weight,
                 double lambda,
+                double mu,
                 List<Integer> quadRows,
                 List<Integer> quadCols,
                 List<Double> quadCoefs,
@@ -757,18 +765,18 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 int idxSm = slackStartIdx + 2 * i;
                 int idxSp = slackStartIdx + 2 * i + 1;
 
-                // Quadratic terms: weight * (sp^2 + sm^2 - 2 * sp * sm)
+                // Quadratic terms: weight * mu * (sp^2 + sm^2 - 2 * sp * sm)
                 quadRows.add(idxSp);
                 quadCols.add(idxSp);
-                quadCoefs.add(weight);
+                quadCoefs.add(mu * weight);
 
                 quadRows.add(idxSm);
                 quadCols.add(idxSm);
-                quadCoefs.add(weight);
+                quadCoefs.add(mu * weight);
 
                 quadRows.add(idxSp);
                 quadCols.add(idxSm);
-                quadCoefs.add(-2 * weight);
+                quadCoefs.add(-2 * mu * weight);
 
                 // Linear terms: weight * lambda * (sp + sm)
                 linIndexes.add(idxSp);
