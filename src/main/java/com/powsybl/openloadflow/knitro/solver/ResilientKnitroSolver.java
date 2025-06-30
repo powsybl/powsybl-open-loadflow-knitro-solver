@@ -364,7 +364,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
             OpenLoadFlowParameters parametersExt = OpenLoadFlowParameters.create(parameters)
                     .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
-                    .setVoltageRemoteControl(false)
                     .setAcSolverType("NEWTON_RAPHSON");
 
             AcLoadFlowParameters param = OpenLoadFlowParameters.createAcParameters(parameters, parametersExt, new SparseMatrixFactory(), new EvenShiloachGraphDecrementalConnectivityFactory<>(), false, false);
