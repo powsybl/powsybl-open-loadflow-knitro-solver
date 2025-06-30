@@ -47,7 +47,6 @@ public class ResilientAcLoadFlowUnitTest {
         OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
                 .setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE)
-                .setVoltageRemoteControl(false)
                 .setAcSolverType(solver);
 
         if (RKN.equals(solver)) {
