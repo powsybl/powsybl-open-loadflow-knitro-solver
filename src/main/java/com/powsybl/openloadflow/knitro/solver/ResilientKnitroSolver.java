@@ -248,7 +248,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
-        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
@@ -453,7 +452,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     }
 
     /**
-     * Returns the sparsity patterns of the hessian matrix associated to the problem.
+     * Returns the sparsity pattern of the hessian matrix associated with the problem.
      *
      * @param nonlinearConstraintIndexes A list of the indexes of non-linear equations.
      * @return row and column coordinates of non-zero entries in the hessian matrix.
