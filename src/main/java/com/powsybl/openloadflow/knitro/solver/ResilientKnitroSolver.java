@@ -83,11 +83,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
     // Mapping of slacked bus
     private final ArrayList<SlackKey> slackContributions = new ArrayList<>();
-
-    record SlackKey(String type, String busId, double contribution) {
-
-    }
-
     protected KnitroSolverParameters knitroParameters;
 
     public ResilientKnitroSolver(
@@ -457,71 +452,45 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
      * @return row and column coordinates of non-zero entries in the hessian matrix.
      */
     private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols(List<Integer> nonlinearConstraintIndexes) {
-        // Custom record to store hessian pair of coordinates
         record NnzCoordinates(int iRow, int iCol) {
         }
-        List<NnzCoordinates> hessPoints = new ArrayList<>();
 
-        // Non-linear constraints' contributions to the hessian
+        Set<NnzCoordinates> hessianEntries = new LinkedHashSet<>();
+
+        // Non-linear constraints contributions in the hessian matrix
         for (int index : nonlinearConstraintIndexes) {
             Equation<AcVariableType, AcEquationType> equation = equationSystem.getIndex().getSortedEquationsToSolve().get(index);
             for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                for (Variable<AcVariableType> variable0 : term.getVariables()) {
-                    int iVar = variable0.getRow();
-                    for (Variable<AcVariableType> variable1 : term.getVariables()) {
-                        int jVar = variable1.getRow();
-                        if (jVar >= iVar) {
-                            hessPoints.add(new NnzCoordinates(iVar, jVar));
+                for (Variable<AcVariableType> var1 : term.getVariables()) {
+                    int i = var1.getRow();
+                    for (Variable<AcVariableType> var2 : term.getVariables()) {
+                        int j = var2.getRow();
+                        if (j >= i) {
+                            hessianEntries.add(new NnzCoordinates(i, j));
                         }
                     }
                 }
             }
         }
 
-        // Objective function's contribution to the hessian
+        // Slacks variables contributions in the objective function
         for (int iSlack = slackStartIndex; iSlack < numTotalVariables; iSlack++) {
-            hessPoints.add(new NnzCoordinates(iSlack, iSlack));
+            hessianEntries.add(new NnzCoordinates(iSlack, iSlack));
             if (((iSlack - slackStartIndex) & 1) == 0) {
-                hessPoints.add(new NnzCoordinates(iSlack, iSlack + 1));
+                hessianEntries.add(new NnzCoordinates(iSlack, iSlack + 1));
             }
         }
 
-        // Sorting the hessian pair of points
-        hessPoints = hessPoints.stream().sorted((NnzCoordinates a, NnzCoordinates b) -> {
-            int ai = a.iRow();
-            int aj = a.iCol();
-            int bi = b.iRow();
-            int bj = b.iCol();
-            if (ai < bi) {
-                return -1;
-            } else if (ai > bi) {
-                return 1;
-            } else {
-                return Integer.compare(aj, bj);
-            }
-        }).toList();
+        // Sort the entries by row and column indices
+        hessianEntries = hessianEntries.stream()
+                .sorted(Comparator.comparingInt(NnzCoordinates::iRow).thenComparingInt(NnzCoordinates::iCol))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
         List<Integer> hessRows = new ArrayList<>();
         List<Integer> hessCols = new ArrayList<>();
-
-        int pCol = -1;
-        int pRow = -1;
-        // Getting rid of redundant pairs
-        for (int i = 0; i < hessPoints.size(); i++) {
-            NnzCoordinates hessPoint = hessPoints.get(i);
-            if (i == 0) {
-                pRow = hessPoint.iRow();
-                pCol = hessPoint.iCol();
-                hessRows.add(pRow);
-                hessCols.add(pCol);
-            } else {
-                if (pRow != hessPoint.iRow() || pCol != hessPoint.iCol()) {
-                    pRow = hessPoint.iRow();
-                    pCol = hessPoint.iCol();
-                    hessRows.add(pRow);
-                    hessCols.add(pCol);
-                }
-            }
+        for (NnzCoordinates entry : hessianEntries) {
+            hessRows.add(entry.iRow());
+            hessCols.add(entry.iCol());
         }
 
         return new AbstractMap.SimpleEntry<>(hessRows, hessCols);
@@ -641,6 +610,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         public AcSolverStatus toAcSolverStatus() {
             return mappedStatus;
         }
+    }
+
+    record SlackKey(String type, String busId, double contribution) {
     }
 
     private final class ResilientKnitroProblem extends KNProblem {
