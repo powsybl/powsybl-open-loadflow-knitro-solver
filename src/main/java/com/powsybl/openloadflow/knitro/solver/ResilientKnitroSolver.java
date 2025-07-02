@@ -243,6 +243,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
+        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
+        solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_BOTH);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
@@ -331,8 +333,16 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 }
                 switch (type) {
                     case "P" -> {
-                        Optional<LfLoad> maybeLoadP = bus.getLoads().stream().findAny();
-                        maybeLoadP.ifPresent(l -> l.setTargetP(l.getTargetP() + contribution));
+                        Optional<LfGenerator> maybeGenerator = bus.getGenerators().stream().findAny();
+                        if (maybeGenerator.isPresent()) {
+                            LfGenerator generator = maybeGenerator.get();
+                            if (generator.getGeneratorControlType() == LfGenerator.GeneratorControlType.VOLTAGE) {
+                                generator.setTargetP(generator.getTargetP() - contribution);
+                            }
+                        } else {
+                            Optional<LfLoad> maybeLoadP = bus.getLoads().stream().findAny();
+                            maybeLoadP.ifPresent(l -> l.setTargetP(l.getTargetP() + contribution));
+                        }
                     }
                     case "Q" -> {
                         Optional<LfLoad> maybeLoadQ = bus.getLoads().stream().findAny();
@@ -371,7 +381,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     }
 
     private void logSlackValues(String type, int startIndex, int count, List<Double> x) {
-        final double threshold = 1e-3;  // Threshold for significant slack values
+        final double threshold = 1e-6;  // Threshold for significant slack values
         final double sbase = 100.0;     // Base power in MVA
 
         LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
@@ -805,8 +815,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     if (slackBase >= 0) {
                         varIndices.add(slackBase);       // Sm
                         varIndices.add(slackBase + 1);   // Sp
-                        coefficients.add(-1.0);
                         coefficients.add(1.0);
+                        coefficients.add(-1.0);
                     }
 
                     for (int i = 0; i < varIndices.size(); i++) {
@@ -1043,8 +1053,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                             }
                         }
 
-                        if (var >= numVariables) {
-                            if ((var & 1) == 0) {
+                        if ((var) >= numVariables) {
+                            if (((var-numVariables) & 1) == 0) {
                                 // set Jacobian entry to -1.0 if slack variable is Sm
                                 value = -1.0;
                             } else {
