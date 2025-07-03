@@ -25,7 +25,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private int maxIterations = KnitroSolverParameters.DEFAULT_MAX_ITERATIONS;
     private double convEps = KnitroSolverParameters.DEFAULT_STOPPING_CRITERIA;
     private boolean alwaysUpdateNetwork = KnitroSolverParameters.ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
-    private boolean checkLoadFlowSolution = KnitroSolverParameters.CHECK_lOAD_FLOW_SOLUTION_DEFAULT_VALUE;
+    private boolean checkLoadFlowSolution = KnitroSolverParameters.CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE;
     private KnitroSolverParameters.KnitroSolverType knitroSolverType = KnitroSolverParameters.DEFAULT_KNITRO_SOLVER_TYPE;
 
     public int getGradientComputationMode() {
