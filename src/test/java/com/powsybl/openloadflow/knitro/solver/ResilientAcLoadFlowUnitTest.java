@@ -40,13 +40,13 @@ public class ResilientAcLoadFlowUnitTest {
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new SparseMatrixFactory()));
         parameters = new LoadFlowParameters()
                 .setUseReactiveLimits(false)
+                .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES)
                 .setDistributedSlack(false);
     }
 
     private void configureSolver(String solver) {
         OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
-                .setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE)
                 .setAcSolverType(solver);
 
         if (RKN.equals(solver)) {

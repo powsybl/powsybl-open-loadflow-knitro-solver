@@ -56,7 +56,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private final double wV = 1.0;
 
     // Weights of the linear and quadratic terms in the objective function
-    private final double lambda = 3;
+    private final double lambda = 3.0;
     private final double mu = 1.0;
 
     // Number of Load Flows (LF) variables in the system
@@ -245,6 +245,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
         solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
         solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_BOTH);
+        solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-2);
+        solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-1);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
@@ -1053,8 +1055,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                             }
                         }
 
-                        if ((var) >= numVariables) {
-                            if (((var-numVariables) & 1) == 0) {
+                        if (var >= numVariables) {
+                            if (((var - numVariables) & 1) == 0) {
                                 // set Jacobian entry to -1.0 if slack variable is Sm
                                 value = -1.0;
                             } else {
