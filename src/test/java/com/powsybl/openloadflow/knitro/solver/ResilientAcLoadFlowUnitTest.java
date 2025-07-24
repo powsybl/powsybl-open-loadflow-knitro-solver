@@ -40,8 +40,8 @@ public class ResilientAcLoadFlowUnitTest {
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new SparseMatrixFactory()));
         parameters = new LoadFlowParameters()
                 .setUseReactiveLimits(false)
-                .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES)
-                .setDistributedSlack(false);
+                .setDistributedSlack(false)
+                .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
     }
 
     private void configureSolver(String solver) {
@@ -194,7 +194,6 @@ public class ResilientAcLoadFlowUnitTest {
     }
 
     @Test
-    @Disabled("Temporarily disabled")
     void testConvergenceOnTyndpData() {
         Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, TYNDP_INSTANCE);
         Network network = Network.read(fileName).getNetwork();
