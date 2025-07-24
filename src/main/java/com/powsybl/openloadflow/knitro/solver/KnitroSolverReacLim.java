@@ -11,6 +11,7 @@ package com.powsybl.openloadflow.knitro.solver;
 import com.artelys.knitro.api.*;
 import com.artelys.knitro.api.callbacks.KNEvalFCCallback;
 import com.artelys.knitro.api.callbacks.KNEvalGACallback;
+import com.google.common.base.Stopwatch;
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.commons.report.ReportNode;
 import com.powsybl.math.matrix.SparseMatrix;
@@ -30,13 +31,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.primitives.Doubles.toArray;
-import static com.powsybl.openloadflow.ac.equations.AcEquationType.BUS_TARGET_Q;
-import static com.powsybl.openloadflow.ac.equations.AcEquationType.BUS_TARGET_V;
+import static com.powsybl.openloadflow.ac.equations.AcEquationType.*;
+import static com.powsybl.openloadflow.util.Markers.PERFORMANCE_MARKER;
 
 
 /**
@@ -81,6 +83,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
     private final Map<Integer, Integer> pEquationLocalIds;
     private final Map<Integer, Integer> qEquationLocalIds;
     private final Map<Integer, Integer> vEquationLocalIds;
+    private static final Map<Integer, Equation<AcVariableType, AcEquationType>> indEqUnactiveQ = new HashMap<>();
 
     protected KnitroSolverParameters knitroParameters;
 
@@ -97,7 +100,6 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         this.knitroParameters = knitroParameters;
 
         this.numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
-
         List<Equation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedEquationsToSolve();
 
         // Count the number of slack buses by their type
@@ -211,6 +213,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             List<Integer> jacobianRowIndices,
             List<Integer> jacobianColumnIndices) {
 
+        int nbreLFVEq = sortedEquationsToSolve.stream().filter(e -> e.getType()==BUS_TARGET_V).toList().size()/2;
+        int nbreLFEq = sortedEquationsToSolve.size() - 3*nbreLFVEq;
+
         for (Integer constraintIndex : nonLinearConstraintIds) {
             Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(constraintIndex);
             AcEquationType equationType = equation.getType();
@@ -241,15 +246,30 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             }
 
             // Add complementarity constraints' variables if the constraint type has them
-            //int compVarStart;
-            //if (equationType == BUS_TARGET_V) {
-            //    compVarStart= vEquationLocalIds.getOrDefault(constraintIndex, -1);
-            //    involvedVariables.add(compVarIndex + 5 * compVarStart);     // V inf
-            //    involvedVariables.add(compVarIndex + 5 * compVarStart + 1); // V supp
-            //    involvedVariables.add(compVarIndex + 5 * compVarStart + 2); // b low
-            //    involvedVariables.add(compVarIndex + 5 * compVarStart + 3); // b up
-            //    involvedVariables.add(compVarIndex + 5 * compVarStart + 4); // sigma
-            //}
+            int compVarStart;
+            if (equationType == BUS_TARGET_Q && !equation.isActive()) {
+                compVarStart= vEquationLocalIds.getOrDefault(equationSystem.getIndex().getSortedEquationsToSolve()
+                        .indexOf(equationSystem.getEquations(ElementType.BUS,equation.getElementNum()).stream()
+                                .filter(e ->e.getType() == BUS_TARGET_V).toList()
+                                .get(0)), -1);
+                if (constraintIndex < nbreLFEq + 2 * nbreLFVEq) {
+                    involvedVariables.add(compVarIndex + 5 * compVarStart + 2); // b low
+                } else {
+                    involvedVariables.add(compVarIndex + 5 * compVarStart + 3); // b up
+                }
+            } else if (equationType == BUS_TARGET_V) {
+                compVarStart= vEquationLocalIds.getOrDefault(equationSystem.getIndex().getSortedEquationsToSolve()
+                        .indexOf(equationSystem.getEquations(ElementType.BUS,equation.getElementNum()).stream()
+                                .filter(e ->e.getType() == BUS_TARGET_V).toList()
+                                .get(0)), -1);
+                if (constraintIndex < nbreLFEq) {
+                    involvedVariables.add(compVarIndex + 5 * compVarStart);     // V inf
+                    involvedVariables.add(compVarIndex + 5 * compVarStart + 4); // sigma
+                } else {
+                    involvedVariables.add(compVarIndex + 5 * compVarStart + 1); // V supp
+                    involvedVariables.add(compVarIndex + 5 * compVarStart + 4); // sigma
+                }
+            }
 
             // Add one entry for each non-zero (constraintIndex, variableIndex)
             jacobianColumnIndices.addAll(involvedVariables);
@@ -567,7 +587,6 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                 TargetVector<AcVariableType, AcEquationType> targetVector,
                 JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                 VoltageInitializer voltageInitializer) throws KNException {
-
             // =============== Variable Initialization ===============
             super(numTotalVariables, equationSystem.getIndex().getSortedEquationsToSolve().size() + 3*((int)
                     equationSystem.getIndex().getSortedEquationsToSolve().stream().filter(
@@ -619,7 +638,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
             // =============== Constraint Setup ===============
             List<Equation<AcVariableType, AcEquationType>> activeConstraints = equationSystem.getIndex().getSortedEquationsToSolve();
-
+            int maxColumn = activeConstraints.stream().map(Equation::getColumn).max(Integer::compare).get();
             // Build sorted list of buses' indexes for buses with an equation setting V
             List<Integer> listBusesWithVEq = activeConstraints.stream().filter(
                     e->e.getType() == AcEquationType.BUS_TARGET_V)
@@ -628,7 +647,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
             // Picking non-activated Q equations
             List<Equation<AcVariableType, AcEquationType>> equationQBusV = new ArrayList<>();
-            for (int elementNum : listBusesWithVEq){
+            for (int elementNum : listBusesWithVEq) {
                 equationQBusV.addAll(equationSystem.getEquations(ElementType.BUS,
                         elementNum).stream().filter(e ->
                         e.getType() == BUS_TARGET_Q).toList());
@@ -647,7 +666,14 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                         completeEquationsToSolve, targetVector,wholeTargetVector); // Add Linear constraints, index nonLinear ones and get target values
             }
             int totalActivConstraints = completeEquationsToSolve.size();
-            completeEquationsToSolve.addAll(equationsQBusV);
+
+            for (Equation<AcVariableType, AcEquationType> equation : equationsQBusV) {
+//                maxColumn += 1;
+//                equation.setColumn(maxColumn);
+                completeEquationsToSolve.add(equation);
+            }
+            //completeEquationsToSolve.addAll(equationsQBusV);
+
             for (int equationId = totalActivConstraints; equationId < completeEquationsToSolve.size(); equationId++) {
                 Equation<AcVariableType, AcEquationType> equation = completeEquationsToSolve.get(equationId);
                 if (equationId-totalActivConstraints < equationQBusV.size()) {
@@ -656,7 +682,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                     wholeTargetVector.add(network.getBus(equation.getElementNum()).getMaxQ());
                 }
                 nonlinearConstraintIndexes.add(equationId);
+                indEqUnactiveQ.put(equationId,equation);
             }
+
             int numConstraints = completeEquationsToSolve.size();
             LOGGER.info("Defined {} constraints", numConstraints);
             setMainCallbackCstIndexes(nonlinearConstraintIndexes);
@@ -667,7 +695,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             List<Integer> bVarList = new ArrayList<>(); // b_up, b_low
             List<Integer> vInfSuppList = new ArrayList<>(); // V_inf, V_sup
 
-            for (int i = 0; i < numVEquations; i++){
+            for (int i = 0; i < numVEquations; i++) {
                 vInfSuppList.add(compVarIndex + 5*i);
                 vInfSuppList.add(compVarIndex + 5*i + 1);
                 bVarList.add(compVarIndex + 5*i + 3);
@@ -702,7 +730,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             List<Integer> jacVarSparse = new ArrayList<>();
 
             setJacobianMatrix(
-                    network, jacobianMatrix, activeConstraints, nonlinearConstraintIndexes,
+                    network, jacobianMatrix, completeEquationsToSolve, nonlinearConstraintIndexes,
                     jacCstDense, jacVarDense, jacCstSparse, jacVarSparse
             );
 
@@ -838,7 +866,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                 }
 
                 // Add the duplicated equation (ie V_sup eq) to the list of eq to solve and its target
-                completeEquationsToSolve.add(equationsToSolve.get(equationId));
+                Equation<AcVariableType, AcEquationType> VEq = equationsToSolve.get(equationId);
+                completeEquationsToSolve.add(VEq);
+
                 wholeTargetVector.add(Arrays.stream(targetVector.getArray()).boxed().toList().get(equationId));
 
             } else {
@@ -1067,6 +1097,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             @Override
             public void evaluateGA(final List<Double> x, final List<Double> objGrad, final List<Double> jac) {
                 // Update internal state and Jacobian
+                LOGGER.debug("Entering in Callback");
                 equationSystem.getStateVector().set(toArray(x));
                 AcSolverUtil.updateNetwork(network, equationSystem);
                 jacobianMatrix.forceUpdate();
@@ -1093,6 +1124,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                 }
 
                 // Fill Jacobian values
+                boolean onVinf = false;
                 for (int index = 0; index < constraintIndices.size(); index++) {
                     try {
                         int ct = constraintIndices.get(index);
@@ -1100,33 +1132,116 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
                         double value = 0.0;
 
-                        // Find matching (var, ct) entry in sparse column
-                        int colStart = columnStart[ct];
-                        int colEnd = columnStart[ct + 1];
+                        int numLFVar = equationSystem.getIndex().getSortedVariablesToFind().size();
+                        int numLFEq = equationSystem.getIndex().getSortedEquationsToSolve().size();
+                        int numVEq = equationSystem.getIndex().getSortedEquationsToSolve().stream().filter(
+                                e -> e.getType() == BUS_TARGET_V).toList().size();
+                        int numPQEq = equationSystem.getIndex().getSortedEquationsToSolve().stream().filter(
+                                e -> e.getType() == BUS_TARGET_Q ||
+                                        e.getType() == BUS_TARGET_P).toList().size();
 
-                        boolean found = false;
-                        for (int i = colStart; i < colEnd; i++) {
-                            if (rowIndices[i] == var) {
-                                value = values[i];
-                                found = true;
-                                break;
-                            }
-                        }
+                        if (ct < Arrays.stream(columnStart).count()) {
+                            // Find matching (var, ct) entry in sparse column
+                            int colStart = columnStart[ct];
+                            int colEnd = columnStart[ct + 1];
 
-                        // Check if var is a slack variable (i.e. outside the main variable range)
-                        if (var >= equationSystem.getIndex().getSortedVariablesToFind().size()) {
-                            if ((var & 1) == 0) {
-                                // set Jacobian entry to 1.0 if slack variable is Sm
-                                value = 1.0;
-                            } else {
-                                // set Jacobian entry to -1.0 if slack variable is Sp
-                                value = -1.0;
+                            boolean found = false;
+                            for (int i = colStart; i < colEnd; i++) {
+                                if (rowIndices[i] == var) {
+                                    value = values[i];
+                                    found = true;
+                                    break;
+                                }
                             }
+
+                            // Check if var is a slack variable (i.e. outside the main variable range)
+
+                            if (var >= numLFVar && var < numLFVar + 2 * numPQEq) {
+                                if ((var - numLFVar % 2) == 0) {
+                                    // set Jacobian entry to 1.0 if slack variable is Sm
+                                    value = 1.0;
+                                } else {
+                                    // set Jacobian entry to -1.0 if slack variable is Sp
+                                    value = -1.0;
+                                }
+                            } else if (var >= numLFVar + 2 * numPQEq && var < numLFVar + 2 * (numPQEq + numVEq)) {
+                                if ((var - numLFVar % 2) == 0) {
+                                    // set Jacobian entry to -1.0 if slack variable is Sm
+                                    value = -1.0;
+                                } else {
+                                    // set Jacobian entry to 1.0 if slack variable is Sp
+                                    value = 1.0;
+                                }
+                            } else if (var >= numLFVar + 2 * (numPQEq + numVEq)) {
+                                int rest = var - numLFVar - 2 * (numPQEq + numVEq) % 5;
+                                if (rest == 0) {
+                                    value = 1.0;
+                                    onVinf = true;
+                                } else if (rest == 1) {
+                                    value = -1.0;
+                                    onVinf = false;
+                                } else if (rest == 2) {
+                                    value = -1.0;
+                                } else if (rest == 3) {
+                                    value = 1.0;
+                                } else {
+                                    value = onVinf ? -1.0 : 1.0;
+                                }
+                            }
+                            if (!found && knitroParameters.getGradientUserRoutine() == 1) {
+                                LOGGER.warn("Dense Jacobian entry not found for constraint {} variable {}", ct, var);
+                            }
+                            jac.set(index, value);
+                        } else {
+                            Equation<AcVariableType, AcEquationType> equation = indEqUnactiveQ.get(ct);
+                            if (var < numLFVar) {
+                                for (Map.Entry<Variable<AcVariableType>, List<EquationTerm<AcVariableType, AcEquationType>>> e : equation.getTermsByVariable().entrySet()) {
+                                    for (EquationTerm<AcVariableType, AcEquationType> term : e.getValue()) {
+                                        Variable<AcVariableType> v = e.getKey();
+                                        if (var % 2 == 0 && v.getType() == AcVariableType.BUS_V) {
+                                            value += term.isActive() ? term.der(v) : 0;
+                                        } else if (var % 2 == 1 && v.getType() == AcVariableType.BUS_PHI) {
+                                            value += term.isActive() ? term.der(v) : 0;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (var >= numLFVar && var < numLFVar + 2 * numPQEq) {
+                                if ((var - numLFVar % 2) == 0) {
+                                    // set Jacobian entry to 1.0 if slack variable is Sm
+                                    value = 1.0;
+                                } else {
+                                    // set Jacobian entry to -1.0 if slack variable is Sp
+                                    value = -1.0;
+                                }
+                            } else if (var >= numLFVar + 2 * numPQEq && var < numLFVar + 2 * (numPQEq + numVEq)) {
+                                if ((var - numLFVar % 2) == 0) {
+                                    // set Jacobian entry to -1.0 if slack variable is Sm
+                                    value = -1.0;
+                                } else {
+                                    // set Jacobian entry to 1.0 if slack variable is Sp
+                                    value = 1.0;
+                                }
+                            } else if (var >= numLFVar + 2 * (numPQEq + numVEq)) {
+                                int rest = var - numLFVar - 2 * (numPQEq + numVEq) % 5;
+                                if (rest == 0) {
+                                    value = 1.0;
+                                    onVinf = true;
+                                } else if (rest == 1) {
+                                    value = -1.0;
+                                    onVinf = false;
+                                } else if (rest == 2) {
+                                    value = -1.0;
+                                } else if (rest == 3) {
+                                    value = 1.0;
+                                } else {
+                                    value = onVinf ? -1.0 : 1.0;
+                                }
+                            }
+
+                            jac.set(index, value);
                         }
-                        if (!found && knitroParameters.getGradientUserRoutine() == 1) {
-                            LOGGER.warn("Dense Jacobian entry not found for constraint {} variable {}", ct, var);
-                        }
-                        jac.set(index, value);
 
                     } catch (Exception e) {
                         int varId = routineType == 1 ? denseVariableIndices.get(index) : sparseVariableIndices.get(index);
@@ -1135,6 +1250,8 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                     }
                 }
             }
+
+
         }
     }
 }
