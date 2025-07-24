@@ -146,5 +146,4 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     public String getName() {
         return "knitro-load-flow-parameters";
     }
-
 }
