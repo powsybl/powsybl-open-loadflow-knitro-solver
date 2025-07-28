@@ -51,8 +51,9 @@
         <java.version>17</java.version>
         <powsybl-core.version>6.6.0</powsybl-core.version>
         <powsybl-open-loadflow.version>1.14.1</powsybl-open-loadflow.version>
-        <knitro-interfaces.version>14.2.0</knitro-interfaces.version>
-        <bridj.version>0.7.0</bridj.version>
+        <knitro-interfaces.version>15.0.0</knitro-interfaces.version>
+        <jna.version>5.17.0</jna.version>
+        <jna-platform.version>5.17.0</jna-platform.version>
     </properties>
 
     <build>
@@ -121,10 +122,16 @@
             <version>${knitro-interfaces.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.nativelibs4java</groupId>
-            <artifactId>bridj</artifactId>
-            <version>${bridj.version}</version>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna</artifactId>
+            <version>${jna.version}</version>
         </dependency>
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna-platform</artifactId>
+            <version>${jna-platform.version}</version>
+        </dependency>
+
 
         <!-- Test dependencies -->
         <dependency>
