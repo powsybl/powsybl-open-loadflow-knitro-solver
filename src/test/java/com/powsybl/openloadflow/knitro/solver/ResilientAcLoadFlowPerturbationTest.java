@@ -203,7 +203,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         Network nrNetwork = pair.nrNetwork();
 
         // Final perturbed load's percentage
-        double alpha = 0.30;
+        double alpha = 0.10;
 
         activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha);
     }
@@ -215,7 +215,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         Network rknNetwork = Network.read(fileName).getNetwork();
 
         // Final perturbed load's percentage
-        double alpha = 0.30;
+        double alpha = 0.10;
 
         activePowerPerturbationTest(rknNetwork, nrNetwork, "HU", alpha);
     }
@@ -228,7 +228,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         Network nrNetwork = pair.nrNetwork();
 
         // Final perturbed load's percentage
-        double alpha = 0.30;
+        double alpha = 0.10;
 
         activePowerPerturbationTest(rknNetwork, nrNetwork, null, alpha);
     }
@@ -254,7 +254,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         Network nrNetwork = pair.nrNetwork();
 
         // Final perturbed load's percentage
-        double alpha = 0.30;
+        double alpha = 0.10;
 
         activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha);
     }
