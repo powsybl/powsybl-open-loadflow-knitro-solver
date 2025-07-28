@@ -272,7 +272,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             setSolverParameters(solver);
             solver.solve();
 
-            KNSolution solution = solver.getBestFeasibleIterate();
+            KNSolution solution = solver.getSolution();
             List<Double> x = solution.getX();
 
             solverStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
