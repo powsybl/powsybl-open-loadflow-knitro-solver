@@ -76,7 +76,6 @@ class AcLoadFlowBoundaryTest {
     void testWithVoltageRegulationOn() {
         g1.setTargetQ(0);
         g1.setVoltageRegulatorOn(false);
-        // FIXME: no targetV here?
         dl1.getGeneration().setVoltageRegulationOn(true);
         dl1.getGeneration().setMinP(0);
         dl1.getGeneration().setMaxP(10);

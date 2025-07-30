@@ -24,7 +24,7 @@ import com.powsybl.openloadflow.util.LoadFlowAssert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static com.powsybl.openloadflow.util.LoadFlowAssert.assertVoltageEquals;
+import static com.powsybl.openloadflow.util.LoadFlowAssert.*;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AcLoadFlowBatteryTest {
@@ -90,5 +90,7 @@ class AcLoadFlowBatteryTest {
         LoadFlowAssert.assertAngleEquals(5.468361, genBus);
         assertVoltageEquals(401.0, batBus);
         LoadFlowAssert.assertAngleEquals(0.0, batBus);
+        assertActivePowerEquals(1000.0, battery2.getTerminal());
+        assertReactivePowerEquals(122.711, battery2.getTerminal());
     }
 }
