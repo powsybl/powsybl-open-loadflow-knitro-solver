@@ -47,7 +47,8 @@ public class ResilientAcLoadFlowUnitTest {
     private void configureSolver(String solver) {
         OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
-                .setAcSolverType(solver);
+                .setAcSolverType(solver)
+                .setLowImpedanceThreshold(1.0e-5);
 
         if (RKN.equals(solver)) {
             KnitroLoadFlowParameters knitroParams = new KnitroLoadFlowParameters();

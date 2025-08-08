@@ -56,8 +56,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private final double wV = 1.0;
 
     // Weights of the linear and quadratic terms in the objective function
-    private final double lambda = 3.0;
+    private final double lambda = 5.0;
     private final double mu = 1.0;
+    private final double delta = 0.1;
 
     // Number of Load Flows (LF) variables in the system
     private final int numLFVariables;
@@ -106,13 +107,13 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         this.numQEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count();
         this.numVEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count();
 
-        int numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations);
+        int numSlackVariables = numPEquations + numQEquations + numVEquations;
         this.numTotalVariables = numLFVariables + numSlackVariables;
 
         this.slackStartIndex = numLFVariables;
         this.slackPStartIndex = slackStartIndex;
-        this.slackQStartIndex = slackPStartIndex + 2 * numPEquations;
-        this.slackVStartIndex = slackQStartIndex + 2 * numQEquations;
+        this.slackQStartIndex = slackPStartIndex + numPEquations;
+        this.slackVStartIndex = slackQStartIndex + numQEquations;
 
         // Map equations to local indices
         this.pEquationLocalIds = new HashMap<>();
@@ -132,6 +133,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 case BUS_TARGET_V -> vEquationLocalIds.put(i, vCounter++);
             }
         }
+        LOGGER.info("Knitro solver initialized with {} variables ({} LF + {} slack), {} P, {} Q, and {} V equations.",
+                numTotalVariables, numLFVariables, numSlackVariables, numPEquations, numQEquations, numVEquations);
     }
 
     /**
@@ -220,8 +223,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     case BUS_TARGET_V -> slackVStartIndex;
                     default -> throw new IllegalStateException("Unexpected constraint type: " + equationType);
                 };
-                involvedVariables.add(slackBaseIndex + 2 * slackStart);     // Sm
-                involvedVariables.add(slackBaseIndex + 2 * slackStart + 1); // Sp
+                involvedVariables.add(slackBaseIndex + slackStart);
             }
 
             // Add one entry for each non-zero (constraintIndex, variableIndex)
@@ -292,10 +294,14 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             logSlackValues("V", slackVStartIndex, numVEquations, x);
 
             // ========== Penalty Computation ==========
-            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wK * wP, lambda, mu);
-            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wK * wQ, lambda, mu);
-            double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV, lambda, mu);
+            SlackPenaltyForm form = SlackPenaltyForm.quadraticPlusSqrt(mu, lambda, delta);
+
+            double penaltyP = SlackPenaltyForm.computePenaltySum(x, slackPStartIndex, numPEquations, wP, form);
+            double penaltyQ = SlackPenaltyForm.computePenaltySum(x, slackQStartIndex, numQEquations, wQ, form);
+            double penaltyV = SlackPenaltyForm.computePenaltySum(x, slackVStartIndex, numVEquations, wV, form);
+
             double totalPenalty = penaltyP + penaltyQ + penaltyV;
+
 
             LOGGER.info("==== Slack penalty details ====");
             LOGGER.info("Penalty P = {}", penaltyP);
@@ -391,11 +397,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
 
         for (int i = 0; i < count; i++) {
-            double sm = x.get(startIndex + 2 * i);
-            double sp = x.get(startIndex + 2 * i + 1);
-            double epsilon = sp - sm;
+            double slack = x.get(startIndex + i);
 
-            if (Math.abs(epsilon) <= threshold) {
+            if (Math.abs(slack) <= threshold) {
                 continue;
             }
 
@@ -403,21 +407,21 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             String interpretation;
 
             switch (type) {
-                case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * sbase);
-                case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * sbase);
+                case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", slack, slack * sbase);
+                case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", slack, slack * sbase);
                 case "V" -> {
                     var bus = network.getBusById(name);
                     if (bus == null) {
                         LOGGER.warn("Bus {} not found while logging V slack.", name);
                         continue;
                     }
-                    interpretation = String.format("ΔV = %.4f p.u. (%.1f kV)", epsilon, epsilon * bus.getNominalV());
+                    interpretation = String.format("ΔV = %.4f p.u. (%.1f kV)", slack, slack * bus.getNominalV());
                 }
                 default -> interpretation = "Unknown slack type";
             }
 
-            slackContributions.add(new SlackKey(type, name, epsilon));
-            String msg = String.format("Slack %s[ %s ] → Sm = %.4f, Sp = %.4f → %s", type, name, sm, sp, interpretation);
+            slackContributions.add(new SlackKey(type, name, slack));
+            String msg = String.format("Slack %s[ %s ] → value = %.4f → %s", type, name, slack, interpretation);
             LOGGER.info(msg);
         }
     }
@@ -445,18 +449,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         LfBus bus = network.getBus(equationSystem.getIndex().getSortedEquationsToSolve().get(varIndex).getElementNum());
 
         return bus.getId();
-    }
-
-    private double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight, double lambda, double mu) {
-        double penalty = 0.0;
-        for (int i = 0; i < count; i++) {
-            double sm = x.get(startIndex + 2 * i);
-            double sp = x.get(startIndex + 2 * i + 1);
-            double diff = sp - sm;
-            penalty += weight * mu * (diff * diff); // Quadratic terms
-            penalty += weight * lambda * (sp + sm); // Linear terms
-        }
-        return penalty;
     }
 
     /**
@@ -490,9 +482,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         // Slacks variables contributions in the objective function
         for (int iSlack = slackStartIndex; iSlack < numTotalVariables; iSlack++) {
             hessianEntries.add(new NnzCoordinates(iSlack, iSlack));
-            if (((iSlack - slackStartIndex) & 1) == 0) {
-                hessianEntries.add(new NnzCoordinates(iSlack, iSlack + 1));
-            }
         }
 
         // Sort the entries by row and column indices
@@ -626,6 +615,50 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         }
     }
 
+    public interface SlackPenaltyForm {
+
+        static SlackPenaltyForm quadraticPlusSqrt(double mu, double lambda, double delta) {
+            return x -> {
+                double quad = mu * x * x;
+                double denom = Math.sqrt(x * x + delta);
+                double dFdx = 2 * mu * x + lambda * x / denom;
+                return new SlackPenaltyResult(quad + lambda * denom, dFdx);
+            };
+        }
+
+        static SlackPenaltyForm huberLike(double mu, double lambda, double threshold) {
+            return x -> {
+                double abs = Math.abs(x);
+                double objective, dFdx;
+                if (abs <= threshold) {
+                    objective = mu * x * x;
+                    dFdx = 2 * mu * x;
+                } else {
+                    objective = mu * threshold * (2 * abs - threshold);
+                    dFdx = mu * threshold * (x < 0 ? -2 : 2);
+                }
+                objective += lambda * abs;
+                dFdx += lambda * (x < 0 ? -1 : 1);
+                return new SlackPenaltyResult(objective, dFdx);
+            };
+        }
+
+        static double computePenaltySum(List<Double> xList, int startIndex, int count, double weight, SlackPenaltyForm form) {
+            double total = 0.0;
+            for (int i = 0; i < count; i++) {
+                double x = xList.get(startIndex + i);
+                SlackPenaltyResult result = form.compute(x);
+                total += weight * result.objective();
+            }
+            return total;
+        }
+
+        SlackPenaltyResult compute(double x);
+
+        record SlackPenaltyResult(double objective, double gradient) {
+        }
+    }
+
     record SlackKey(String type, String busId, double contribution) {
     }
 
@@ -663,11 +696,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 initialValues.set(i, equationSystem.getStateVector().get(i));
             }
 
-            // Initialize slack variables (≥ 0, initial value = 0)
-            for (int i = slackStartIndex; i < numTotalVariables; i++) {
-                lowerBounds.set(i, 0.0);
-            }
-
             // Set bounds for voltage variables based on Knitro parameters
             for (int i = 0; i < numLFVariables; i++) {
                 if (equationSystem.getIndex().getSortedVariablesToFind().get(i).getType() == AcVariableType.BUS_V) {
@@ -698,20 +726,20 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             setConEqBnds(Arrays.stream(targetVector.getArray()).boxed().toList());
 
             // =============== Objective Function ===============
-            List<Integer> quadRows = new ArrayList<>();
-            List<Integer> quadCols = new ArrayList<>();
-            List<Double> quadCoefs = new ArrayList<>();
-
-            List<Integer> linIndexes = new ArrayList<>();
-            List<Double> linCoefs = new ArrayList<>();
+//            List<Integer> quadRows = new ArrayList<>();
+//            List<Integer> quadCols = new ArrayList<>();
+//            List<Double> quadCoefs = new ArrayList<>();
+//
+//            List<Integer> linIndexes = new ArrayList<>();
+//            List<Double> linCoefs = new ArrayList<>();
 
             // Slack penalty terms: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
-            addSlackObjectiveTerms(numPEquations, slackPStartIndex, wK * wP, lambda, mu, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numQEquations, slackQStartIndex, wK * wQ, lambda, mu, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numVEquations, slackVStartIndex, wV, lambda, mu, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+//            addSlackObjectiveTerms(numPEquations, slackPStartIndex, wK * wP, lambda, mu, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+//            addSlackObjectiveTerms(numQEquations, slackQStartIndex, wK * wQ, lambda, mu, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+//            addSlackObjectiveTerms(numVEquations, slackVStartIndex, wV, lambda, mu, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
 
-            setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
-            setObjectiveLinearPart(linIndexes, linCoefs);
+//            setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
+//            setObjectiveLinearPart(linIndexes, linCoefs);
 
             // =============== Callbacks and Jacobian ===============
             setObjEvalCallback(new CallbackEvalFC(this, activeConstraints, nonlinearConstraintIndexes));
@@ -723,7 +751,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
             setJacobianMatrix(
                     network, jacobianMatrix, activeConstraints, nonlinearConstraintIndexes,
-                    jacCstDense, jacVarDense, jacCstSparse, jacVarSparse
+                    jacCstDense, jacVarDense, jacCstSparse, jacVarSparse, this
             );
 
             AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes);
@@ -817,10 +845,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     // Add slack variables if applicable
                     int slackBase = getSlackIndexBase(equationType, equationId);
                     if (slackBase >= 0) {
-                        varIndices.add(slackBase);       // Sm
-                        varIndices.add(slackBase + 1);   // Sp
+                        varIndices.add(slackBase);
                         coefficients.add(1.0);
-                        coefficients.add(-1.0);
                     }
 
                     for (int i = 0; i < varIndices.size(); i++) {
@@ -846,11 +872,11 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         private int getSlackIndexBase(AcEquationType equationType, int equationId) {
             return switch (equationType) {
                 case BUS_TARGET_P -> pEquationLocalIds.getOrDefault(equationId, -1) >= 0
-                        ? slackPStartIndex + 2 * pEquationLocalIds.get(equationId) : -1;
+                        ? slackPStartIndex + pEquationLocalIds.get(equationId) : -1;
                 case BUS_TARGET_Q -> qEquationLocalIds.getOrDefault(equationId, -1) >= 0
-                        ? slackQStartIndex + 2 * qEquationLocalIds.get(equationId) : -1;
+                        ? slackQStartIndex + qEquationLocalIds.get(equationId) : -1;
                 case BUS_TARGET_V -> vEquationLocalIds.getOrDefault(equationId, -1) >= 0
-                        ? slackVStartIndex + 2 * vEquationLocalIds.get(equationId) : -1;
+                        ? slackVStartIndex + vEquationLocalIds.get(equationId) : -1;
                 default -> -1;
             };
         }
@@ -871,7 +897,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         private void setJacobianMatrix(LfNetwork lfNetwork, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                                        List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> listNonLinearConsts,
                                        List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
-                                       List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) throws KNException {
+                                       List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse, ResilientKnitroProblem problemInstance) throws KNException {
 
             int numVar = equationSystem.getIndex().getSortedVariablesToFind().size();
             if (knitroParameters.getGradientComputationMode() == 1) { // User routine to compute the Jacobian
@@ -893,7 +919,10 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                         listNonZerosVarsSparse,
                         lfNetwork,
                         equationSystem,
-                        knitroParameters
+                        knitroParameters,
+                        sortedEquationsToSolve,
+                        listNonLinearConsts,
+                        problemInstance
                 ));
             }
         }
@@ -934,13 +963,13 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
                     AcEquationType type = equation.getType();
 
-                    // Ensure the constraint is non-linear
+                    // Sanity check
                     if (NonLinearExternalSolverUtils.isLinear(type, equation.getTerms())) {
                         throw new IllegalArgumentException(
                                 "Equation of type " + type + " is linear but passed to the non-linear callback");
                     }
 
-                    // Evaluate equation using the current state
+                    // Evaluate constraint
                     double constraintValue = 0.0;
                     for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
                         term.setStateVector(currentState);
@@ -949,21 +978,40 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                         }
                     }
 
+                    // Apply slacks if relevant
                     int slackIndexBase = problemInstance.getSlackIndexBase(type, equationId);
                     if (slackIndexBase >= 0) {
-                        double sm = x.get(slackIndexBase);        // negative slack
-                        double sp = x.get(slackIndexBase + 1);    // positive slack
-                        constraintValue += -sm + sp;              // add slack contribution
+                        constraintValue += x.get(slackIndexBase);
                     }
 
                     try {
                         c.set(callbackConstraintIndex, constraintValue);
-                        LOGGER.trace("Added non-linear constraint #{} (type: {}) = {}", equationId, type, constraintValue);
+                        LOGGER.trace("Constraint #{} (type: {}) = {}", equationId, type, constraintValue);
                     } catch (Exception e) {
-                        throw new PowsyblException("Error while adding non-linear constraint #" + equationId, e);
+                        throw new PowsyblException("Error while setting constraint #" + equationId, e);
                     }
 
                     callbackConstraintIndex++;
+                }
+
+                // ======= NEW: compute objective with smooth slack penalty =======
+                double objective = 0.0;
+                SlackPenaltyForm penaltyForm = SlackPenaltyForm.quadraticPlusSqrt(1.0, 5.0, 0.1);
+                for (int equationId : nonLinearConstraintIds) {
+                    AcEquationType type = sortedEquationsToSolve.get(equationId).getType();
+                    int slackIndexBase = problemInstance.getSlackIndexBase(type, equationId);
+
+                    if (slackIndexBase >= 0) {
+                        SlackPenaltyForm.SlackPenaltyResult result = penaltyForm.compute(x.get(slackIndexBase));
+                        objective += result.objective();
+                    }
+                }
+
+                try {
+                    obj.set(0, objective);
+                    LOGGER.trace("Objective value = {}", objective);
+                } catch (Exception e) {
+                    throw new PowsyblException("Error while setting objective value", e);
                 }
             }
         }
@@ -984,6 +1032,10 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             private final EquationSystem<AcVariableType, AcEquationType> equationSystem;
             private final KnitroSolverParameters knitroParameters;
 
+            private final List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve;
+            private final List<Integer> nonLinearConstraintIds;
+            private final ResilientKnitroProblem problemInstance;
+
             private CallbackEvalG(
                     JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                     List<Integer> denseConstraintIndices,
@@ -992,7 +1044,10 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     List<Integer> sparseVariableIndices,
                     LfNetwork network,
                     EquationSystem<AcVariableType, AcEquationType> equationSystem,
-                    KnitroSolverParameters knitroParameters) {
+                    KnitroSolverParameters knitroParameters,
+                    List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+                    List<Integer> nonLinearConstraintIds,
+                    ResilientKnitroProblem problemInstance) {
 
                 this.jacobianMatrix = jacobianMatrix;
                 this.denseConstraintIndices = denseConstraintIndices;
@@ -1002,21 +1057,35 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 this.network = network;
                 this.equationSystem = equationSystem;
                 this.knitroParameters = knitroParameters;
+                this.sortedEquationsToSolve = sortedEquationsToSolve;
+                this.nonLinearConstraintIds = nonLinearConstraintIds;
+                this.problemInstance = problemInstance;
             }
 
             @Override
             public void evaluateGA(final List<Double> x, final List<Double> objGrad, final List<Double> jac) {
-                // Update internal state and Jacobian
+                // Step 1: Gradient of the objective function
+                Collections.fill(objGrad, 0.0);
+                SlackPenaltyForm penaltyForm = SlackPenaltyForm.quadraticPlusSqrt(1.0, 5.0, 0.1);
+                for (int equationId : nonLinearConstraintIds) {
+                    AcEquationType type = sortedEquationsToSolve.get(equationId).getType();
+                    int slackIndexBase = problemInstance.getSlackIndexBase(type, equationId);
+
+                    if (slackIndexBase >= 0) {
+                        SlackPenaltyForm.SlackPenaltyResult result = penaltyForm.compute(x.get(slackIndexBase));
+                        objGrad.set(slackIndexBase, objGrad.get(slackIndexBase) + result.gradient());
+                    }
+                }
+
+                // Step 2: Fill Jacobian of the constraints (same as your original code)
                 equationSystem.getStateVector().set(toArray(x));
                 AcSolverUtil.updateNetwork(network, equationSystem);
                 jacobianMatrix.forceUpdate();
 
-                // Get sparse matrix representation
                 SparseMatrix sparseMatrix = jacobianMatrix.getMatrix().toSparse();
                 int[] columnStart = sparseMatrix.getColumnStart();
                 double[] values = sparseMatrix.getValues();
 
-                // Determine which list to use based on Knitro settings
                 List<Integer> constraintIndices;
                 List<Integer> variableIndices;
 
@@ -1031,11 +1100,11 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     throw new IllegalArgumentException("Unsupported gradientUserRoutine value: " + routineType);
                 }
 
-                // Fill Jacobian values
                 boolean firstIteration = true;
                 int iRowIndices = 0;
                 int currentConstraint = -1;
                 int numVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
+
                 for (int index = 0; index < constraintIndices.size(); index++) {
                     try {
                         if (firstIteration) {
@@ -1046,28 +1115,19 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                         int var = variableIndices.get(index);
 
                         double value;
-
-                        // Find matching (var, ct) entry in sparse column
                         int colStart = columnStart[ct];
 
-                        if (!firstIteration) {
-                            if (currentConstraint != ct) {
-                                iRowIndices = 0;
-                                currentConstraint = ct;
-                            }
+                        if (!firstIteration && currentConstraint != ct) {
+                            iRowIndices = 0;
+                            currentConstraint = ct;
                         }
 
                         if (var >= numVariables) {
-                            if (((var - numVariables) & 1) == 0) {
-                                // set Jacobian entry to -1.0 if slack variable is Sm
-                                value = -1.0;
-                            } else {
-                                // set Jacobian entry to +1.0 if slack variable is Sp
-                                value = 1.0;
-                            }
+                            value = 1.0;
                         } else {
                             value = values[colStart + iRowIndices++];
                         }
+
                         jac.set(index, value);
                         if (firstIteration) {
                             firstIteration = false;
