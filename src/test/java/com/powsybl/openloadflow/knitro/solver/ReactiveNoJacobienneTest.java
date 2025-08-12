@@ -51,32 +51,25 @@ public class ReactiveNoJacobienneTest {
         int previousNmbBusPV = 0;
         ArrayList<Integer> switches = new ArrayList<>();
         for (Generator g : network.getGenerators()) {
-            if (g.isVoltageRegulatorOn()) {
+            ArrayList<String> busVisited = new ArrayList<>();
+            if (g.isVoltageRegulatorOn() && !busVisited.contains(g.getId())) {
+                busVisited.add(g.getId());
                 previousNmbBusPV += 1;
             }
-            //network.getBusView().getBuses().forEach(e -> previousNmbBusPV += 1);
             Terminal t = g.getTerminal();
             double v = t.getBusView().getBus().getV();
             if (g.isVoltageRegulatorOn()) {
-                double Qmin = 0.0;
-                double Qmax = 0.0;
-                for (Generator gbus : t.getBusView().getBus().getGenerators()) {
-                    Qmin += gbus.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP());
-                    Qmax += gbus.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP());
-                }
-                for (Load load : t.getBusView().getBus().getLoads()) {
-                    Qmin -= load.getTerminal().getQ();
-                    Qmax -= load.getTerminal().getQ();
-                }
+                double Qming = g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP());
+                double Qmaxg = g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP());
                 if (!(v + DEFAULT_TOLERANCE > g.getTargetV() && v - DEFAULT_TOLERANCE < g.getTargetV())) {
-                    if (-t.getBusView().getBus().getQ() + DEFAULT_TOLERANCE > Qmin &&
-                            -t.getBusView().getBus().getQ() - DEFAULT_TOLERANCE < Qmin) {
+                    if (-t.getQ() + DEFAULT_TOLERANCE > Qming &&
+                            -t.getQ() - DEFAULT_TOLERANCE < Qming) {
                         nmbSwitchQmin++;
                         assertTrue(v > g.getTargetV(), "V below its target on  Qmin switch of bus "
                                 + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
                         g.setTargetQ(listMinQ.get(g.getId()));
-                    } else if (-t.getBusView().getBus().getQ() + DEFAULT_TOLERANCE > Qmax &&
-                            -t.getBusView().getBus().getQ() - DEFAULT_TOLERANCE < Qmax) {
+                    } else if (-t.getQ() + DEFAULT_TOLERANCE > Qmaxg &&
+                            -t.getQ() - DEFAULT_TOLERANCE < Qmaxg) {
                         nmbSwitchQmax++;
                         assertTrue(v < g.getTargetV(), "V above its target on a Qmax switch of bus "
                                 + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
@@ -509,7 +502,7 @@ public class ReactiveNoJacobienneTest {
                 listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP()));
             }
         }
-        OpenLoadFlowParameters.get(parameters).setAcSolverType("NEWTON_RAPHSON");
+        //OpenLoadFlowParameters.get(parameters).setAcSolverType("NEWTON_RAPHSON");
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
         checkSwitches(network, listMinQ, listMaxQ);
@@ -531,7 +524,7 @@ public class ReactiveNoJacobienneTest {
         network.getGenerator("B7049-G").newMinMaxReactiveLimits().setMinQ(-500).setMaxQ(500).add();
         listMinQ.put("B7049-G", -500.0);
         listMaxQ.put("B7049-G", 500.0);
-        OpenLoadFlowParameters.get(parameters).setAcSolverType("NEWTON_RAPHSON");
+        //OpenLoadFlowParameters.get(parameters).setAcSolverType("NEWTON_RAPHSON");
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
         checkSwitches(network, listMinQ, listMaxQ);
