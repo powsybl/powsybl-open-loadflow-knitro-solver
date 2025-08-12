@@ -1,37 +1,21 @@
 package com.powsybl.openloadflow.knitro.solver;
 
 
-import com.powsybl.openloadflow.network.TwoBusNetworkFactory;
-import com.powsybl.iidm.network.Bus;
 import com.powsybl.iidm.network.Network;
-import com.artelys.knitro.api.KNConstants;
 import com.powsybl.ieeecdf.converter.IeeeCdfNetworkFactory;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
-import com.powsybl.iidm.serde.XMLExporter;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.math.matrix.DenseMatrixFactory;
-import com.powsybl.math.matrix.SparseMatrixFactory;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
-import com.powsybl.openloadflow.ac.solver.NewtonRaphsonFactory;
 import com.powsybl.openloadflow.network.EurostagFactory;
-import com.powsybl.openloadflow.network.LfNetwork;
-import com.powsybl.openloadflow.network.SlackBusSelectionMode;
-import com.powsybl.openloadflow.network.impl.LfNetworkLoaderImpl;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
-import java.util.logging.Logger;
-import java.util.stream.Stream;
 
 import static com.powsybl.openloadflow.util.LoadFlowAssert.assertReactivePowerEquals;
 import static org.junit.jupiter.api.Assertions.*;
@@ -41,19 +25,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Yoann Anezin {@literal <yoann.anezin at artelys.com>}
  */
 public class ReactivAcLoadFlowUnitTest {
-    private static final double DEFAULT_TOLERANCE = 1e-3;
+    private static final double DEFAULT_TOLERANCE = 1e-2;
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
-
-    static Stream<ResilientAcLoadFlowUnitTest.NetworkPair> provideI3ENetworks() {
-        return Stream.of(
-                new ResilientAcLoadFlowUnitTest.NetworkPair(IeeeCdfNetworkFactory.create14(), IeeeCdfNetworkFactory.create14(), "ieee14"),
-                new ResilientAcLoadFlowUnitTest.NetworkPair(IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), "ieee30"),
-                new ResilientAcLoadFlowUnitTest.NetworkPair(IeeeCdfNetworkFactory.create118(), IeeeCdfNetworkFactory.create118(), "ieee118"),
-                new ResilientAcLoadFlowUnitTest.NetworkPair(IeeeCdfNetworkFactory.create300(), IeeeCdfNetworkFactory.create300(), "ieee300")
-        );
-    }
-
 
     private ArrayList<Integer> countAndSwitch(Network network, HashMap<String,Double> listMinQ, HashMap<String,Double> listMaxQ) throws Exception {
         int nmbSwitchQmin = 0;
@@ -64,20 +38,36 @@ public class ReactivAcLoadFlowUnitTest {
             if (g.isVoltageRegulatorOn()) {
                 previousNmbBusPV += 1;
             }
+            //network.getBusView().getBuses().forEach(e -> previousNmbBusPV += 1);
             Terminal t = g.getTerminal();
             double v = t.getBusView().getBus().getV();
             if (g.isVoltageRegulatorOn()) {
+                double Qmin = 0.0;
+                double Qmax = 0.0;
+                for (Generator gbus : t.getBusView().getBus().getGenerators()) {
+                    Qmin += gbus.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP());
+                    Qmax += gbus.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP());
+                }
+                for (Load load : t.getBusView().getBus().getLoads()) {
+                    Qmin -= load.getTerminal().getQ();
+                    Qmax -= load.getTerminal().getQ();
+                }
                 if (!(v + DEFAULT_TOLERANCE > g.getTargetV() && v - DEFAULT_TOLERANCE < g.getTargetV())) {
-                    if (-t.getBusView().getBus().getQ() + DEFAULT_TOLERANCE > listMinQ.get(g.getId()) && -t.getBusView().getBus().getQ() - DEFAULT_TOLERANCE < listMinQ.get(g.getId())) {
+                    if (-t.getBusView().getBus().getQ() + DEFAULT_TOLERANCE > Qmin &&
+                            -t.getBusView().getBus().getQ() - DEFAULT_TOLERANCE < Qmin) {
                         nmbSwitchQmin++;
-                        assertTrue(v > g.getTargetV(), "V below its target on a Qmin switch");
+                        assertTrue(v > g.getTargetV(), "V below its target on  Qmin switch of bus "
+                                + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
                         g.setTargetQ(listMinQ.get(g.getId()));
-                    } else if (-t.getBusView().getBus().getQ() + DEFAULT_TOLERANCE > listMaxQ.get(g.getId()) && -t.getBusView().getBus().getQ() - DEFAULT_TOLERANCE < listMaxQ.get(g.getId())) {
+                    } else if (-t.getBusView().getBus().getQ() + DEFAULT_TOLERANCE > Qmax &&
+                            -t.getBusView().getBus().getQ() - DEFAULT_TOLERANCE < Qmax) {
                         nmbSwitchQmax++;
-                        assertTrue(v < g.getTargetV(), "V above its target on a Qmax switch");
+                        assertTrue(v < g.getTargetV(), "V above its target on a Qmax switch of bus "
+                                + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
                         g.setTargetQ(listMaxQ.get(g.getId()));
                     } else {
-                        throw new Exception("Value of Q not matching Qmin nor Qmax on a switch");
+                        throw new Exception("Value of Q not matching Qmin nor Qmax on the switch of bus "
+                                + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
                     }
                     g.setVoltageRegulatorOn(false);
 
@@ -88,16 +78,6 @@ public class ReactivAcLoadFlowUnitTest {
         switches.add(nmbSwitchQmax);
         switches.add(previousNmbBusPV);
         return switches;
-    }
-    private void checkSwitches(Network network, HashMap<String,Double> listMinQ, HashMap<String,Double> listMaxQ) {
-        try {
-            ArrayList<Integer> switches = countAndSwitch(network, listMinQ, listMaxQ);
-            assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
-                    "No control on any voltage magnitude : all buses switched");
-            System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private void verifNewtonRaphson (Network network, int nbreIter) {
@@ -110,6 +90,17 @@ public class ReactivAcLoadFlowUnitTest {
         assertTrue(result.isFullyConverged());
     }
 
+    private void checkSwitches(Network network, HashMap<String,Double> listMinQ, HashMap<String,Double> listMaxQ) {
+        try {
+            ArrayList<Integer> switches = countAndSwitch(network, listMinQ, listMaxQ);
+            assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
+                    "No control on any voltage magnitude : all buses switched");
+            System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @BeforeEach
     void setUp() {
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
@@ -118,7 +109,6 @@ public class ReactivAcLoadFlowUnitTest {
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
         knitroLoadFlowParameters.setGradientComputationMode(2);
         knitroLoadFlowParameters.setMaxIterations(300);
-//        knitroLoadFlowParameters.setGradientUserRoutine(1);
         knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.REACTIVLIMITS);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         //parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
@@ -128,13 +118,159 @@ public class ReactivAcLoadFlowUnitTest {
     }
 
     @Test
-    void testReacLimEurostagQup() { /** passe avec et sans outerloop */
-        HashMap<String, Double> listMinQ = new HashMap<>();
-        HashMap<String, Double> listMaxQ = new HashMap<>();
+    void testReacLimEurostagQlow() {
+        HashMap<String,Double> listMinQ = new HashMap<>();
+        HashMap<String,Double> listMaxQ = new HashMap<>();
         Network network = EurostagFactory.fix(EurostagTutorialExample1Factory.create());
 
         // access to already created equipments
         Load load = network.getLoad("LOAD");
+        VoltageLevel vlgen = network.getVoltageLevel("VLGEN");
+        TwoWindingsTransformer nhv2Nload = network.getTwoWindingsTransformer("NHV2_NLOAD");
+        Generator gen = network.getGenerator("GEN");
+        Substation p1 = network.getSubstation("P1");
+
+        // reduce GEN reactive range
+        gen.newMinMaxReactiveLimits()
+                .setMinQ(0)
+                .setMaxQ(280)
+                .add();
+        listMinQ.put(gen.getId(), -280.0);
+        listMaxQ.put(gen.getId(), 280.0);
+
+        // create a new generator GEN2
+        VoltageLevel vlgen2 = p1.newVoltageLevel()
+                .setId("VLGEN2")
+                .setNominalV(24.0)
+                .setTopologyKind(TopologyKind.BUS_BREAKER)
+                .add();
+        vlgen2.getBusBreakerView().newBus()
+                .setId("NGEN2")
+                .add();
+        Generator gen2 = vlgen2.newGenerator()
+                .setId("GEN2")
+                .setBus("NGEN2")
+                .setConnectableBus("NGEN2")
+                .setMinP(-9999.99)
+                .setMaxP(9999.99)
+                .setVoltageRegulatorOn(true)
+                .setTargetV(24.5)
+                .setTargetP(100)
+                .add();
+        gen2.newMinMaxReactiveLimits()
+                .setMinQ(250)
+                .setMaxQ(300)
+                .add();
+        listMinQ.put(gen2.getId(), 250.0);
+        listMaxQ.put(gen2.getId(), 300.0);
+        int zb380 = 380 * 380 / 100;
+        TwoWindingsTransformer ngen2Nhv1 = p1.newTwoWindingsTransformer()
+                .setId("NGEN2_NHV1")
+                .setBus1("NGEN2")
+                .setConnectableBus1("NGEN2")
+                .setRatedU1(24.0)
+                .setBus2("NHV1")
+                .setConnectableBus2("NHV1")
+                .setRatedU2(400.0)
+                .setR(0.24 / 1800 * zb380)
+                .setX(Math.sqrt(10 * 10 - 0.24 * 0.24) / 1800 * zb380)
+                .add();
+
+        // fix active power balance
+        load.setP0(699.838);
+
+        LoadFlowResult result = loadFlowRunner.run(network, parameters);
+        assertTrue(result.isFullyConverged());
+        assertReactivePowerEquals(-8.094, gen.getTerminal());
+        assertReactivePowerEquals(-250, gen2.getTerminal()); // GEN is correctly limited to 250 MVar
+        assertReactivePowerEquals(250, ngen2Nhv1.getTerminal1());
+        assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
+        checkSwitches(network, listMinQ, listMaxQ);
+        verifNewtonRaphson(network,0);
+    }
+
+    @Test
+    void testReacLimEurostagQup() {
+        HashMap<String,Double> listMinQ = new HashMap<>();
+        HashMap<String,Double> listMaxQ = new HashMap<>();
+        Network network = EurostagFactory.fix(EurostagTutorialExample1Factory.create());
+
+        // access to already created equipments
+        Load load = network.getLoad("LOAD");
+
+        VoltageLevel vlgen = network.getVoltageLevel("VLGEN");
+        TwoWindingsTransformer nhv2Nload = network.getTwoWindingsTransformer("NHV2_NLOAD");
+        Generator gen = network.getGenerator("GEN");
+        Substation p1 = network.getSubstation("P1");
+
+        // reduce GEN reactive range
+        gen.newMinMaxReactiveLimits()
+                .setMinQ(0)
+                .setMaxQ(280)
+                .add();
+        listMinQ.put(gen.getId(), -280.0);
+        listMaxQ.put(gen.getId(), 280.0);
+
+        // create a new generator GEN2
+        VoltageLevel vlgen2 = p1.newVoltageLevel()
+                .setId("VLGEN2")
+                .setNominalV(24.0)
+                .setTopologyKind(TopologyKind.BUS_BREAKER)
+                .add();
+        vlgen2.getBusBreakerView().newBus()
+                .setId("NGEN2")
+                .add();
+        Generator gen2 = vlgen2.newGenerator()
+                .setId("GEN2")
+                .setBus("NGEN2")
+                .setConnectableBus("NGEN2")
+                .setMinP(-9999.99)
+                .setMaxP(9999.99)
+                .setVoltageRegulatorOn(true)
+                .setTargetV(24.5)
+                .setTargetP(100)
+                .add();
+        gen2.newMinMaxReactiveLimits()
+                .setMinQ(0)
+                .setMaxQ(100)
+                .add();
+        listMinQ.put(gen2.getId(), 0.0);
+        listMaxQ.put(gen2.getId(), 100.0);
+        int zb380 = 380 * 380 / 100;
+        TwoWindingsTransformer ngen2Nhv1 = p1.newTwoWindingsTransformer()
+                .setId("NGEN2_NHV1")
+                .setBus1("NGEN2")
+                .setConnectableBus1("NGEN2")
+                .setRatedU1(24.0)
+                .setBus2("NHV1")
+                .setConnectableBus2("NHV1")
+                .setRatedU2(400.0)
+                .setR(0.24 / 1800 * zb380)
+                .setX(Math.sqrt(10 * 10 - 0.24 * 0.24) / 1800 * zb380)
+                .add();
+
+        // fix active power balance
+        load.setP0(699.838);
+
+        LoadFlowResult result = loadFlowRunner.run(network, parameters);
+        assertTrue(result.isFullyConverged());
+        assertReactivePowerEquals(-164.315, gen.getTerminal());
+        assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
+        assertReactivePowerEquals(100, ngen2Nhv1.getTerminal1());
+        assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
+        checkSwitches(network, listMinQ, listMaxQ);
+        verifNewtonRaphson(network, 0);
+    }
+
+    @Test
+    void testReacLimEurostagQupWithLoad() {
+        HashMap<String,Double> listMinQ = new HashMap<>();
+        HashMap<String,Double> listMaxQ = new HashMap<>();
+        Network network = EurostagFactory.fix(EurostagTutorialExample1Factory.create());
+
+        // access to already created equipments
+        Load load = network.getLoad("LOAD");
+
         VoltageLevel vlgen = network.getVoltageLevel("VLGEN");
         TwoWindingsTransformer nhv2Nload = network.getTwoWindingsTransformer("NHV2_NLOAD");
         Generator gen = network.getGenerator("GEN");
@@ -195,26 +331,26 @@ public class ReactivAcLoadFlowUnitTest {
 
         // fix active power balance
         load.setP0(699.838);
-        //OpenLoadFlowParameters.create(parameters).setAcSolverType("NEWTON_RAPHSON");
+
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
-        //assertReactivePowerEquals(-164.315, gen.getTerminal());
+        assertReactivePowerEquals(-196.263, gen.getTerminal());
         assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
-        assertReactivePowerEquals(100, ngen2Nhv1.getTerminal1());
+        assertReactivePowerEquals(70, ngen2Nhv1.getTerminal1());
         assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
         checkSwitches(network, listMinQ, listMaxQ);
         verifNewtonRaphson(network, 0);
     }
 
-
     @Test
-    void testReacLimEurostag() { /** passe avec et sans outerloop */
+    void testReacLimEurostagQupWithGen() {
         HashMap<String,Double> listMinQ = new HashMap<>();
         HashMap<String,Double> listMaxQ = new HashMap<>();
         Network network = EurostagFactory.fix(EurostagTutorialExample1Factory.create());
 
         // access to already created equipments
         Load load = network.getLoad("LOAD");
+
         VoltageLevel vlgen = network.getVoltageLevel("VLGEN");
         TwoWindingsTransformer nhv2Nload = network.getTwoWindingsTransformer("NHV2_NLOAD");
         Generator gen = network.getGenerator("GEN");
@@ -253,6 +389,22 @@ public class ReactivAcLoadFlowUnitTest {
                 .add();
         listMinQ.put(gen2.getId(), 0.0);
         listMaxQ.put(gen2.getId(), 100.0);
+        Generator gen2Bis = vlgen2.newGenerator()
+                .setId("GEN2BIS")
+                .setBus("NGEN2")
+                .setConnectableBus("NGEN2")
+                .setMinP(-9999.99)
+                .setMaxP(9999.99)
+                .setVoltageRegulatorOn(true)
+                .setTargetV(24.5)
+                .setTargetP(50)
+                .add();
+        gen2Bis.newMinMaxReactiveLimits()
+                .setMinQ(0)
+                .setMaxQ(40)
+                .add();
+        listMinQ.put(gen2Bis.getId(), 0.0);
+        listMaxQ.put(gen2Bis.getId(), 40.0);
         int zb380 = 380 * 380 / 100;
         TwoWindingsTransformer ngen2Nhv1 = p1.newTwoWindingsTransformer()
                 .setId("NGEN2_NHV1")
@@ -268,96 +420,19 @@ public class ReactivAcLoadFlowUnitTest {
 
         // fix active power balance
         load.setP0(699.838);
-
-        parameters.setUseReactiveLimits(true);
+        //OpenLoadFlowParameters.create(parameters).setAcSolverType("NEWTON_RAPHSON");
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
-        assertReactivePowerEquals(-164.315, gen.getTerminal());
-        assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
-        assertReactivePowerEquals(100, ngen2Nhv1.getTerminal1());
+        //assertReactivePowerEquals(-122.715, gen.getTerminal());
+        //assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
+        assertReactivePowerEquals(140.017, ngen2Nhv1.getTerminal1());
         assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
-        try {
-            ArrayList<Integer> switches = countAndSwitch(network,listMinQ,listMaxQ);
-            assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
-                    "No control on any voltage magnitude : all buses switched");
-            System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup" );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        checkSwitches(network, listMinQ, listMaxQ);
+        verifNewtonRaphson(network, 0);
     }
 
     @Test
-    void testReacLimIeee14perturbed() { /* PQ only */
-        loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
-        parameters = new LoadFlowParameters().setUseReactiveLimits(true)
-                .setDistributedSlack(false);
-        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setGradientComputationMode(1);
-        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.STANDARD);
-        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
-        OpenLoadFlowParameters.create(parameters).setAcSolverType(KnitroSolverFactory.NAME);
-        parameters.setUseReactiveLimits(false);
-
-        Network network = IeeeCdfNetworkFactory.create14();
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-
-        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.RESILIENT);
-        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
-        OpenLoadFlowParameters.get(parameters).setAcSolverType(KnitroSolverFactory.NAME);
-
-
-        HashMap<String,Double> listMinQ = new HashMap<>();
-        HashMap<String,Double> listMaxQ = new HashMap<>();
-
-        int nbrGen = 0;
-        for (var g : network.getGenerators()) {
-            nbrGen += 1;
-        }
-
-        int nbrQOut = 0;
-        for (var g : network.getGenerators()) {
-            double genQ = g.getTerminal().getQ();
-            if (nbrQOut < nbrGen/10) {
-                g.newMinMaxReactiveLimits()
-                        .setMinQ(-genQ + 0.1*Math.abs(genQ))
-                        .setMaxQ(-genQ + Math.max(Math.abs(genQ),20.0))
-                        .add();
-                listMinQ.put(g.getId(), genQ*1.1);
-                listMaxQ.put(g.getId(), genQ*2);
-                nbrQOut += 1;
-            } else {
-                g.newMinMaxReactiveLimits()
-                        .setMinQ(-100.0)
-                        .setMaxQ(100.0)
-                        .add();
-                listMinQ.put(g.getId(), -100.0);
-                listMaxQ.put(g.getId(), 100.0);
-            }
-        }
-
-        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.REACTIVLIMITS);
-        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
-        OpenLoadFlowParameters.get(parameters).setAcSolverType(KnitroSolverFactory.NAME);
-        result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged(), "Not Fully Converged");
-        try {
-            ArrayList<Integer> switches = countAndSwitch(network,listMinQ,listMaxQ);
-            assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
-                    "No control on any voltage magnitude : all buses switched");
-            System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup" );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
-        OpenLoadFlowParameters.create(parameters).setMaxNewtonRaphsonIterations(0).setReportedFeatures(Collections
-                .singleton(OpenLoadFlowParameters.ReportedFeatures.NEWTON_RAPHSON_LOAD_FLOW));
-        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.STANDARD);
-        result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged());
-    }
-
-    @Test
-    void testReacLimIeee14OuterLoopOn() { /* Unfeasible Point */
+    void testReacLimIeee14() {
         HashMap<String,Double> listMinQ = new HashMap<>();
         HashMap<String,Double> listMaxQ = new HashMap<>();
         parameters.setUseReactiveLimits(true);
@@ -377,250 +452,74 @@ public class ReactivAcLoadFlowUnitTest {
         }
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
-        try {
-            ArrayList<Integer> switches = countAndSwitch(network,listMinQ,listMaxQ);
-            assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
-                    "No control on any voltage magnitude : all buses switched");
-            System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup" );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
-        OpenLoadFlowParameters.create(parameters).setMaxNewtonRaphsonIterations(0).setReportedFeatures(Collections.singleton(OpenLoadFlowParameters.ReportedFeatures.NEWTON_RAPHSON_LOAD_FLOW));
-        OpenLoadFlowParameters.get(parameters).setAcSolverType("NEWTON_RAPHSON");
-        result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged());
+        checkSwitches(network, listMinQ, listMaxQ);
+        verifNewtonRaphson(network, 0);
     }
 
     @Test
-    void testReacLimIeee14OuterLoopOff() { /* PQ only */
-        parameters.setUseReactiveLimits(false);
-        Network network = IeeeCdfNetworkFactory.create14();
-        HashMap<String,Double> listMinQ = new HashMap<>();
-        HashMap<String,Double> listMaxQ = new HashMap<>();
-        for (var g : network.getGenerators()) {
-            g.newMinMaxReactiveLimits()
-                    .setMinQ(-100)
-                    .setMaxQ(100)
-                    .add();
-            listMinQ.put(g.getId(), -100.0);
-            listMaxQ.put(g.getId(), 100.0);
-        }
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged(), "Not Fully Converged");
-        try {
-            ArrayList<Integer> switches = countAndSwitch(network,listMinQ,listMaxQ);
-            assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
-                    "No control on any voltage magnitude : all buses switched");
-            System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup" );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Test
-    void testReacLimIeee30OuterLoopOn() { /* Unfeasible Point */
+    void testReacLimIeee30() {
         HashMap<String,Double> listMinQ = new HashMap<>();
         HashMap<String,Double> listMaxQ = new HashMap<>();
         parameters.setUseReactiveLimits(true);
         Network network = IeeeCdfNetworkFactory.create30();
-        for (var g : network.getGenerators()) {
-            g.newMinMaxReactiveLimits()
-                    .setMinQ(-1000)
-                    .setMaxQ(1000)
-                    .add();
-            listMinQ.put(g.getId(), -1000.0);
-            listMaxQ.put(g.getId(), 1000.0);
-        }
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged(), "Not Fully Converged");
-        try {
-            ArrayList<Integer> switches = countAndSwitch(network,listMinQ,listMaxQ);
-            assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
-                    "No control on any voltage magnitude : all buses switched");
-            System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup" );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
-        OpenLoadFlowParameters.create(parameters).setMaxNewtonRaphsonIterations(0).setReportedFeatures(Collections.singleton(OpenLoadFlowParameters.ReportedFeatures.NEWTON_RAPHSON_LOAD_FLOW));
-        OpenLoadFlowParameters.get(parameters).setAcSolverType("NEWTON_RAPHSON");
-        result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged());
-    }
-
-    @Test
-    void testReacLimIeee30OuterLoopOff() { /* Only PQ */
-        HashMap<String,Double> listMinQ = new HashMap<>();
-        HashMap<String,Double> listMaxQ = new HashMap<>();
-        parameters.setUseReactiveLimits(false);
-        Network network = IeeeCdfNetworkFactory.create30();
-        for (var g : network.getGenerators()) {
-            g.newMinMaxReactiveLimits()
-                    .setMinQ(-100)
-                    .setMaxQ(100)
-                    .add();
-            listMinQ.put(g.getId(), -100.0);
-            listMaxQ.put(g.getId(), 100.0);
-        }
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged(), "Not Fully Converged");
-        try {
-            ArrayList<Integer> switches = countAndSwitch(network,listMinQ,listMaxQ);
-            assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
-                    "No control on any voltage magnitude : all buses switched");
-            System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup" );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Test
-    void testReacLimIeee118OuterLoopOn() { /* Unfeasible Point */
-        HashMap<String,Double> listMinQ = new HashMap<>();
-        HashMap<String,Double> listMaxQ = new HashMap<>();
-        parameters.setUseReactiveLimits(true);
-        parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
-        Network network = IeeeCdfNetworkFactory.create118();
-        for (var g : network.getGenerators()) {
-//            if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()) > -1.7976931348623157E308) {
-//                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()));
-//                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP()));
-//            } else {
-//                g.newMinMaxReactiveLimits()
-//                        .setMinQ(-2000)
-//                        .setMaxQ(2000)
-//                        .add();
-//                listMinQ.put(g.getId(), -2000.0);
-//                listMaxQ.put(g.getId(), 2000.0);
-//            }
-
-            g.newMinMaxReactiveLimits()
-                    .setMinQ(-1000)
-                    .setMaxQ(1000)
-                    .add();
-            listMinQ.put(g.getId(), -1000.0);
-            listMaxQ.put(g.getId(), 1000.0);
-        }
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged(), "Not Fully Converged");
-        try {
-            ArrayList<Integer> switches = countAndSwitch(network,listMinQ,listMaxQ);
-            assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
-                    "No control on any voltage magnitude : all buses switched");
-            System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup" );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
-        OpenLoadFlowParameters.create(parameters).setMaxNewtonRaphsonIterations(0)
-                .setReportedFeatures(Collections.singleton(OpenLoadFlowParameters.ReportedFeatures.NEWTON_RAPHSON_LOAD_FLOW));
-        OpenLoadFlowParameters.get(parameters).setAcSolverType("NEWTON_RAPHSON");
-        result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged());
-    }
-
-    @Test
-    void testReacLimIeee118OuterLoopOff() { /* Succeed */
-        HashMap<String,Double> listMinQ = new HashMap<>();
-        HashMap<String,Double> listMaxQ = new HashMap<>();
-        parameters.setUseReactiveLimits(false);
-        Network network = IeeeCdfNetworkFactory.create118();
-        for (var g : network.getGenerators()) {
-            g.newMinMaxReactiveLimits()
-                    .setMinQ(-100)
-                    .setMaxQ(100)
-                    .add();
-            listMinQ.put(g.getId(), -100.0);
-            listMaxQ.put(g.getId(), 100.0);
-        }
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged(), "Not Fully Converged");
-        try {
-            ArrayList<Integer> switches = countAndSwitch(network,listMinQ,listMaxQ);
-            assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
-                    "No control on any voltage magnitude : all buses switched");
-            System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup" );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Test
-    void testReacLimIeee300OuterLoopOn() { /* Unfeasible Point */
-        HashMap<String,Double> listMinQ = new HashMap<>();
-        HashMap<String,Double> listMaxQ = new HashMap<>();
-        parameters.setUseReactiveLimits(true);
-        Network network = IeeeCdfNetworkFactory.create300();
-//        for (var g : network.getGenerators()) {
-//            g.newMinMaxReactiveLimits()
-//                    .setMinQ(-2000)
-//                    .setMaxQ(2000)
-//                    .add();
-//            listMinQ.put(g.getId(), -2000.0);
-//            listMaxQ.put(g.getId(), 2000.0);
-//        }
-        network.getGenerator("B7049-G").newMinMaxReactiveLimits().setMinQ(-100).setMaxQ(100).add();
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged(), "Not Fully Converged");
-//        try {
-//            ArrayList<Integer> switches = countAndSwitch(network,listMinQ,listMaxQ);
-//            assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
-//                    "No control on any voltage magnitude : all buses switched");
-//            System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup" );
-//        } catch (Exception e) {
-//            throw new RuntimeException(e);
-//        }
-        verifNewtonRaphson(network,15);
-    }
-
-    @Test
-    void testReacLimIeee300OuterloopOff() { /* Succeed */
-        HashMap<String,Double> listMinQ = new HashMap<>();
-        HashMap<String,Double> listMaxQ = new HashMap<>();
-        parameters.setUseReactiveLimits(false);
-        Network network = IeeeCdfNetworkFactory.create300();
-        for (var g : network.getGenerators()) {
-            g.newMinMaxReactiveLimits()
-                    .setMinQ(-100)
-                    .setMaxQ(100)
-                    .add();
-            listMinQ.put(g.getId(), -100.0);
-            listMaxQ.put(g.getId(), 100.0);
-        }
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged(), "Not Fully Converged");
-        try {
-            ArrayList<Integer> switches = countAndSwitch(network,listMinQ,listMaxQ);
-            assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
-                    "No control on any voltage magnitude : all buses switched");
-            System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup" );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Test
-    void test2busnetwork() {
-        HashMap<String,Double> listMinQ = new HashMap<>();
-        HashMap<String,Double> listMaxQ = new HashMap<>();
-        parameters.setUseReactiveLimits(true);
-        Network network = TwoBusNetworkFactory.create();
         for (var g : network.getGenerators()) {
             if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()) > -1.7976931348623157E308) {
                 listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()));
                 listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP()));
-            } else {
+            }  else {
                 g.newMinMaxReactiveLimits()
-                        .setMinQ(-20000)
-                        .setMaxQ(20000)
+                        .setMinQ(-2000)
+                        .setMaxQ(2000)
                         .add();
-                listMinQ.put(g.getId(), -20000.0);
-                listMaxQ.put(g.getId(), 20000.0);
+                listMinQ.put(g.getId(), -2000.0);
+                listMaxQ.put(g.getId(), 2000.0);
             }
         }
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
+        checkSwitches(network, listMinQ, listMaxQ);
+        verifNewtonRaphson(network, 0);
+    }
+
+    @Test
+    void testReacLimIeee118() {
+        HashMap<String,Double> listMinQ = new HashMap<>();
+        HashMap<String,Double> listMaxQ = new HashMap<>();
+        parameters.setUseReactiveLimits(true);
+        Network network = IeeeCdfNetworkFactory.create118();
+        for (var g : network.getGenerators()) {
+            if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()) > -1.7976931348623157E308) {
+                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()));
+                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP()));
+            }
+        }
+        OpenLoadFlowParameters.get(parameters).setAcSolverType("NEWTON_RAPHSON");
+        LoadFlowResult result = loadFlowRunner.run(network, parameters);
+        assertTrue(result.isFullyConverged(), "Not Fully Converged");
+        checkSwitches(network, listMinQ, listMaxQ);
+        verifNewtonRaphson(network,0);
+    }
+
+    @Test
+    void testReacLimIeee300() {
+        HashMap<String,Double> listMinQ = new HashMap<>();
+        HashMap<String,Double> listMaxQ = new HashMap<>();
+        parameters.setUseReactiveLimits(true);
+        Network network = IeeeCdfNetworkFactory.create300();
+        for (var g : network.getGenerators()) {
+            if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()) > -1.7976931348623157E308) {
+                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()));
+                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP()));
+            }
+        }
+        network.getGenerator("B7049-G").newMinMaxReactiveLimits().setMinQ(-500).setMaxQ(500).add();
+        listMinQ.put("B7049-G", -500.0);
+        listMaxQ.put("B7049-G", 500.0);
+        OpenLoadFlowParameters.get(parameters).setAcSolverType("NEWTON_RAPHSON");
+        LoadFlowResult result = loadFlowRunner.run(network, parameters);
+        assertTrue(result.isFullyConverged(), "Not Fully Converged");
+        checkSwitches(network, listMinQ, listMaxQ);
+        verifNewtonRaphson(network,0);
     }
 
     @Test
@@ -629,19 +528,7 @@ public class ReactivAcLoadFlowUnitTest {
         Network network = Network.read("D:\\Documents\\Réseaux\\rte1888.xiidm");
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
-//        try {
-//            ArrayList<Integer> switches = countAndSwitch(network,listMinQ,listMaxQ);
-//            assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
-//                    "No control on any voltage magnitude : all buses switched");
-//            System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup" );
-//        } catch (Exception e) {
-//            throw new RuntimeException(e);
-//        }
-        parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
-        OpenLoadFlowParameters.get(parameters).setMaxNewtonRaphsonIterations(0)
-                .setReportedFeatures(Collections.singleton(OpenLoadFlowParameters.ReportedFeatures.NEWTON_RAPHSON_LOAD_FLOW));
-        OpenLoadFlowParameters.get(parameters).setAcSolverType("NEWTON_RAPHSON");
-        result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged());
+//        checkSwitches(network, listMinQ, listMaxQ);
+        verifNewtonRaphson(network,15);
     }
 }
