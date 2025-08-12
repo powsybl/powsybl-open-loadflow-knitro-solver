@@ -13,7 +13,23 @@
             <pattern>%-5p %d{HH:mm:ss.SSS} %-20C{1} | %m%n</pattern>
         </encoder>
     </appender>
+
+    <appender name="ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>D:/Documents/La_Doc/logrte1888.log</file> <!-- Chemin sans espace recommandé -->
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- Modèle pour les fichiers archivés -->
+            <fileNamePattern>D:/Documents/La_Doc/logrte1888.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
     <root level="DEBUG">
+        <appender-ref ref="ROLLING" />
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>
