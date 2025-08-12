@@ -213,8 +213,10 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             List<Integer> jacobianRowIndices,
             List<Integer> jacobianColumnIndices) {
 
-        int nbreLFVEq = sortedEquationsToSolve.stream().filter(e -> e.getType()==BUS_TARGET_V).toList().size()/2;
-        int nbreLFEq = sortedEquationsToSolve.size() - 3*nbreLFVEq;
+        int nbreVEq = sortedEquationsToSolve.stream().filter(e -> e.getType()==BUS_TARGET_V).toList().size()/2;
+        int nbreLFEq = sortedEquationsToSolve.size() - 3*nbreVEq;
+        int nbreBlow = 0;
+        int nbreBup = 0;
 
         for (Integer constraintIndex : nonLinearConstraintIds) {
             Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(constraintIndex);
@@ -247,16 +249,21 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
             // Add complementarity constraints' variables if the constraint type has them
             int compVarStart;
+            // Case of inactive Q equations
             if (equationType == BUS_TARGET_Q && !equation.isActive()) {
+                // O
                 compVarStart= vEquationLocalIds.getOrDefault(equationSystem.getIndex().getSortedEquationsToSolve()
                         .indexOf(equationSystem.getEquations(ElementType.BUS,equation.getElementNum()).stream()
                                 .filter(e ->e.getType() == BUS_TARGET_V).toList()
                                 .get(0)), -1);
-                if (constraintIndex < nbreLFEq + 2 * nbreLFVEq) {
+                if (constraintIndex < nbreLFEq + 2 * nbreVEq) {
                     involvedVariables.add(compVarIndex + 5 * compVarStart + 2); // b low
+                    nbreBlow += 1;
                 } else {
                     involvedVariables.add(compVarIndex + 5 * compVarStart + 3); // b up
+                    nbreBup += 1;
                 }
+                // Case of V equations
             } else if (equationType == BUS_TARGET_V) {
                 compVarStart= vEquationLocalIds.getOrDefault(equationSystem.getIndex().getSortedEquationsToSolve()
                         .indexOf(equationSystem.getEquations(ElementType.BUS,equation.getElementNum()).stream()
@@ -676,10 +683,11 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
             for (int equationId = totalActivConstraints; equationId < completeEquationsToSolve.size(); equationId++) {
                 Equation<AcVariableType, AcEquationType> equation = completeEquationsToSolve.get(equationId);
+                LfBus b = network.getBus(equation.getElementNum());
                 if (equationId-totalActivConstraints < equationQBusV.size()) {
-                    wholeTargetVector.add(network.getBus(equation.getElementNum()).getMinQ());
+                    wholeTargetVector.add(b.getMinQ() - b.getLoadTargetQ());
                 } else {
-                    wholeTargetVector.add(network.getBus(equation.getElementNum()).getMaxQ());
+                    wholeTargetVector.add(b.getMaxQ() - b.getLoadTargetQ());
                 }
                 nonlinearConstraintIndexes.add(equationId);
                 indEqUnactiveQ.put(equationId,equation);
@@ -1157,7 +1165,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                             // Check if var is a slack variable (i.e. outside the main variable range)
 
                             if (var >= numLFVar && var < numLFVar + 2 * numPQEq) {
-                                if ((var - numLFVar % 2) == 0) {
+                                if (((var - numLFVar) % 2) == 0) {
                                     // set Jacobian entry to 1.0 if slack variable is Sm
                                     value = 1.0;
                                 } else {
@@ -1165,7 +1173,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                                     value = -1.0;
                                 }
                             } else if (var >= numLFVar + 2 * numPQEq && var < numLFVar + 2 * (numPQEq + numVEq)) {
-                                if ((var - numLFVar % 2) == 0) {
+                                if (((var - numLFVar) % 2) == 0) {
                                     // set Jacobian entry to -1.0 if slack variable is Sm
                                     value = -1.0;
                                 } else {
@@ -1173,7 +1181,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                                     value = 1.0;
                                 }
                             } else if (var >= numLFVar + 2 * (numPQEq + numVEq)) {
-                                int rest = var - numLFVar - 2 * (numPQEq + numVEq) % 5;
+                                int rest = (var - numLFVar - 2 * (numPQEq + numVEq)) % 5;
                                 if (rest == 0) {
                                     value = 1.0;
                                     onVinf = true;
@@ -1193,22 +1201,22 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                             }
                             jac.set(index, value);
                         } else {
+                            value = 0.0;
                             Equation<AcVariableType, AcEquationType> equation = indEqUnactiveQ.get(ct);
                             if (var < numLFVar) {
                                 for (Map.Entry<Variable<AcVariableType>, List<EquationTerm<AcVariableType, AcEquationType>>> e : equation.getTermsByVariable().entrySet()) {
                                     for (EquationTerm<AcVariableType, AcEquationType> term : e.getValue()) {
                                         Variable<AcVariableType> v = e.getKey();
-                                        if (var % 2 == 0 && v.getType() == AcVariableType.BUS_V) {
-                                            value += term.isActive() ? term.der(v) : 0;
-                                        } else if (var % 2 == 1 && v.getType() == AcVariableType.BUS_PHI) {
+                                        if (equationSystem.getVariableSet().getVariables().stream().filter(va -> va.getRow() == var ).toList().get(0) == v) {
                                             value += term.isActive() ? term.der(v) : 0;
                                         }
+
                                     }
                                 }
                             }
 
                             if (var >= numLFVar && var < numLFVar + 2 * numPQEq) {
-                                if ((var - numLFVar % 2) == 0) {
+                                if (((var - numLFVar) % 2) == 0) {
                                     // set Jacobian entry to 1.0 if slack variable is Sm
                                     value = 1.0;
                                 } else {
@@ -1216,7 +1224,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                                     value = -1.0;
                                 }
                             } else if (var >= numLFVar + 2 * numPQEq && var < numLFVar + 2 * (numPQEq + numVEq)) {
-                                if ((var - numLFVar % 2) == 0) {
+                                if (((var - numLFVar) % 2) == 0) {
                                     // set Jacobian entry to -1.0 if slack variable is Sm
                                     value = -1.0;
                                 } else {
@@ -1224,10 +1232,11 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                                     value = 1.0;
                                 }
                             } else if (var >= numLFVar + 2 * (numPQEq + numVEq)) {
-                                int rest = var - numLFVar - 2 * (numPQEq + numVEq) % 5;
+                                int rest = (var - numLFVar - 2 * (numPQEq + numVEq)) % 5;
                                 if (rest == 0) {
                                     value = 1.0;
                                     onVinf = true;
+
                                 } else if (rest == 1) {
                                     value = -1.0;
                                     onVinf = false;
