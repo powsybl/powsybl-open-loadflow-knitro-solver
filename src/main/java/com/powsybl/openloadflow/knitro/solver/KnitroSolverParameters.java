@@ -26,7 +26,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final int DEFAULT_GRADIENT_USER_ROUTINE = 2; // If the user chooses to pass the exact Jacobian to knitro, specifies the sparsity pattern for the Jacobian matrix.
     public static final int DEFAULT_HESSIAN_COMPUTATION_MODE = 6; // Specifies how the Hessian matrix is computed. 6 means that the Hessian is approximated using the L-BFGS method, which is a quasi-Newton method.
     public static final double DEFAULT_LOWER_VOLTAGE_BOUND = 0; // Lower bound for voltage magnitude
-    public static final double DEFAULT_UPPER_VOLTAGE_BOUND = KNConstants.KN_INFINITY; // Upper bound for voltage magnitude
+    public static final double DEFAULT_UPPER_VOLTAGE_BOUND = 2; // Upper bound for voltage magnitude
     public static final int DEFAULT_MAX_ITERATIONS = 200;
     public static final double DEFAULT_STOPPING_CRITERIA = Math.pow(10, -6);
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
