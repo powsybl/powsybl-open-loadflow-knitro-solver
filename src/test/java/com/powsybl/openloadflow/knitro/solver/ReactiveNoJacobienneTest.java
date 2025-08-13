@@ -530,14 +530,4 @@ public class ReactiveNoJacobienneTest {
         checkSwitches(network, listMinQ, listMaxQ);
         verifNewtonRaphson(network,0);
     }
-
-    @Test
-    void testxiidm() {
-        parameters.setUseReactiveLimits(true);
-        Network network = Network.read("D:\\Documents\\Réseaux\\rte1888.xiidm");
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged(), "Not Fully Converged");
-//        checkSwitches(network, listMinQ, listMaxQ);
-        verifNewtonRaphson(network,15);
-    }
 }
