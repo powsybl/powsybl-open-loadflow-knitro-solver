@@ -310,7 +310,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             LOGGER.info("Penalty Q = {}", penaltyQ);
             LOGGER.info("Penalty V = {}", penaltyV);
             LOGGER.info("Total penalty = {}", totalPenalty);
-
             // ========== Network Update ==========
             if (solverStatus == AcSolverStatus.CONVERGED || knitroParameters.isAlwaysUpdateNetwork()) {
                 equationSystem.getStateVector().set(toArray(x));

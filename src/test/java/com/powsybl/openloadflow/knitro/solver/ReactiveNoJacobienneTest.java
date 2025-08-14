@@ -50,8 +50,8 @@ public class ReactiveNoJacobienneTest {
         int nmbSwitchQmax = 0;
         int previousNmbBusPV = 0;
         ArrayList<Integer> switches = new ArrayList<>();
+        ArrayList<String> busVisited = new ArrayList<>();
         for (Generator g : network.getGenerators()) {
-            ArrayList<String> busVisited = new ArrayList<>();
             if (g.isVoltageRegulatorOn() && !busVisited.contains(g.getId())) {
                 busVisited.add(g.getId());
                 previousNmbBusPV += 1;
@@ -429,12 +429,11 @@ public class ReactiveNoJacobienneTest {
 
         // fix active power balance
         load.setP0(699.838);
-        //OpenLoadFlowParameters.create(parameters).setAcSolverType("NEWTON_RAPHSON");
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
-        //assertReactivePowerEquals(-122.715, gen.getTerminal());
-        //assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
-        assertReactivePowerEquals(140.017, ngen2Nhv1.getTerminal1());
+        assertReactivePowerEquals(-122.735, gen.getTerminal());
+        assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
+        assertReactivePowerEquals(140.0, ngen2Nhv1.getTerminal1());
         assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
         checkSwitches(network, listMinQ, listMaxQ);
         verifNewtonRaphson(network, 0);
@@ -502,7 +501,6 @@ public class ReactiveNoJacobienneTest {
                 listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP()));
             }
         }
-        //OpenLoadFlowParameters.get(parameters).setAcSolverType("NEWTON_RAPHSON");
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
         checkSwitches(network, listMinQ, listMaxQ);
@@ -524,7 +522,6 @@ public class ReactiveNoJacobienneTest {
         network.getGenerator("B7049-G").newMinMaxReactiveLimits().setMinQ(-500).setMaxQ(500).add();
         listMinQ.put("B7049-G", -500.0);
         listMaxQ.put("B7049-G", 500.0);
-        //OpenLoadFlowParameters.get(parameters).setAcSolverType("NEWTON_RAPHSON");
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
         checkSwitches(network, listMinQ, listMaxQ);
