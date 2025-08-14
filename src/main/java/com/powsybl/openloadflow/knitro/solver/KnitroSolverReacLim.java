@@ -369,6 +369,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             LOGGER.info("Penalty V = {}", penaltyV);
             LOGGER.info("Total penalty = {}", totalPenalty);
 
+            LOGGER.info("=== Switches Done===");
+            checkComplConstr(x, compVarIndex, numVEquations);
+
             // ========== Network Update ==========
             if (solverStatus == AcSolverStatus.CONVERGED || knitroParameters.isAlwaysUpdateNetwork()) {
                 equationSystem.getStateVector().set(toArray(x));
@@ -454,6 +457,24 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             penalty += weight * lambda * (sp + sm); // Linear terms
         }
         return penalty;
+    }
+
+    private void checkComplConstr(List<Double> x, int startIndex, int count) {
+        for (int i = 0; i < count; i++) {
+            double blow = x.get(startIndex + 5 * i + 2);
+            double bup = x.get(startIndex + 5 * i + 3);
+            double Vinf = x.get(startIndex + 5 * i);
+            double Vsup = x.get(startIndex + 5 * i + 1);
+            if (Math.abs(blow) < 1E-3) {
+                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmin", equationSystem.getIndex()
+                        .getSortedEquationsToSolve().stream().filter(e ->
+                                e.getType() == BUS_TARGET_V).toList().get(i).getElement(network).get().getId());
+            } else if (Math.abs(bup) < 1E-3) {
+                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmax", equationSystem.getIndex()
+                        .getSortedEquationsToSolve().stream().filter(e ->
+                                e.getType() == BUS_TARGET_V).toList().get(i).getElement(network).get().getId());
+            }
+        }
     }
 
     private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols() {
