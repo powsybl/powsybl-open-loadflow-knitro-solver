@@ -317,7 +317,8 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             throw new PowsyblException("Exception while building Knitro problem", e);
         }
 
-        try (KNSolver solver = new KNSolver(problemInstance)) {
+        try  {
+            KNSolver solver = new KNSolver(problemInstance);
             solver.initProblem();
             setSolverParameters(solver);
             solver.solve();
@@ -625,6 +626,8 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             List<Integer> variableTypes = new ArrayList<>(Collections.nCopies(numTotalVariables, KNConstants.KN_VARTYPE_CONTINUOUS));
             List<Double> lowerBounds = new ArrayList<>(Collections.nCopies(numTotalVariables, -KNConstants.KN_INFINITY));
             List<Double> upperBounds = new ArrayList<>(Collections.nCopies(numTotalVariables, KNConstants.KN_INFINITY));
+            List<Double> scalingFactors = new ArrayList<>(Collections.nCopies(numTotalVariables, 1.0));
+            List<Double> scalingCenters = new ArrayList<>(Collections.nCopies(numTotalVariables, 0.0));
             List<Double> initialValues = new ArrayList<>(Collections.nCopies(numTotalVariables, 0.0));
 
             setVarTypes(variableTypes);
@@ -638,6 +641,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             // Initialize slack variables (≥ 0, initial value = 0)
             for (int i = slackStartIndex; i < numLFandSlackVariables; i++) {
                 lowerBounds.set(i, 0.0);
+                if (i < slackVStartIndex) {
+                    scalingFactors.set(i, 1e-3);
+                }
             }
 
             // Set bounds for voltage variables based on Knitro parameters
@@ -658,9 +664,17 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
             LOGGER.info("Voltage initialization strategy: {}", voltageInitializer);
 
+            int N = numTotalVariables;
+            ArrayList<Integer> list = new ArrayList<>(N);
+            for (int i = 0; i < N; i++) {
+                list.add(i);
+            }
+
             // Set bounds and initial state
             setVarLoBnds(lowerBounds);
             setVarUpBnds(upperBounds);
+            setVarScaleFactors(new KNSparseVector<>(list, scalingFactors));
+            setVarScaleCenters(new KNSparseVector<>(list, scalingCenters));
             setXInitial(initialValues);
             LOGGER.info("Variables initialization complete!");
 
@@ -669,7 +683,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             int maxColumn = activeConstraints.stream().map(Equation::getColumn).max(Integer::compare).get();
             // Build sorted list of buses' indexes for buses with an equation setting V
             List<Integer> listBusesWithVEq = activeConstraints.stream().filter(
-                    e->e.getType() == AcEquationType.BUS_TARGET_V)
+                            e->e.getType() == AcEquationType.BUS_TARGET_V)
                     .map(e -> e.getTerms().get(0).getElementNum())
                     .sorted().toList();
 
@@ -1061,7 +1075,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                         int elemNum = equation.getElementNum();
                         Equation<AcVariableType, AcEquationType> equationV = sortedEquationsToSolve.stream().filter(
                                 e -> e.getElementNum() == elemNum).filter(
-                                        e->e.getType()==BUS_TARGET_V).toList().get(0);
+                                e->e.getType()==BUS_TARGET_V).toList().get(0);
                         int equationVId = sortedEquationsToSolve.indexOf(equationV);
 
                         int nmbreEqUnactivated = sortedEquationsToSolve.stream().filter
