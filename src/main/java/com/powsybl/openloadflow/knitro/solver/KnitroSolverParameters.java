@@ -7,6 +7,7 @@
  */
 package com.powsybl.openloadflow.knitro.solver;
 
+import com.artelys.knitro.api.KNConstants;
 import com.powsybl.openloadflow.ac.solver.AcSolverParameters;
 import com.powsybl.openloadflow.ac.solver.LineSearchStateVectorScaling;
 import com.powsybl.openloadflow.ac.solver.MaxVoltageChangeStateVectorScaling;
