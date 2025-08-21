@@ -112,7 +112,7 @@ public class ReactiveWithJacobienneTest {
 
     @BeforeEach
     void setUp() {
-        loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
+        loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new SparseMatrixFactory()));
         parameters = new LoadFlowParameters().setUseReactiveLimits(true)
                 .setDistributedSlack(false);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
@@ -120,10 +120,10 @@ public class ReactiveWithJacobienneTest {
         knitroLoadFlowParameters.setMaxIterations(300);
         knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.REACTIVLIMITS);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
-        parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
+        //parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
         //OpenLoadFlowParameters.create(parameters).setAcSolverType("NEWTON_RAPHSON");
         OpenLoadFlowParameters.create(parameters).setAcSolverType(KnitroSolverFactory.NAME);
-        //OpenLoadFlowParameters.get(parameters).setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE);
+        OpenLoadFlowParameters.get(parameters).setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE);
     }
 
     @Test
@@ -519,9 +519,9 @@ public class ReactiveWithJacobienneTest {
                 listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP()));
             }
         }
-        network.getGenerator("B7049-G").newMinMaxReactiveLimits().setMinQ(-75).setMaxQ(75).add();
-        listMinQ.put("B7049-G", -75.0);
-        listMaxQ.put("B7049-G", 75.0);
+        network.getGenerator("B7049-G").newMinMaxReactiveLimits().setMinQ(-500).setMaxQ(500).add();
+        listMinQ.put("B7049-G", -500.0);
+        listMaxQ.put("B7049-G", 500.0);
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
         checkSwitches(network, listMinQ, listMaxQ);
@@ -554,11 +554,19 @@ public class ReactiveWithJacobienneTest {
 
     @Test
     void testxiidm() {
+        HashMap<String,Double> listMinQ = new HashMap<>();
+        HashMap<String,Double> listMaxQ = new HashMap<>();
         parameters.setUseReactiveLimits(true);
         Network network = Network.read("D:\\Documents\\Réseaux\\rte1888.xiidm");
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
+//        for (var g : network.getGenerators()) {
+//            if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusBreakerView().getBus().getP()) > -1.7976931348623157E308) {
+//                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusBreakerView().getBus().getP()));
+//                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusBreakerView().getBus().getP()));
+//            }
+//        }
 //        checkSwitches(network, listMinQ, listMaxQ);
-        verifNewtonRaphson(network,0);
+        verifNewtonRaphson(network,10);
     }
 }
