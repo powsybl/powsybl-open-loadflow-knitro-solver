@@ -51,7 +51,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
     private final double wK = 1.0;
     private final double wP = 1.0;
     private final double wQ = 1.0;
-    private final double wV = 100.0;
+    private final double wV = 10.0;
 
     // Lambda
     private final double lambda = 3.0;
@@ -306,7 +306,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             setSolverParameters(solver);
             solver.solve();
 
-            KNSolution solution = solver.getSolution();
+            KNSolution solution = solver.getBestFeasibleIterate();
             List<Double> constraintValues = solver.getConstraintValues();
             List<Double> x = solution.getX();
             List<Double> lambda2 = solution.getLambda();
@@ -317,7 +317,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
             LOGGER.info("==== Solution Summary ====");
             LOGGER.info("Objective value            = {}", solution.getObjValue());
-            LOGGER.info("Feasibility violation      = {}", solver.getAbsFeasError());
+            LOGGER.info("Feasibility violation      = {}", solution.getFeasError());
             LOGGER.info("Optimality violation       = {}", solver.getAbsOptError());
 
             // Log primal solution
@@ -652,7 +652,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                 lowerBounds.set(compVarIndex + 5*i + 1, 0.0);
                 lowerBounds.set(compVarIndex + 5*i + 2, 0.0);
                 lowerBounds.set(compVarIndex + 5*i + 3, 0.0);
-//                lowerBounds.set(compVarIndex + 5*i + 4, 0.0);
+                lowerBounds.set(compVarIndex + 5*i + 4, 0.0);
 //                upperBounds.set(compVarIndex + 5*i + 4, 0.0);
             }
 
