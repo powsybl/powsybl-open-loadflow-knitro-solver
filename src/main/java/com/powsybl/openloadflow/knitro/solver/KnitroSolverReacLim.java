@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2024, Artelys (http://www.artelys.com/)
+ * Copyright (c) 2025, Artelys (http://www.artelys.com/)
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -11,7 +11,6 @@ package com.powsybl.openloadflow.knitro.solver;
 import com.artelys.knitro.api.*;
 import com.artelys.knitro.api.callbacks.KNEvalFCCallback;
 import com.artelys.knitro.api.callbacks.KNEvalGACallback;
-import com.google.common.base.Stopwatch;
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.commons.report.ReportNode;
 import com.powsybl.math.matrix.SparseMatrix;
@@ -31,14 +30,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.primitives.Doubles.toArray;
 import static com.powsybl.openloadflow.ac.equations.AcEquationType.*;
-import static com.powsybl.openloadflow.util.Markers.PERFORMANCE_MARKER;
 
 
 /**
@@ -52,12 +49,12 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
     // Penalty weights in the objective function
     private final double wK = 1.0;
-    private final double wP = 100.0;
-    private final double wQ = 50.0;
-    private final double wV = 50.0;
+    private final double wP = 1.0;
+    private final double wQ = 1.0;
+    private final double wV = 100.0;
 
     // Lambda
-    private final double lambda = 2.0;
+    private final double lambda = 3.0;
 
     // Number of Load Flows (LF) variables in the system
     private final int numLFVariables;
@@ -251,30 +248,16 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             int compVarStart;
             // Case of inactive Q equations
             if (equationType == BUS_TARGET_Q && !equation.isActive()) {
-                // O
-                compVarStart= vEquationLocalIds.getOrDefault(equationSystem.getIndex().getSortedEquationsToSolve()
-                        .indexOf(equationSystem.getEquations(ElementType.BUS,equation.getElementNum()).stream()
-                                .filter(e ->e.getType() == BUS_TARGET_V).toList()
+                compVarStart = vEquationLocalIds.getOrDefault(equationSystem.getIndex().getSortedEquationsToSolve()
+                        .indexOf(equationSystem.getEquations(ElementType.BUS, equation.getElementNum()).stream()
+                                .filter(e -> e.getType() == BUS_TARGET_V).toList()
                                 .get(0)), -1);
                 if (constraintIndex < nbreLFEq + 2 * nbreVEq) {
-                    involvedVariables.add(compVarIndex + 5 * compVarStart + 2); // b low
+                    involvedVariables.add(compVarIndex + 5 * compVarStart + 2); // b_low
                     nbreBlow += 1;
                 } else {
-                    involvedVariables.add(compVarIndex + 5 * compVarStart + 3); // b up
+                    involvedVariables.add(compVarIndex + 5 * compVarStart + 3); // b_up
                     nbreBup += 1;
-                }
-                // Case of V equations
-            } else if (equationType == BUS_TARGET_V) {
-                compVarStart= vEquationLocalIds.getOrDefault(equationSystem.getIndex().getSortedEquationsToSolve()
-                        .indexOf(equationSystem.getEquations(ElementType.BUS,equation.getElementNum()).stream()
-                                .filter(e ->e.getType() == BUS_TARGET_V).toList()
-                                .get(0)), -1);
-                if (constraintIndex < nbreLFEq) {
-                    involvedVariables.add(compVarIndex + 5 * compVarStart);     // V inf
-                    involvedVariables.add(compVarIndex + 5 * compVarStart + 4); // sigma
-                } else {
-                    involvedVariables.add(compVarIndex + 5 * compVarStart + 1); // V supp
-                    involvedVariables.add(compVarIndex + 5 * compVarStart + 4); // sigma
                 }
             }
 
@@ -371,7 +354,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             LOGGER.info("Total penalty = {}", totalPenalty);
 
             LOGGER.info("=== Switches Done===");
-            checkComplConstr(x, compVarIndex, numVEquations);
+            checkSwitchesDone(x, compVarIndex, numVEquations);
 
             // ========== Network Update ==========
             if (solverStatus == AcSolverStatus.CONVERGED || knitroParameters.isAlwaysUpdateNetwork()) {
@@ -460,12 +443,16 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         return penalty;
     }
 
-    private void checkComplConstr(List<Double> x, int startIndex, int count) {
+    /**
+     * Inform all switches PV -> PQ done in the solution found
+     * @param x             current network's estate
+     * @param startIndex    first index of complementarity constraints variables in x
+     * @param count         number of b_low / b_up different variables
+     */
+    private void checkSwitchesDone(List<Double> x, int startIndex, int count) {
         for (int i = 0; i < count; i++) {
             double blow = x.get(startIndex + 5 * i + 2);
             double bup = x.get(startIndex + 5 * i + 3);
-            double Vinf = x.get(startIndex + 5 * i);
-            double Vsup = x.get(startIndex + 5 * i + 1);
             if (Math.abs(blow) < 1E-3) {
                 LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmin", equationSystem.getIndex()
                         .getSortedEquationsToSolve().stream().filter(e ->
@@ -638,11 +625,16 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                 initialValues.set(i, equationSystem.getStateVector().get(i));
             }
 
-            // Initialize slack variables (≥ 0, initial value = 0)
+            // Initialize slack variables (≥ 0, initial value = 0), scale P and Q slacks
             for (int i = slackStartIndex; i < numLFandSlackVariables; i++) {
                 lowerBounds.set(i, 0.0);
+//                upperBounds.set(i, 0.0);
+//                if (i >= slackQStartIndex) {
+//                    upperBounds.set(i, 0.0);
+//                }
+
                 if (i < slackVStartIndex) {
-                    scalingFactors.set(i, 1e-3);
+                    scalingFactors.set(i, 1e-2);
                 }
             }
 
@@ -660,6 +652,8 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                 lowerBounds.set(compVarIndex + 5*i + 1, 0.0);
                 lowerBounds.set(compVarIndex + 5*i + 2, 0.0);
                 lowerBounds.set(compVarIndex + 5*i + 3, 0.0);
+//                lowerBounds.set(compVarIndex + 5*i + 4, 0.0);
+//                upperBounds.set(compVarIndex + 5*i + 4, 0.0);
             }
 
             LOGGER.info("Voltage initialization strategy: {}", voltageInitializer);
@@ -681,7 +675,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             // =============== Constraint Setup ===============
             List<Equation<AcVariableType, AcEquationType>> activeConstraints = equationSystem.getIndex().getSortedEquationsToSolve();
             int maxColumn = activeConstraints.stream().map(Equation::getColumn).max(Integer::compare).get();
-            // Build sorted list of buses' indexes for buses with an equation setting V
+            // Build sorted list of buses' indexes for buses with an equation setting V in order to pick non-acitvated Q equations
             List<Integer> listBusesWithVEq = activeConstraints.stream().filter(
                             e->e.getType() == AcEquationType.BUS_TARGET_V)
                     .map(e -> e.getTerms().get(0).getElementNum())
@@ -700,26 +694,21 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             // Linear and nonlinear constraints (the latter are deferred to callback)
             NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
 
-            List<Integer> nonlinearConstraintIndexes = new ArrayList<>();
+            List<Integer> nonlinearConstraintIndexes = new ArrayList<>(); // contains the indexes of all non-linear constraints
             List<Equation<AcVariableType, AcEquationType>> completeEquationsToSolve = new ArrayList<>(activeConstraints);
             List<Double> wholeTargetVector = new ArrayList<>(Arrays.stream(targetVector.getArray()).boxed().toList());
             for (int equationId = 0; equationId < activeConstraints.size(); equationId++) {
                 addActivatedConstraints(equationId, activeConstraints, solverUtils, nonlinearConstraintIndexes,
                         completeEquationsToSolve, targetVector,wholeTargetVector); // Add Linear constraints, index nonLinear ones and get target values
             }
-            int totalActivConstraints = completeEquationsToSolve.size();
+            int totalActiveConstraints = completeEquationsToSolve.size();
+            completeEquationsToSolve.addAll(equationsQBusV);
 
-            for (Equation<AcVariableType, AcEquationType> equation : equationsQBusV) {
-//                maxColumn += 1;
-//                equation.setColumn(maxColumn);
-                completeEquationsToSolve.add(equation);
-            }
-            //completeEquationsToSolve.addAll(equationsQBusV);
-
-            for (int equationId = totalActivConstraints; equationId < completeEquationsToSolve.size(); equationId++) {
+            // Set Target Q on the unactive equations added
+            for (int equationId = totalActiveConstraints; equationId < completeEquationsToSolve.size(); equationId++) {
                 Equation<AcVariableType, AcEquationType> equation = completeEquationsToSolve.get(equationId);
                 LfBus b = network.getBus(equation.getElementNum());
-                if (equationId-totalActivConstraints < equationQBusV.size()) {
+                if (equationId-totalActiveConstraints < equationQBusV.size()) {
                     wholeTargetVector.add(b.getMinQ() - b.getLoadTargetQ());
                 } else {
                     wholeTargetVector.add(b.getMaxQ() - b.getLoadTargetQ());
@@ -739,14 +728,14 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             List<Integer> vInfSuppList = new ArrayList<>(); // V_inf, V_sup
 
             for (int i = 0; i < numVEquations; i++) {
-                vInfSuppList.add(compVarIndex + 5*i);
-                vInfSuppList.add(compVarIndex + 5*i + 1);
-                bVarList.add(compVarIndex + 5*i + 3);
-                bVarList.add(compVarIndex + 5*i + 2);
+                vInfSuppList.add(compVarIndex + 5*i); //Vinf
+                vInfSuppList.add(compVarIndex + 5*i + 1); //Vsup
+                bVarList.add(compVarIndex + 5*i + 3); // bup
+                bVarList.add(compVarIndex + 5*i + 2); // blow
             }
 
             setCompConstraintsTypes(listTypeVar);
-            setCompConstraintsParts(bVarList, vInfSuppList);
+            setCompConstraintsParts(bVarList, vInfSuppList); // b_low compl with V_sup  and  b_up compl with V_inf
 
             // =============== Objective Function ===============
             List<Integer> quadRows = new ArrayList<>();
@@ -852,10 +841,15 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                         List<Integer> varVInfIndices = new ArrayList<>(linearConstraint.listIdVar());
                         List<Double> coefficientsVInf = new ArrayList<>(linearConstraint.listCoef());
 
+                        // To add complementarity conditions, Knitro requires that they be written as two variables
+                        // that complement each other. That is why we are introducing new variables that will play this role.
+                        // We call them V_inf, V_sup, b_low and b_up. The two lasts appear in non-linear constraints
+                        // Equations on V are duplicated, we add V_inf to one and V_sup to the other.
+                        // We are also adding a variable V_aux that allows us to perform the PV -> PQ switch.
+
                         // ---- V_inf Equation ----
-                        // Add complementarity constraints' variables
                         varVInfIndices.add(compVarBaseIndex); // V_inf
-                        varVInfIndices.add(compVarBaseIndex + 4); // sigma
+                        varVInfIndices.add(compVarBaseIndex + 4); // V_aux
                         coefficientsVInf.add(1.0);
                         coefficientsVInf.add(-1.0);
 
@@ -881,7 +875,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
                         // Add complementarity constraints' variables
                         varVSupIndices.add(compVarBaseIndex + 1); // V_sup
-                        varVSupIndices.add(compVarBaseIndex + 4); // sigma
+                        varVSupIndices.add(compVarBaseIndex + 4); // V_aux
                         coefficientsVSup.add(-1.0);
                         coefficientsVSup.add(1.0);
 
@@ -1062,7 +1056,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                         }
                     }
 
-                    if (equation.isActive()) {
+                    if (equation.isActive()) { // add slack variables
                         int slackIndexBase = problemInstance.getSlackIndexBase(type, equationId);
                         if (slackIndexBase >= 0) {
                             double sm = x.get(slackIndexBase);        // negative slack
@@ -1070,8 +1064,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                             constraintValue += sp - sm;               // add s
                             // slack contribution
                         }
-                    } else {
-
+                    } else { // add blow / bup depending on the constraint
                         int elemNum = equation.getElementNum();
                         Equation<AcVariableType, AcEquationType> equationV = sortedEquationsToSolve.stream().filter(
                                 e -> e.getElementNum() == elemNum).filter(
@@ -1081,10 +1074,10 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                         int nmbreEqUnactivated = sortedEquationsToSolve.stream().filter
                                 (e -> !e.isActive()).toList().size();
                         int compVarBaseIndex = problemInstance.getcompVarBaseIndex(equationVId);
-                        if (equationId - sortedEquationsToSolve.size() + nmbreEqUnactivated/2 < 0) {
+                        if (equationId - sortedEquationsToSolve.size() + nmbreEqUnactivated/2 < 0) { // Q_low Constraint
                             double b_low = x.get(compVarBaseIndex + 2);
                             constraintValue -= b_low;
-                        } else {
+                        } else {    // Q_up Constraint
                             double b_up = x.get(compVarBaseIndex + 3);
                             constraintValue += b_up;
                         }
@@ -1167,7 +1160,6 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                 }
 
                 // Fill Jacobian values
-                boolean onVinf = false;
                 for (int index = 0; index < constraintIndices.size(); index++) {
                     try {
                         int ct = constraintIndices.get(index);
@@ -1176,7 +1168,6 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                         double value = 0.0;
 
                         int numLFVar = equationSystem.getIndex().getSortedVariablesToFind().size();
-                        int numLFEq = equationSystem.getIndex().getSortedEquationsToSolve().size();
                         int numVEq = equationSystem.getIndex().getSortedEquationsToSolve().stream().filter(
                                 e -> e.getType() == BUS_TARGET_V).toList().size();
                         int numPQEq = equationSystem.getIndex().getSortedEquationsToSolve().stream().filter(
@@ -1215,20 +1206,16 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                                     // set Jacobian entry to 1.0 if slack variable is Sp
                                     value = 1.0;
                                 }
+
+                            // Check if var is a b_low or b_up var
                             } else if (var >= numLFVar + 2 * (numPQEq + numVEq)) {
                                 int rest = (var - numLFVar - 2 * (numPQEq + numVEq)) % 5;
-                                if (rest == 0) {
-                                    value = 1.0;
-                                    onVinf = true;
-                                } else if (rest == 1) {
-                                    value = -1.0;
-                                    onVinf = false;
-                                } else if (rest == 2) {
+                                if (rest == 2) {
+                                    // set Jacobian entry to -1.0 if variable is b_low
                                     value = -1.0;
                                 } else if (rest == 3) {
+                                    // set Jacobian entry to 1.0 if variable is b_up
                                     value = 1.0;
-                                } else {
-                                    value = onVinf ? -1.0 : 1.0;
                                 }
                             }
                             if (!found && knitroParameters.getGradientUserRoutine() == 1) {
@@ -1236,9 +1223,11 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                             }
                             jac.set(index, value);
                         } else {
+                            // If var is a LF variable : derivate non-activated equations
                             value = 0.0;
                             Equation<AcVariableType, AcEquationType> equation = indEqUnactiveQ.get(ct);
                             if (var < numLFVar) {
+                                // add non-linear terms
                                 for (Map.Entry<Variable<AcVariableType>, List<EquationTerm<AcVariableType, AcEquationType>>> e : equation.getTermsByVariable().entrySet()) {
                                     for (EquationTerm<AcVariableType, AcEquationType> term : e.getValue()) {
                                         Variable<AcVariableType> v = e.getKey();
@@ -1249,41 +1238,17 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                                     }
                                 }
                             }
-
-                            if (var >= numLFVar && var < numLFVar + 2 * numPQEq) {
-                                if (((var - numLFVar) % 2) == 0) {
-                                    // set Jacobian entry to 1.0 if slack variable is Sm
-                                    value = 1.0;
-                                } else {
-                                    // set Jacobian entry to -1.0 if slack variable is Sp
-                                    value = -1.0;
-                                }
-                            } else if (var >= numLFVar + 2 * numPQEq && var < numLFVar + 2 * (numPQEq + numVEq)) {
-                                if (((var - numLFVar) % 2) == 0) {
-                                    // set Jacobian entry to -1.0 if slack variable is Sm
-                                    value = -1.0;
-                                } else {
-                                    // set Jacobian entry to 1.0 if slack variable is Sp
-                                    value = 1.0;
-                                }
-                            } else if (var >= numLFVar + 2 * (numPQEq + numVEq)) {
+                            // Check if var is a b_low or b_up var
+                            if (var >= numLFVar + 2 * (numPQEq + numVEq)) {
                                 int rest = (var - numLFVar - 2 * (numPQEq + numVEq)) % 5;
-                                if (rest == 0) {
-                                    value = 1.0;
-                                    onVinf = true;
-
-                                } else if (rest == 1) {
-                                    value = -1.0;
-                                    onVinf = false;
-                                } else if (rest == 2) {
+                                if (rest == 2) {
+                                    // set Jacobian entry to -1.0 if variable is b_low
                                     value = -1.0;
                                 } else if (rest == 3) {
+                                    // set Jacobian entry to 1.0 if variable is b_up
                                     value = 1.0;
-                                } else {
-                                    value = onVinf ? -1.0 : 1.0;
                                 }
                             }
-
                             jac.set(index, value);
                         }
 
