@@ -44,7 +44,7 @@ public class ReactiveWithJacobienneTest {
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
         knitroLoadFlowParameters.setGradientComputationMode(1);
         knitroLoadFlowParameters.setMaxIterations(300);
-        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.REACTIVLIMITS);
+        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.RESILIENT);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         //parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
         //OpenLoadFlowParameters.create(parameters).setAcSolverType("NEWTON_RAPHSON");
@@ -462,19 +462,21 @@ public class ReactiveWithJacobienneTest {
         utilFunctions.verifNewtonRaphson(network, parameters, loadFlowRunner, 0);
     }
 
+    @Test
     void testxiidm() {
         HashMap<String,Double> listMinQ = new HashMap<>();
         HashMap<String,Double> listMaxQ = new HashMap<>();
         parameters.setUseReactiveLimits(true);
-        Network network = Network.read("D:\\Documents\\Réseaux\\rte1888.xiidm");
+        Network network = Network.read("D:\\Documents\\Réseaux\\rte18" +
+                "88.xiidm");
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
-//        for (var g : network.getGenerators()) {
-//            if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusBreakerView().getBus().getP()) > -1.7976931348623157E308) {
-//                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusBreakerView().getBus().getP()));
-//                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusBreakerView().getBus().getP()));
-//            }
-//        }
+        for (var g : network.getGenerators()) {
+            if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusBreakerView().getBus().getP()) > -1.7976931348623157E308) {
+                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusBreakerView().getBus().getP()));
+                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusBreakerView().getBus().getP()));
+            }
+        }
         ReacLimitsTestsUtils utilFunctions = new ReacLimitsTestsUtils();
         utilFunctions.checkSwitches(network, listMinQ, listMaxQ);
         utilFunctions.verifNewtonRaphson(network, parameters, loadFlowRunner, 0);

@@ -32,8 +32,8 @@ public class ReacLimitsTestsUtils {
         int nmbSwitchQmax = 0;
         int previousNmbBusPV = 0;
         ArrayList<Integer> switches = new ArrayList<>();
+        ArrayList<String> busVisited = new ArrayList<>();
         for (Generator g : network.getGenerators()) {
-            ArrayList<String> busVisited = new ArrayList<>();
             if (g.isVoltageRegulatorOn() && !busVisited.contains(g.getId())) {
                 busVisited.add(g.getId());
                 previousNmbBusPV += 1;
