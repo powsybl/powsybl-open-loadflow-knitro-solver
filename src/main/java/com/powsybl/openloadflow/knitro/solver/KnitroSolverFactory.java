@@ -75,6 +75,8 @@ public class KnitroSolverFactory implements AcSolverFactory {
                     new KnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
             case RESILIENT ->
                     new ResilientKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
+            case REACTIVLIMITS ->
+                    new KnitroSolverReacLim(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
         };
     }
 

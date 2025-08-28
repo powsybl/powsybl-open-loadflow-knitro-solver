@@ -54,7 +54,8 @@ public class ResilientAcLoadFlowPerturbationTest {
     private void configureSolver(String solver) {
         OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
-                .setAcSolverType(solver);
+                .setAcSolverType(solver)
+                .setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE);
 
         if (RKN.equals(solver)) {
             KnitroLoadFlowParameters knitroParams = new KnitroLoadFlowParameters();
@@ -124,7 +125,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         double rPU = 0.0;
         double xPU = 1e-5;
         // Voltage Mismatch
-        double alpha = 0.95;
+        double alpha = 1.0;
 
         voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha);
     }
