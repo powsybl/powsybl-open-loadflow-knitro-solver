@@ -53,7 +53,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private final double wK = 1.0;
     private final double wP = 1.0;
     private final double wQ = 1.0;
-    private final double wV = 1.0;
+    private final double wV = 10.0;
 
     // Weights of the linear and quadratic terms in the objective function
     private final double lambda = 3.0;
@@ -249,7 +249,10 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-1);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
         solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, 8);
-
+        solver.setParam(KNConstants.KN_PARAM_ALG, 1);
+        solver.setParam(KNConstants.KN_PARAM_DERIVCHECK, 1);
+        solver.setParam(KNConstants.KN_PARAM_FINDIFF_NUMTHREADS, 1);
+        
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
                 knitroParameters.getHessianComputationMode(),
@@ -274,7 +277,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             setSolverParameters(solver);
             solver.solve();
 
-            KNSolution solution = solver.getBestFeasibleIterate();
+            KNSolution solution = solver.getSolution();
             List<Double> x = solution.getX();
 
             solverStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
