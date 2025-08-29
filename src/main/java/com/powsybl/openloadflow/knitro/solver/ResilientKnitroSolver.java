@@ -243,7 +243,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
-        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
+        //solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
         solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_BOTH);
         solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-3);
         solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-1);
@@ -269,12 +269,13 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             throw new PowsyblException("Exception while building Knitro problem", e);
         }
 
-        try (KNSolver solver = new KNSolver(problemInstance)) {
+        try {
+            KNSolver solver = new KNSolver(problemInstance);
             solver.initProblem();
             setSolverParameters(solver);
             solver.solve();
 
-            KNSolution solution = solver.getBestFeasibleIterate();
+            KNSolution solution = solver.getSolution();
             List<Double> x = solution.getX();
 
             solverStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();

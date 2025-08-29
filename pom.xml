@@ -51,7 +51,7 @@
         <java.version>17</java.version>
         <powsybl-core.version>6.6.0</powsybl-core.version>
         <powsybl-open-loadflow.version>1.14.1</powsybl-open-loadflow.version>
-        <knitro-interfaces.version>14.2.0</knitro-interfaces.version>
+        <knitro-interfaces.version>13.2.0</knitro-interfaces.version>
         <bridj.version>0.7.0</bridj.version>
     </properties>
 

@@ -22,7 +22,7 @@ import java.util.Objects;
  */
 public class KnitroSolverParameters implements AcSolverParameters {
 
-    public static final int DEFAULT_GRADIENT_COMPUTATION_MODE = 1; // Specifies how the Jacobian matrix is computed
+    public static final int DEFAULT_GRADIENT_COMPUTATION_MODE = 2; // Specifies how the Jacobian matrix is computed
     public static final int DEFAULT_GRADIENT_USER_ROUTINE = 2; // If the user chooses to pass the exact Jacobian to knitro, specifies the sparsity pattern for the Jacobian matrix.
     public static final int DEFAULT_HESSIAN_COMPUTATION_MODE = 6; // Specifies how the Hessian matrix is computed. 6 means that the Hessian is approximated using the L-BFGS method, which is a quasi-Newton method.
     public static final double DEFAULT_LOWER_VOLTAGE_BOUND = 0.5; // Lower bound for voltage magnitude
