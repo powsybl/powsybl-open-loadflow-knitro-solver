@@ -45,12 +45,12 @@ public class ReactiveNoJacobienneTest {
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
         knitroLoadFlowParameters.setGradientComputationMode(2);
         knitroLoadFlowParameters.setMaxIterations(300);
-        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.RESILIENT);
+        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.REACTIVLIMITS);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         //parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
         //OpenLoadFlowParameters.create(parameters).setAcSolverType("NEWTON_RAPHSON");
         OpenLoadFlowParameters.create(parameters).setAcSolverType(KnitroSolverFactory.NAME);
-//        OpenLoadFlowParameters.get(parameters).setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.);
+        OpenLoadFlowParameters.get(parameters).setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE);
     }
 
     @Test
@@ -432,6 +432,13 @@ public class ReactiveNoJacobienneTest {
             if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()) > -1.7976931348623157E308) {
                 listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()));
                 listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP()));
+            } else {
+                g.newMinMaxReactiveLimits()
+                        .setMinQ(-2000)
+                        .setMaxQ(2000)
+                        .add();
+                listMinQ.put(g.getId(), -2000.0);
+                listMaxQ.put(g.getId(), 2000.0);
             }
         }
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
@@ -448,14 +455,21 @@ public class ReactiveNoJacobienneTest {
         parameters.setUseReactiveLimits(true);
         Network network = IeeeCdfNetworkFactory.create300();
         for (var g : network.getGenerators()) {
-            if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()) > -1.7976931348623157E308) {
-                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()));
-                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP()));
-            }
+//            if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()) > -1.7976931348623157E308) {
+//                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()));
+//                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP()));
+//            } else {
+                g.newMinMaxReactiveLimits()
+                        .setMinQ(-2000)
+                        .setMaxQ(2000)
+                        .add();
+                listMinQ.put(g.getId(), -2000.0);
+                listMaxQ.put(g.getId(), 2000.0);
+//            }
         }
-        network.getGenerator("B7049-G").newMinMaxReactiveLimits().setMinQ(-500).setMaxQ(500).add();
-        listMinQ.put("B7049-G", -500.0);
-        listMaxQ.put("B7049-G", 500.0);
+//        network.getGenerator("B7049-G").newMinMaxReactiveLimits().setMinQ(-500).setMaxQ(500).add();
+//        listMinQ.put("B7049-G", -500.0);
+//        listMaxQ.put("B7049-G", 500.0);
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
         ReacLimitsTestsUtils utilFunctions = new ReacLimitsTestsUtils();
