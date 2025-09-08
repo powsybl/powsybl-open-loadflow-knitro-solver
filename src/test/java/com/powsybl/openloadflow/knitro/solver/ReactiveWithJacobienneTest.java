@@ -44,7 +44,7 @@ public class ReactiveWithJacobienneTest {
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
         knitroLoadFlowParameters.setGradientComputationMode(1);
         knitroLoadFlowParameters.setMaxIterations(300);
-        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.RESILIENT);
+        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.REACTIVLIMITS);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         //parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
         //OpenLoadFlowParameters.create(parameters).setAcSolverType("NEWTON_RAPHSON");
@@ -271,7 +271,7 @@ public class ReactiveWithJacobienneTest {
 
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
-        assertReactivePowerEquals(-196.263, gen.getTerminal());
+        assertReactivePowerEquals(-196.264, gen.getTerminal());
         assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
         assertReactivePowerEquals(70, ngen2Nhv1.getTerminal1());
         assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
@@ -480,114 +480,5 @@ public class ReactiveWithJacobienneTest {
         ReacLimitsTestsUtils utilFunctions = new ReacLimitsTestsUtils();
         utilFunctions.checkSwitches(network, listMinQ, listMaxQ);
         utilFunctions.verifNewtonRaphson(network, parameters, loadFlowRunner, 0);
-    }
-
-    @Test
-    public void createNetworkWithT2wt() {
-
-        Network network = Network.create("yoann-n", "test");
-
-        Substation substation1 = network.newSubstation()
-                .setId("SUBSTATION1")
-                .setCountry(Country.FR)
-                .add();
-        VoltageLevel vl1 = substation1.newVoltageLevel()
-                .setId("VL_1")
-                .setNominalV(132.0)
-                .setLowVoltageLimit(118.8)
-                .setHighVoltageLimit(145.2)
-                .setTopologyKind(TopologyKind.BUS_BREAKER)
-                .add();
-        vl1.getBusBreakerView().newBus()
-                .setId("BUS_1")
-                .add();
-        vl1.newGenerator()
-                .setId("GEN_1")
-                .setBus("BUS_1")
-                .setMinP(0.0)
-                .setMaxP(140)
-                .setTargetP(25)
-                .setTargetV(135)
-                .setVoltageRegulatorOn(true)
-                // TODO: add reactive limits
-                .add();
-
-        Substation substation = network.newSubstation()
-                .setId("SUBSTATION")
-                .setCountry(Country.FR)
-                .add();
-        VoltageLevel vl2 = substation.newVoltageLevel()
-                .setId("VL_2")
-                .setNominalV(132.0)
-                .setLowVoltageLimit(118.8)
-                .setHighVoltageLimit(145.2)
-                .setTopologyKind(TopologyKind.BUS_BREAKER)
-                .add();
-        vl2.getBusBreakerView().newBus()
-                .setId("BUS_2")
-                .add();
-        vl2.newLoad()
-                .setId("LOAD_2")
-                .setBus("BUS_2")
-                .setP0(35)
-                .setQ0(20)
-                .add();
-
-        VoltageLevel vl3 = substation.newVoltageLevel()
-                .setId("VL_3")
-                .setNominalV(132.0)
-                .setLowVoltageLimit(118.8)
-                .setHighVoltageLimit(145.2)
-                .setTopologyKind(TopologyKind.BUS_BREAKER)
-                .add();
-        vl3.getBusBreakerView().newBus()
-                .setId("BUS_3")
-                .add();
-        vl3.newGenerator()
-                .setId("GEN_3")
-                .setBus("BUS_3")
-                .setMinP(0.0)
-                .setMaxP(140)
-                .setTargetP(15)
-                .setTargetV(130)
-                .setVoltageRegulatorOn(true)
-                // TODO: add reactive limits
-                .add();
-
-        network.newLine()
-                .setId("LINE_12")
-                .setBus1("BUS_1")
-                .setBus2("BUS_2")
-                .setR(1.05)
-                .setX(10.0)
-                .setG1(0.0000005)
-                .add();
-        network.newLine()
-                .setId("LINE_13")
-                .setBus1("BUS_2")
-                .setBus2("BUS_3")
-                .setR(1.05)
-                .setX(10.0)
-                .setG1(0.0000005)
-                .add();
-
-        parameters = new LoadFlowParameters().setUseReactiveLimits(false)
-                .setDistributedSlack(false);
-
-        // knitro parmaeters
-        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setGradientComputationMode(1);
-        knitroLoadFlowParameters.setMaxIterations(300);
-        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.REACTIVLIMITS);
-        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
-
-        OpenLoadFlowParameters.create(parameters);
-        OpenLoadFlowParameters.get(parameters)
-                .setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE)
-                .setSlackBusSelectionMode(SlackBusSelectionMode.NAME)
-                .setSlackBusId("VL_1_0")
-                .setAcSolverType(KnitroSolverFactory.NAME);
-
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
     }
 }

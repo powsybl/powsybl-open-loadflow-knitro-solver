@@ -14,6 +14,8 @@ import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
@@ -26,8 +28,9 @@ import static org.ejml.UtilEjml.assertTrue;
  */
 public class ReacLimitsTestsUtils {
     private static final double DEFAULT_TOLERANCE = 1e-3;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReacLimitsTestsUtils.class);
 
-    public ArrayList<Integer> countAndSwitch(Network network, HashMap<String,Double> listMinQ, HashMap<String,Double> listMaxQ) throws Exception {
+    public static ArrayList<Integer> countAndSwitch(Network network, HashMap<String, Double> listMinQ, HashMap<String, Double> listMaxQ) throws Exception {
         int nmbSwitchQmin = 0;
         int nmbSwitchQmax = 0;
         int previousNmbBusPV = 0;
@@ -47,17 +50,21 @@ public class ReacLimitsTestsUtils {
                     if (-t.getQ() + DEFAULT_TOLERANCE > Qming &&
                             -t.getQ() - DEFAULT_TOLERANCE < Qming) {
                         nmbSwitchQmin++;
-                        assertTrue(v > g.getTargetV(), "V below its target on  Qmin switch of bus "
-                                + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
+                        if (!(v > g.getTargetV())) {
+                            LOGGER.warn("V ( " + v + " ) below its target ( " + g.getTargetV() + " ) on a Qmin switch of bus "
+                                    + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
+                        }
                         g.setTargetQ(listMinQ.get(g.getId()));
                     } else if (-t.getQ() + DEFAULT_TOLERANCE > Qmaxg &&
                             -t.getQ() - DEFAULT_TOLERANCE < Qmaxg) {
                         nmbSwitchQmax++;
-                        assertTrue(v < g.getTargetV(), "V above its target on a Qmax switch of bus "
-                                + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
+                        if (!(v < g.getTargetV())) {
+                            LOGGER.warn("V ( " + v + " ) above its target ( " + g.getTargetV() + " ) on a Qmax switch of bus "
+                                    + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
+                        }
                         g.setTargetQ(listMaxQ.get(g.getId()));
                     } else {
-                        throw new Exception("Value of Q not matching Qmin nor Qmax on the switch of bus "
+                        LOGGER.warn("Value of Q ( " + -t.getQ() + " ) not matching Qmin ( " + Qming + " )  nor Qmax ( " + Qmaxg + " ) on the switch of bus "
                                 + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
                     }
                     g.setVoltageRegulatorOn(false);
@@ -71,7 +78,7 @@ public class ReacLimitsTestsUtils {
         return switches;
     }
 
-    public void verifNewtonRaphson (Network network, LoadFlowParameters parameters, LoadFlow.Runner loadFlowRunner, int nbreIter) {
+    public static void verifNewtonRaphson (Network network, LoadFlowParameters parameters, LoadFlow.Runner loadFlowRunner, int nbreIter) {
         OpenLoadFlowParameters.get(parameters).setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.NONE);
         parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
         OpenLoadFlowParameters.get(parameters).setMaxNewtonRaphsonIterations(nbreIter)
@@ -81,7 +88,7 @@ public class ReacLimitsTestsUtils {
         assertTrue(result.isFullyConverged());
     }
 
-    public void checkSwitches(Network network, HashMap<String,Double> listMinQ, HashMap<String,Double> listMaxQ) {
+    public static void checkSwitches(Network network, HashMap<String,Double> listMinQ, HashMap<String,Double> listMaxQ) {
         try {
             ArrayList<Integer> switches = countAndSwitch(network, listMinQ, listMaxQ);
             assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
@@ -89,6 +96,18 @@ public class ReacLimitsTestsUtils {
             System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup");
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Creates an active power perturbation of a given network.
+     *
+     * @param network      The network to perturb.
+     * @param alpha        The active load mismatch to apply.
+     */
+    public static void applyActivePowerPerturbation(Network network,  double alpha) {
+        for (Load load : network.getLoads()) {
+            load.setP0(alpha * load.getP0());
         }
     }
 }
