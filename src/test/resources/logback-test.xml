@@ -28,7 +28,7 @@
         </encoder>
     </appender>
 
-    <root level="TRACE">
+    <root level="WARNING">
         <appender-ref ref="ROLLING" />
         <appender-ref ref="STDOUT" />
     </root>
