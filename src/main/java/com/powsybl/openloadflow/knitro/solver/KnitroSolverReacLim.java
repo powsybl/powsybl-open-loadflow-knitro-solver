@@ -126,9 +126,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         this.compVarIndex = slackVStartIndex + 2 * numVEquations;
 
         // Map equations to local indices
-        this.pEquationLocalIds = new LinkedHashMap<>();
-        this.qEquationLocalIds = new LinkedHashMap<>();
-        this.vEquationLocalIds = new LinkedHashMap<>();
+        this.pEquationLocalIds = new HashMap<>();
+        this.qEquationLocalIds = new HashMap<>();
+        this.vEquationLocalIds = new HashMap<>();
 
         int pCounter = 0;
         int qCounter = 0;
@@ -274,9 +274,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
 //        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
 //        solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_BOTH);
-//        solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-3);
-//        solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-1);
-//        solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
+        solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-3);
+        solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-1);
+        solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
 //        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, 8);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
@@ -304,7 +304,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             setSolverParameters(solver);
             solver.solve();
 
-            KNSolution solution = solver.getBestFeasibleIterate();
+            KNSolution solution = solver.getSolution();
             List<Double> constraintValues = solver.getConstraintValues();
             List<Double> x = solution.getX();
             List<Double> lambda2 = solution.getLambda();
@@ -758,7 +758,11 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 //                }
 
                 if (i < slackVStartIndex) {
-                    scalingFactors.set(i, 1e-2);
+//                    scalingFactors.set(i, 1e-2);
+                }
+
+                if (i >= slackVStartIndex) {
+//                    upperBounds.set(i,0.0);
                 }
             }
 
@@ -774,10 +778,13 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             for (int i = 0; i < numVEquations; i++) {
                 lowerBounds.set(compVarIndex + 5*i, 0.0);
                 lowerBounds.set(compVarIndex + 5*i + 1, 0.0);
+
                 lowerBounds.set(compVarIndex + 5*i + 2, 0.0);
                 lowerBounds.set(compVarIndex + 5*i + 3, 0.0);
                 lowerBounds.set(compVarIndex + 5*i + 4, 0.0);
-//                upperBounds.set(compVarIndex + 5*i + 4, 0.0);
+
+                initialValues.set(compVarIndex + 5*i + 2, 1.0);
+                initialValues.set(compVarIndex + 5*i + 3, 1.0);
             }
 
             LOGGER.info("Voltage initialization strategy: {}", voltageInitializer);
@@ -889,8 +896,8 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                     jacCstDense, jacVarDense, jacCstSparse, jacVarSparse
             );
 
-            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols();
-            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
+//            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols();
+//            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
         }
 
         /**
@@ -1160,6 +1167,8 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                 LOGGER.trace("Evaluating {} non-linear constraints", nonLinearConstraintIds.size());
 
                 int callbackConstraintIndex = 0;
+                int nmbreEqUnactivated = sortedEquationsToSolve.stream().filter
+                        (e -> !e.isActive()).toList().size();
 
                 for (int equationId : nonLinearConstraintIds) {
                     Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
@@ -1194,9 +1203,6 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                                 e -> e.getElementNum() == elemNum).filter(
                                 e->e.getType()==BUS_TARGET_V).toList().get(0);
                         int equationVId = sortedEquationsToSolve.indexOf(equationV);
-
-                        int nmbreEqUnactivated = sortedEquationsToSolve.stream().filter
-                                (e -> !e.isActive()).toList().size();
                         int compVarBaseIndex = problemInstance.getcompVarBaseIndex(equationVId);
                         if (equationId - sortedEquationsToSolve.size() + nmbreEqUnactivated/2 < 0) { // Q_low Constraint
                             double b_low = x.get(compVarBaseIndex + 2);
@@ -1234,6 +1240,12 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             private final EquationSystem<AcVariableType, AcEquationType> equationSystem;
             private final KnitroSolverParameters knitroParameters;
 
+            private final int numLFVar;
+            private final int numVEq;
+            private final int numPQEq;
+
+            private final LinkedHashMap indRowVariable;
+
             private CallbackEvalG(
                     JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                     List<Integer> denseConstraintIndices,
@@ -1252,6 +1264,20 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                 this.network = network;
                 this.equationSystem = equationSystem;
                 this.knitroParameters = knitroParameters;
+
+                this.numLFVar = equationSystem.getIndex().getSortedVariablesToFind().size();
+                this.numVEq = equationSystem.getIndex().getSortedEquationsToSolve().stream().filter(
+                        e -> e.getType() == BUS_TARGET_V).toList().size();
+                this.numPQEq = equationSystem.getIndex().getSortedEquationsToSolve().stream().filter(
+                        e -> e.getType() == BUS_TARGET_Q ||
+                                e.getType() == BUS_TARGET_P).toList().size();
+
+                this.indRowVariable = new LinkedHashMap();
+                List<Variable<AcVariableType>> listVar = equationSystem.getVariableSet().getVariables().stream().toList();
+                for (Variable<AcVariableType> variable : listVar) {
+                    indRowVariable.put(variable.getRow(),variable);
+                }
+
             }
 
             @Override
@@ -1294,17 +1320,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
                         int ct = constraintIndices.get(index);
                         int var = variableIndices.get(index);
-
                         double value;
-                        int numLFVar = equationSystem.getIndex().getSortedVariablesToFind().size();
-                        int numVEq = equationSystem.getIndex().getSortedEquationsToSolve().stream().filter(
-                                e -> e.getType() == BUS_TARGET_V).toList().size();
-                        int numPQEq = equationSystem.getIndex().getSortedEquationsToSolve().stream().filter(
-                                e -> e.getType() == BUS_TARGET_Q ||
-                                        e.getType() == BUS_TARGET_P).toList().size();
 
                         if (ct < Arrays.stream(columnStart).count()) {
-
 
                             // Find matching (var, ct) entry in sparse column
                             int colStart = columnStart[ct];
@@ -1340,7 +1358,8 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                                 for (Map.Entry<Variable<AcVariableType>, List<EquationTerm<AcVariableType, AcEquationType>>> e : equation.getTermsByVariable().entrySet()) {
                                     for (EquationTerm<AcVariableType, AcEquationType> term : e.getValue()) {
                                         Variable<AcVariableType> v = e.getKey();
-                                        if (equationSystem.getVariableSet().getVariables().stream().filter(va -> va.getRow() == var ).toList().get(0) == v) {
+                                        if (indRowVariable.get(var)== v) {
+                                    //equationSystem.getVariableSet().getVariables().stream().filter(va -> va.getRow() == var ).toList().get(0) == v) {
                                             value += term.isActive() ? term.der(v) : 0;
                                         }
 

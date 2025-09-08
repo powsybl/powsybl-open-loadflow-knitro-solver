@@ -205,7 +205,6 @@ public class ResilientAcLoadFlowPerturbationTest {
 
         // Final perturbed load's percentage
         double alpha = 0.10;
-
         activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha);
     }
 
