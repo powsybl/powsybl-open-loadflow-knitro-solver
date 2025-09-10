@@ -42,13 +42,13 @@ jobs:
           KNITRO_WINDOWS_URL: ${{ secrets.KNITRO_WINDOWS_URL }}
 
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Build with Maven (Ubuntu)
         if: matrix.os != 'windows-latest'
