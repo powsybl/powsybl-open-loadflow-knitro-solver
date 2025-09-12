@@ -241,19 +241,21 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
         solver.setParam(KNConstants.KN_PARAM_GRADOPT, knitroParameters.getGradientComputationMode());
         solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
+        solver.setParam(KNConstants.KN_PARAM_FEASTOLABS, knitroParameters.getAbsConvEps());
+        solver.setParam(KNConstants.KN_PARAM_OPTTOL, knitroParameters.getOptEps());
+        solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, knitroParameters.getAbsOptEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
+        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, knitroParameters.getNumThreads());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
         solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
         solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_BOTH);
-        solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-3);
-        solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-1);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
-        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, 8);
 
-        LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
+        LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, OPTTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
                 knitroParameters.getHessianComputationMode(),
                 knitroParameters.getConvEps(),
+                knitroParameters.getOptEps(),
                 knitroParameters.getMaxIterations());
     }
 
@@ -385,7 +387,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     }
 
     private void logSlackValues(String type, int startIndex, int count, List<Double> x) {
-        final double threshold = 1e-6;  // Threshold for significant slack values
         final double sbase = 100.0;     // Base power in MVA
 
         LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
@@ -395,7 +396,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             double sp = x.get(startIndex + 2 * i + 1);
             double epsilon = sp - sm;
 
-            if (Math.abs(epsilon) <= threshold) {
+            // Get significant slack values below threshold
+            if (Math.abs(epsilon) <= knitroParameters.getSlackThreshold()) {
                 continue;
             }
 

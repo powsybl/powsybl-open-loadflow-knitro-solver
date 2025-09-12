@@ -56,6 +56,11 @@ public class KnitroSolverFactory implements AcSolverFactory {
                     .setUpperVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getUpperVoltageBound())
                     .setMaxIterations(parameters.getExtension(KnitroLoadFlowParameters.class).getMaxIterations())
                     .setConvEps(parameters.getExtension(KnitroLoadFlowParameters.class).getConvEps())
+                    .setAbsConvEps(parameters.getExtension(KnitroLoadFlowParameters.class).getAbsConvEps())
+                    .setOptEps(parameters.getExtension(KnitroLoadFlowParameters.class).getOptEps())
+                    .setAbsOptEps(parameters.getExtension(KnitroLoadFlowParameters.class).getAbsOptEps())
+                    .setNumThreads(parameters.getExtension(KnitroLoadFlowParameters.class).getNumThreads())
+                    .setSlackThreshold(parameters.getExtension(KnitroLoadFlowParameters.class).getSlackThreshold())
                     .setAlwaysUpdateNetwork(parameters.getExtension(KnitroLoadFlowParameters.class).isAlwaysUpdateNetwork())
                     .setCheckLoadFlowSolution(parameters.getExtension(KnitroLoadFlowParameters.class).isCheckLoadFlowSolution())
                     .setKnitroSolverType(parameters.getExtension(KnitroLoadFlowParameters.class).getKnitroSolverType());
