@@ -1016,6 +1016,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 // Get sparse matrix representation
                 SparseMatrix sparseMatrix = jacobianMatrix.getMatrix().toSparse();
                 int[] columnStart = sparseMatrix.getColumnStart();
+                int[] rowIndices = sparseMatrix.getRowIndices();
                 double[] values = sparseMatrix.getValues();
 
                 // Determine which list to use based on Knitro settings
@@ -1067,17 +1068,21 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                                 // set Jacobian entry to +1.0 if slack variable is Sp
                                 value = 1.0;
                             }
+                        } else if (rowIndices[colStart + iRowIndices] != var){
+                            value = 0.0;
                         } else {
                             value = values[colStart + iRowIndices++];
                         }
+
                         jac.set(index, value);
+
                         if (firstIteration) {
                             firstIteration = false;
                         }
 
                     } catch (Exception e) {
-                        int varId = routineType == 1 ? denseVariableIndices.get(index) : sparseVariableIndices.get(index);
-                        int ctId = routineType == 1 ? denseConstraintIndices.get(index) : sparseConstraintIndices.get(index);
+                        int varId = variableIndices.get(index);
+                        int ctId = constraintIndices.get(index);
                         LOGGER.error("Error while filling Jacobian term at var {} and constraint {}", varId, ctId, e);
                     }
                 }
