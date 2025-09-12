@@ -28,10 +28,16 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final double DEFAULT_LOWER_VOLTAGE_BOUND = 0.5; // Lower bound for voltage magnitude
     public static final double DEFAULT_UPPER_VOLTAGE_BOUND = 2.0; // Upper bound for voltage magnitude
     public static final int DEFAULT_MAX_ITERATIONS = 400;
-    public static final double DEFAULT_STOPPING_CRITERIA = Math.pow(10, -6);
+    public static final double DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA = Math.pow(10, -6);
+    public static final double DEFAULT_ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA = Math.pow(10, -3);
+    public static final double DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA = Math.pow(10, -6);
+    public static final double DEFAULT_ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA = Math.pow(10, -3);
+    public static final double DEFAULT_SLACK_THRESHOLD = Math.pow(10, -6);
+    public static final int DEFAULT_THREAD_NUMBER = 8;
+    public static final int DEFAULT_THREAD_NUMBER_FINITE_DIFFERENCES = 1;
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
-    public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = true;
-    public static final boolean CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE = true; // If the solver converges, launches a load flow taking into account slack variable results to check if the solution is a real load flow solution
+    public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
+    public static final boolean CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE = false; // If the solver converges, launches a load flow taking into account slack variable results to check if the solution is a real load flow solution
     public static final KnitroSolverType DEFAULT_KNITRO_SOLVER_TYPE = KnitroSolverType.STANDARD;
     public KnitroSolverType knitroSolverType = DEFAULT_KNITRO_SOLVER_TYPE;
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
@@ -46,8 +52,13 @@ public class KnitroSolverParameters implements AcSolverParameters {
     private boolean alwaysUpdateNetwork = ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
     private boolean checkLoadFlowSolution = CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE;
     private int maxIterations = DEFAULT_MAX_ITERATIONS;
-    private double convEps = DEFAULT_STOPPING_CRITERIA;
+    private double convEps = DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA;
+    private double absConvEps = DEFAULT_ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA;
+    private double optEps = DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA;
+    private double absOptEps = DEFAULT_ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA;
+    private double slackThreshold = DEFAULT_SLACK_THRESHOLD;
     private int hessianComputationMode = DEFAULT_HESSIAN_COMPUTATION_MODE;
+    private int numThreads = DEFAULT_THREAD_NUMBER;
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -57,6 +68,14 @@ public class KnitroSolverParameters implements AcSolverParameters {
         if (gradientComputationMode < 1 || gradientComputationMode > 3) {
             throw new IllegalArgumentException("Knitro gradient computation mode must be between 1 and 3");
         }
+
+        if (gradientComputationMode == 1) {
+            this.numThreads = DEFAULT_THREAD_NUMBER;
+        } else {
+            // Evaluation callback is not thread safe when gradient computation mode is set to finite differences
+            this.numThreads = DEFAULT_THREAD_NUMBER_FINITE_DIFFERENCES;
+        }
+
         this.gradientComputationMode = gradientComputationMode;
         return this;
     }
@@ -194,6 +213,57 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return this;
     }
 
+    public double getAbsConvEps() {
+        return absConvEps;
+    }
+
+    public KnitroSolverParameters setAbsConvEps(double absConvEps) {
+        this.absConvEps = absConvEps;
+        return this;
+    }
+
+    public double getOptEps() {
+        return optEps;
+    }
+
+    public KnitroSolverParameters setOptEps(double optEps) {
+        this.optEps = optEps;
+        return this;
+    }
+
+    public double getAbsOptEps() {
+        return absOptEps;
+    }
+
+    public KnitroSolverParameters setAbsOptEps(double absOptEps) {
+        this.absOptEps = absOptEps;
+        return this;
+    }
+
+    public double getSlackThreshold() {
+        return slackThreshold;
+    }
+
+    public KnitroSolverParameters setSlackThreshold(double slackThreshold) {
+        if (slackThreshold < 0) {
+            throw new IllegalArgumentException("Slack value threshold must be strictly greater than 0");
+        }
+        this.slackThreshold = slackThreshold;
+        return this;
+    }
+
+    public int getNumThreads() {
+        return numThreads;
+    }
+
+    public KnitroSolverParameters setNumThreads(int numThreads) {
+        if (this.gradientComputationMode != 1 && numThreads != DEFAULT_THREAD_NUMBER_FINITE_DIFFERENCES) {
+            throw new IllegalArgumentException("Solver uses finite differences to evaluate the Jacobian. Cannot use multithreading");
+        }
+        this.numThreads = numThreads;
+        return this;
+    }
+
     public KnitroSolverType getKnitroSolverType() {
         return knitroSolverType;
     }
@@ -206,11 +276,11 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public String toString() {
         return "KnitroSolverParameters(" +
                 "gradientComputationMode=" + gradientComputationMode +
-                ", stoppingCriteria=" + convEps +
+                ", FeasibilityStoppingCriteria=" + convEps +
+                ", OptimalityStoppingCriteria=" + optEps +
                 ", minRealisticVoltage=" + lowerVoltageBound +
                 ", maxRealisticVoltage=" + upperVoltageBound +
                 ", alwaysUpdateNetwork=" + alwaysUpdateNetwork +
-                ", checkLoadFlowSolution=" + checkLoadFlowSolution +
                 ", maxIterations=" + maxIterations +
                 ", knitroSolverType=" + knitroSolverType +
                 ')';

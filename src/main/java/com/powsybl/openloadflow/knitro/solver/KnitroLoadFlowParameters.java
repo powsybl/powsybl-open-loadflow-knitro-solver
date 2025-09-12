@@ -23,7 +23,12 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private double lowerVoltageBound = KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND;
     private double upperVoltageBound = KnitroSolverParameters.DEFAULT_UPPER_VOLTAGE_BOUND;
     private int maxIterations = KnitroSolverParameters.DEFAULT_MAX_ITERATIONS;
-    private double convEps = KnitroSolverParameters.DEFAULT_STOPPING_CRITERIA;
+    private double convEps = KnitroSolverParameters.DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA;
+    private double absConvEps = KnitroSolverParameters.DEFAULT_ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA;
+    private double optEps = KnitroSolverParameters.DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA;
+    private double absOptEps = KnitroSolverParameters.DEFAULT_ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA;
+    private double slackThreshold = KnitroSolverParameters.DEFAULT_SLACK_THRESHOLD;
+    private int numThreads = KnitroSolverParameters.DEFAULT_THREAD_NUMBER;
     private boolean alwaysUpdateNetwork = KnitroSolverParameters.ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
     private boolean checkLoadFlowSolution = KnitroSolverParameters.CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE;
     private KnitroSolverParameters.KnitroSolverType knitroSolverType = KnitroSolverParameters.DEFAULT_KNITRO_SOLVER_TYPE;
@@ -66,6 +71,14 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
         if (gradientUserRoutine < 1 || gradientUserRoutine > 2) {
             throw new IllegalArgumentException("User routine must be between 1 and 2");
         }
+
+        if (gradientComputationMode == 1) {
+            this.numThreads = KnitroSolverParameters.DEFAULT_THREAD_NUMBER;
+        } else {
+            // Evaluation callback is not thread safe when gradient computation mode is set to finite differences
+            this.numThreads = KnitroSolverParameters.DEFAULT_THREAD_NUMBER_FINITE_DIFFERENCES;
+        }
+
         this.gradientUserRoutine = gradientUserRoutine;
         return this;
     }
@@ -127,9 +140,69 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
 
     public KnitroLoadFlowParameters setConvEps(double convEps) {
         if (convEps <= 0) {
-            throw new IllegalArgumentException("Convergence stopping criteria must be greater than 0");
+            throw new IllegalArgumentException("Feasibility stopping criteria must be greater than 0");
         }
         this.convEps = convEps;
+        return this;
+    }
+
+    public double getAbsConvEps() {
+        return absConvEps;
+    }
+
+    public KnitroLoadFlowParameters setAbsConvEps(double absConvEps) {
+        if (absConvEps <= 0) {
+            throw new IllegalArgumentException("Absolute feasibility stopping criteria must be greater than 0");
+        }
+        this.absConvEps = absConvEps;
+        return this;
+    }
+
+    public double getOptEps() {
+        return optEps;
+    }
+
+    public KnitroLoadFlowParameters setOptEps(double optEps) {
+        if (optEps <= 0) {
+            throw new IllegalArgumentException("Relative optimality stopping criteria must be greater than 0");
+        }
+        this.optEps = optEps;
+        return this;
+    }
+
+    public double getAbsOptEps() {
+        return absOptEps;
+    }
+
+    public KnitroLoadFlowParameters setAbsOptEps(double absOptEps) {
+        if (absOptEps <= 0) {
+            throw new IllegalArgumentException("Absolute optimality stopping criteria must be greater than 0");
+        }
+        this.absOptEps = absOptEps;
+        return this;
+    }
+
+    public double getSlackThreshold() {
+        return slackThreshold;
+    }
+
+    public KnitroLoadFlowParameters setSlackThreshold(double slackThreshold) {
+        if (slackThreshold <= 0) {
+            throw new IllegalArgumentException("Slack value threshold must be strictly greater than 0");
+        }
+        this.slackThreshold = slackThreshold;
+        return this;
+    }
+
+    public int getNumThreads() {
+        return numThreads;
+    }
+
+    public KnitroLoadFlowParameters setNumThreads(int numThreads) {
+        if (this.gradientComputationMode != 1 && numThreads != KnitroSolverParameters.DEFAULT_THREAD_NUMBER_FINITE_DIFFERENCES) {
+            throw new IllegalArgumentException("Solver uses finite differences to evaluate the Jacobian. Cannot use multithreading");
+        }
+        this.numThreads = numThreads;
         return this;
     }
 
