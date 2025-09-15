@@ -44,8 +44,8 @@ public class ReacLimitsTestsUtils {
             Terminal t = g.getTerminal();
             double v = t.getBusView().getBus().getV();
             if (g.isVoltageRegulatorOn()) {
-                double Qming = g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP());
-                double Qmaxg = g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP());
+                double Qming = g.getReactiveLimits().getMinQ(g.getTargetP());
+                double Qmaxg = g.getReactiveLimits().getMaxQ(g.getTargetP());
                 if (!(v + DEFAULT_TOLERANCE > g.getTargetV() && v - DEFAULT_TOLERANCE < g.getTargetV())) {
                     if (-t.getQ() + DEFAULT_TOLERANCE > Qming &&
                             -t.getQ() - DEFAULT_TOLERANCE < Qming) {
