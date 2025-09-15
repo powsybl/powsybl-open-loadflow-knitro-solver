@@ -10,6 +10,8 @@ package com.powsybl.openloadflow.knitro.solver;
 import com.powsybl.commons.extensions.AbstractExtension;
 import com.powsybl.loadflow.LoadFlowParameters;
 
+import java.util.logging.Logger;
+
 /**
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
@@ -27,6 +29,15 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private boolean alwaysUpdateNetwork = KnitroSolverParameters.ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
     private boolean checkLoadFlowSolution = KnitroSolverParameters.CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE;
     private KnitroSolverParameters.KnitroSolverType knitroSolverType = KnitroSolverParameters.DEFAULT_KNITRO_SOLVER_TYPE;
+    private KnitroWritter knitroWritter;
+
+    public KnitroLoadFlowParameters(KnitroWritter knitroWritter) {
+        this.knitroWritter = knitroWritter;
+    }
+
+    public KnitroLoadFlowParameters() {
+        this.knitroWritter = new KnitroWritter("Logs.txt");
+    }
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -139,6 +150,15 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
 
     public KnitroLoadFlowParameters setKnitroSolverType(KnitroSolverParameters.KnitroSolverType knitroSolverType) {
         this.knitroSolverType = knitroSolverType;
+        return this;
+    }
+
+    public KnitroWritter getKnitroWritter() {
+        return knitroWritter;
+    }
+
+    public KnitroLoadFlowParameters setKnitroWritter(KnitroWritter knitroWritter) {
+        this.knitroWritter = knitroWritter;
         return this;
     }
 
