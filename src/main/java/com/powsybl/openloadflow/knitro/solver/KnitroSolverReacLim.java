@@ -34,6 +34,9 @@ import com.powsybl.openloadflow.network.util.VoltageInitializer;
 import org.apache.commons.lang3.Range;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -52,6 +55,8 @@ import static com.powsybl.openloadflow.ac.equations.AcEquationType.*;
 public class KnitroSolverReacLim extends AbstractAcSolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KnitroSolverReacLim.class);
+    private boolean firstIter = true;
+    private final KnitroWritter knitroWritter;
 
     // Penalty weights in the objective function
     private final double wK = 1.0;
@@ -104,6 +109,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
         super(network, equationSystem, jacobian, targetVector, equationVector, detailedReport);
         this.knitroParameters = knitroParameters;
+        this.knitroWritter = knitroParameters.getKnitroWritter();
 
         this.numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
 
@@ -141,7 +147,14 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                 case BUS_TARGET_Q -> qEquationLocalIds.put(i, qCounter++);
                 case BUS_TARGET_V -> vEquationLocalIds.put(i, vCounter++);
             }
+
         }
+
+        knitroWritter.write("Poids de la fonction objectif : wK = " + wK + ", wP = " + wP + ", wQ = "+ wQ + ", wV =" + wV,true);
+        knitroWritter.write("Nombre de Variables de LoadFLow : " + numLFVariables,true);
+        knitroWritter.write("Nombre de Variables de Slacks : " + 2 * (numPEquations + numQEquations + numVEquations),true);
+        knitroWritter.write("Nombre de Variables de Complémentarités : " + 5 * numVEquations,true);
+        knitroWritter.write("Nombre total de Variables : " + numTotalVariables,true);
     }
 
     /**
@@ -317,6 +330,10 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             LOGGER.info("Objective value            = {}", solution.getObjValue());
             LOGGER.info("Feasibility violation      = {}", solution.getFeasError());
             LOGGER.info("Optimality violation       = {}", solver.getAbsOptError());
+            knitroWritter.write("==== Solution Summary ====", true);
+            knitroWritter.write("Objective value = " + solution.getObjValue(),true);
+            knitroWritter.write("Feasibility violation = " + solution.getFeasError(),true);
+            knitroWritter.write("Optimality violation = " + solver.getAbsOptError(),true);
 
             // Log primal solution
             LOGGER.debug("==== Optimal variables ====");
@@ -351,8 +368,14 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             LOGGER.info("Penalty V = {}", penaltyV);
             LOGGER.info("Total penalty = {}", totalPenalty);
 
+            knitroWritter.write("Penalty P = " + penaltyP,true);
+            knitroWritter.write("Penalty Q = " + penaltyQ,true);
+            knitroWritter.write("Penalty V = " + penaltyV,true);
+            knitroWritter.write("Total penalty = " + totalPenalty,true);
+
             LOGGER.info("=== Switches Done===");
             checkSwitchesDone(x, compVarIndex, numVEquations);
+
 
             // ========== Network Update ==========
             // Update the network values if the solver converged or if the network should always be updated
@@ -471,6 +494,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             slackContributions.add(new ResilientKnitroSolver.SlackKey(type, name, epsilon));
             String msg = String.format("Slack %s[ %s ] → Sm = %.4f, Sp = %.4f → %s", type, name, sm, sp, interpretation);
             LOGGER.info(msg);
+            knitroWritter.write(msg,true);
         }
     }
 
@@ -518,80 +542,87 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
      * @param count         number of b_low / b_up different variables
      */
     private void checkSwitchesDone(List<Double> x, int startIndex, int count) {
+        int nombreSwitches = 0;
         for (int i = 0; i < count; i++) {
             double blow = x.get(startIndex + 5 * i + 2);
             double bup = x.get(startIndex + 5 * i + 3);
+            String bus = equationSystem.getIndex()
+                    .getSortedEquationsToSolve().stream().filter(e ->
+                            e.getType() == BUS_TARGET_V).toList().get(i).getElement(network).get().getId();
             if (Math.abs(blow) < 1E-3) {
-                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmin", equationSystem.getIndex()
-                        .getSortedEquationsToSolve().stream().filter(e ->
-                                e.getType() == BUS_TARGET_V).toList().get(i).getElement(network).get().getId());
+                nombreSwitches++;
+                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmin", bus);
+                knitroWritter.write("Switch PV -> PQ on bus " + bus + ", Q set at Qmin",true);
+
             } else if (Math.abs(bup) < 1E-3) {
-                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmax", equationSystem.getIndex()
-                        .getSortedEquationsToSolve().stream().filter(e ->
-                                e.getType() == BUS_TARGET_V).toList().get(i).getElement(network).get().getId());
+                nombreSwitches++;
+                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmax", bus);
+                knitroWritter.write("Switch PV -> PQ on bus " + bus + ", Q set at Qmax",true);
+
             }
         }
+        knitroWritter.write("Nombre total de switches : " + nombreSwitches,true);
     }
 
-    private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols() {
-        return new AbstractMap.SimpleEntry<>(
-                IntStream.range(slackStartIndex, numLFandSlackVariables).boxed().toList(),
-                IntStream.range(slackStartIndex, numLFandSlackVariables).boxed().toList()
-        );
-    }
-
-//    /**
-//     * Returns the sparsity pattern of the hessian matrix associated with the problem.
-//     *
-//     * @param nonlinearConstraintIndexes A list of the indexes of non-linear equations.
-//     * @return row and column coordinates of non-zero entries in the hessian matrix.
-//     */
-//    private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols(List<Integer> nonlinearConstraintIndexes) {
-//        record NnzCoordinates(int iRow, int iCol) {
-//        }
-//
-//        Set<NnzCoordinates> hessianEntries = new LinkedHashSet<>();
-//
-//        // Non-linear constraints contributions in the hessian matrix
-//        for (int index : nonlinearConstraintIndexes) {
-//            if (index < equationSystem.getIndex().getSortedEquationsToSolve().size()) {
-//            Equation<AcVariableType, AcEquationType> equation = equationSystem.getIndex().getSortedEquationsToSolve().get(index);
-//            for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-//                for (Variable<AcVariableType> var1 : term.getVariables()) {
-//                    int i = var1.getRow();
-//                    for (Variable<AcVariableType> var2 : term.getVariables()) {
-//                        int j = var2.getRow();
-//                        if (j >= i) {
-//                            hessianEntries.add(new NnzCoordinates(i, j));
-//                        }
-//                    }
-//                }
-//            }
-//            }
-//        }
-//
-//        // Slacks variables contributions in the objective function
-//        for (int iSlack = slackStartIndex; iSlack < numTotalVariables; iSlack++) {
-//            hessianEntries.add(new NnzCoordinates(iSlack, iSlack));
-//            if (((iSlack - slackStartIndex) & 1) == 0) {
-//                hessianEntries.add(new NnzCoordinates(iSlack, iSlack + 1));
-//            }
-//        }
-//
-//        // Sort the entries by row and column indices
-//        hessianEntries = hessianEntries.stream()
-//                .sorted(Comparator.comparingInt(NnzCoordinates::iRow).thenComparingInt(NnzCoordinates::iCol))
-//                .collect(Collectors.toCollection(LinkedHashSet::new));
-//
-//        List<Integer> hessRows = new ArrayList<>();
-//        List<Integer> hessCols = new ArrayList<>();
-//        for (NnzCoordinates entry : hessianEntries) {
-//            hessRows.add(entry.iRow());
-//            hessCols.add(entry.iCol());
-//        }
-//
-//        return new AbstractMap.SimpleEntry<>(hessRows, hessCols);
+//    private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols() {
+//        return new AbstractMap.SimpleEntry<>(
+//                IntStream.range(slackStartIndex, numLFandSlackVariables).boxed().toList(),
+//                IntStream.range(slackStartIndex, numLFandSlackVariables).boxed().toList()
+//        );
 //    }
+
+    /**
+     * Returns the sparsity pattern of the hessian matrix associated with the problem.
+     *
+     * @param nonlinearConstraintIndexes A list of the indexes of non-linear equations.
+     * @return row and column coordinates of non-zero entries in the hessian matrix.
+     */
+    private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols(List<Integer> nonlinearConstraintIndexes, List<Equation<AcVariableType, AcEquationType>> equationsToSolve) {
+        record NnzCoordinates(int iRow, int iCol) {
+        }
+
+        Set<NnzCoordinates> hessianEntries = new LinkedHashSet<>();
+
+        // Non-linear constraints contributions in the hessian matrix
+        for (int index : nonlinearConstraintIndexes) {
+            if (index < equationsToSolve.size()) {
+            Equation<AcVariableType, AcEquationType> equation = equationsToSolve.get(index);
+            for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
+                for (Variable<AcVariableType> var1 : term.getVariables()) {
+                    int i = var1.getRow();
+                    for (Variable<AcVariableType> var2 : term.getVariables()) {
+                        int j = var2.getRow();
+                        if (j >= i) {
+                            hessianEntries.add(new NnzCoordinates(i, j));
+                        }
+                    }
+                }
+            }
+            }
+        }
+
+        // Slacks variables contributions in the objective function
+        for (int iSlack = slackStartIndex; iSlack < numTotalVariables; iSlack++) {
+            hessianEntries.add(new NnzCoordinates(iSlack, iSlack));
+            if (((iSlack - slackStartIndex) & 1) == 0) {
+                hessianEntries.add(new NnzCoordinates(iSlack, iSlack + 1));
+            }
+        }
+
+        // Sort the entries by row and column indices
+        hessianEntries = hessianEntries.stream()
+                .sorted(Comparator.comparingInt(NnzCoordinates::iRow).thenComparingInt(NnzCoordinates::iCol))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        List<Integer> hessRows = new ArrayList<>();
+        List<Integer> hessCols = new ArrayList<>();
+        for (NnzCoordinates entry : hessianEntries) {
+            hessRows.add(entry.iRow());
+            hessCols.add(entry.iCol());
+        }
+
+        return new AbstractMap.SimpleEntry<>(hessRows, hessCols);
+    }
 
     /**
      * Enum representing specific status codes returned by the Knitro solver,
@@ -750,6 +781,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             }
 
             // Initialize slack variables (≥ 0, initial value = 0), scale P and Q slacks
+            boolean scaled = false;
             for (int i = slackStartIndex; i < numLFandSlackVariables; i++) {
                 lowerBounds.set(i, 0.0);
 //                upperBounds.set(i, 0.0);
@@ -759,10 +791,18 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
                 if (i < slackVStartIndex) {
 //                    scalingFactors.set(i, 1e-2);
+//                    scaled = true;
                 }
 
                 if (i >= slackVStartIndex) {
 //                    upperBounds.set(i,0.0);
+                }
+                if (scaled && firstIter) {
+                    knitroWritter.write("Scaling value sur les slacks P et Q : " + 1e-2,true);
+                    firstIter = false;
+                } else if (firstIter) {
+                    knitroWritter.write("No Scaling applied",true);
+                        firstIter = false;
                 }
             }
 
@@ -896,8 +936,8 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                     jacCstDense, jacVarDense, jacCstSparse, jacVarSparse
             );
 
-//            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols();
-//            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
+            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes, completeEquationsToSolve);
+            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
         }
 
         /**
