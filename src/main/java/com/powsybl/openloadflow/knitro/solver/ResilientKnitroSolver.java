@@ -244,7 +244,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
         solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
+        solver.setParam(KNConstants.KN_PARAM_ALG, 0);
         solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_BOTH);
+        solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
         solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-2);
         solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-1);
 
@@ -455,57 +457,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             penalty += weight * lambda * (sp + sm); // Linear terms
         }
         return penalty;
-    }
-
-    /**
-     * Returns the sparsity pattern of the hessian matrix associated with the problem.
-     *
-     * @param nonlinearConstraintIndexes A list of the indexes of non-linear equations.
-     * @return row and column coordinates of non-zero entries in the hessian matrix.
-     */
-    private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols(List<Integer> nonlinearConstraintIndexes) {
-        record NnzCoordinates(int iRow, int iCol) {
-        }
-
-        Set<NnzCoordinates> hessianEntries = new LinkedHashSet<>();
-
-        // Non-linear constraints contributions in the hessian matrix
-        for (int index : nonlinearConstraintIndexes) {
-            Equation<AcVariableType, AcEquationType> equation = equationSystem.getIndex().getSortedEquationsToSolve().get(index);
-            for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                for (Variable<AcVariableType> var1 : term.getVariables()) {
-                    int i = var1.getRow();
-                    for (Variable<AcVariableType> var2 : term.getVariables()) {
-                        int j = var2.getRow();
-                        if (j >= i) {
-                            hessianEntries.add(new NnzCoordinates(i, j));
-                        }
-                    }
-                }
-            }
-        }
-
-        // Slacks variables contributions in the objective function
-        for (int iSlack = slackStartIndex; iSlack < numTotalVariables; iSlack++) {
-            hessianEntries.add(new NnzCoordinates(iSlack, iSlack));
-            if (((iSlack - slackStartIndex) & 1) == 0) {
-                hessianEntries.add(new NnzCoordinates(iSlack, iSlack + 1));
-            }
-        }
-
-        // Sort the entries by row and column indices
-        hessianEntries = hessianEntries.stream()
-                .sorted(Comparator.comparingInt(NnzCoordinates::iRow).thenComparingInt(NnzCoordinates::iCol))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
-        List<Integer> hessRows = new ArrayList<>();
-        List<Integer> hessCols = new ArrayList<>();
-        for (NnzCoordinates entry : hessianEntries) {
-            hessRows.add(entry.iRow());
-            hessCols.add(entry.iCol());
-        }
-
-        return new AbstractMap.SimpleEntry<>(hessRows, hessCols);
     }
 
     /**
@@ -723,9 +674,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                     network, jacobianMatrix, activeConstraints, nonlinearConstraintIndexes,
                     jacCstDense, jacVarDense, jacCstSparse, jacVarSparse
             );
-
-            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes);
-            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
         }
 
         /**
