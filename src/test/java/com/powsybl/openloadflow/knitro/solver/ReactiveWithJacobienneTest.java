@@ -467,14 +467,13 @@ public class ReactiveWithJacobienneTest {
         HashMap<String,Double> listMinQ = new HashMap<>();
         HashMap<String,Double> listMaxQ = new HashMap<>();
         parameters.setUseReactiveLimits(true);
-        Network network = Network.read("D:\\Documents\\Réseaux\\rte18" +
-                "88.xiidm");
+        Network network = Network.read("D:\\Documents\\Réseaux\\rte1888.xiidm");
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
         for (var g : network.getGenerators()) {
-            if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusBreakerView().getBus().getP()) > -1.7976931348623157E308) {
-                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusBreakerView().getBus().getP()));
-                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusBreakerView().getBus().getP()));
+            if (g.getReactiveLimits().getMinQ(g.getTargetP()) > -1.7976931348623157E308) {
+                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTargetP()));
+                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTargetP()));
             }
         }
         ReacLimitsTestsUtils utilFunctions = new ReacLimitsTestsUtils();
