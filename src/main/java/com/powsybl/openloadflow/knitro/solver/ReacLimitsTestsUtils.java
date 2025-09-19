@@ -17,6 +17,9 @@ import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.*;
 
 
@@ -30,7 +33,8 @@ public class ReacLimitsTestsUtils {
     private static final double DEFAULT_TOLERANCE = 1e-3;
     private static final Logger LOGGER = LoggerFactory.getLogger(ReacLimitsTestsUtils.class);
 
-    public static ArrayList<Integer> countAndSwitch(Network network, HashMap<String, Double> listMinQ, HashMap<String, Double> listMaxQ) throws Exception {
+    public static ArrayList<Integer> countAndSwitch(Network network, HashMap<String, Double> listMinQ, HashMap<String, Double> listMaxQ,
+                                                    HashMap<String, Double> slacksP, HashMap<String, Double> slacksQ, HashMap<String, Double> slacksV) throws Exception {
         int nmbSwitchQmin = 0;
         int nmbSwitchQmax = 0;
         int previousNmbBusPV = 0;
@@ -41,16 +45,29 @@ public class ReacLimitsTestsUtils {
                 busVisited.add(g.getId());
                 previousNmbBusPV += 1;
             }
+            String idbus = g.getTerminal().getBusView().getBus().getId();
+            Double slackP = slacksP.get(idbus);
+            Double slackQ = slacksQ.get(idbus);
+            Double slackV = slacksV.get(idbus);
+            if (slackP == null) {
+                slackP = 0.0;
+            }
+            if (slackQ == null) {
+                slackQ = 0.0;
+            }
+            if (slackV == null) {
+                slackV = 0.0;
+            }
             Terminal t = g.getTerminal();
             double v = t.getBusView().getBus().getV();
             if (g.isVoltageRegulatorOn()) {
                 double Qming = g.getReactiveLimits().getMinQ(g.getTargetP());
                 double Qmaxg = g.getReactiveLimits().getMaxQ(g.getTargetP());
-                if (!(v + DEFAULT_TOLERANCE > g.getTargetV() && v - DEFAULT_TOLERANCE < g.getTargetV())) {
-                    if (-t.getQ() + DEFAULT_TOLERANCE > Qming &&
-                            -t.getQ() - DEFAULT_TOLERANCE < Qming) {
+                if (!(v + slackV + DEFAULT_TOLERANCE > g.getTargetV() && v + slackV - DEFAULT_TOLERANCE < g.getTargetV())) {
+                    if (-t.getQ() + slackQ + DEFAULT_TOLERANCE > Qming &&
+                            -t.getQ() + slackQ - DEFAULT_TOLERANCE < Qming) {
                         nmbSwitchQmin++;
-                        if (!(v > g.getTargetV())) {
+                        if (!(v + slackV > g.getTargetV())) {
                             LOGGER.warn("V ( " + v + " ) below its target ( " + g.getTargetV() + " ) on a Qmin switch of bus "
                                     + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
                         }
@@ -58,7 +75,7 @@ public class ReacLimitsTestsUtils {
                     } else if (-t.getQ() + DEFAULT_TOLERANCE > Qmaxg &&
                             -t.getQ() - DEFAULT_TOLERANCE < Qmaxg) {
                         nmbSwitchQmax++;
-                        if (!(v < g.getTargetV())) {
+                        if (!(v + slackV < g.getTargetV())) {
                             LOGGER.warn("V ( " + v + " ) above its target ( " + g.getTargetV() + " ) on a Qmax switch of bus "
                                     + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
                         }
@@ -89,8 +106,57 @@ public class ReacLimitsTestsUtils {
     }
 
     public static void checkSwitches(Network network, HashMap<String,Double> listMinQ, HashMap<String,Double> listMaxQ) {
+        HashMap<String, Double> slacksP = new HashMap<String, Double>();
+        HashMap<String, Double> slacksQ = new HashMap<String, Double>();
+        HashMap<String, Double> slacksV = new HashMap<String, Double>();
+        ArrayList<String> slacksfiles = new ArrayList<String>();
+        slacksfiles.add("P");
+        slacksfiles.add("Q");
+        slacksfiles.add("V");
+        for (String type : slacksfiles) {
+            try (BufferedReader br = new BufferedReader(new FileReader("D:\\Documents\\Slacks\\Slacks" + type + ".txt"))) {
+                String ligne;
+                boolean isId = true; // True = on attend un identifiant, False = on attend une valeur
+                List<String> identifiants = new ArrayList<>();
+                List<Double> valeurs = new ArrayList<>();
+                String id = "";
+                Double value;
+
+                while ((ligne = br.readLine()) != null) {
+                    if (ligne.trim().isEmpty()) continue; // ignorer les lignes vides éventuelles
+
+                    if (isId) {
+                        id = ligne.trim();
+                    } else {
+                        // Convertir la valeur en double (ou en int selon ton besoin)
+                        try {
+                            value = Double.parseDouble(ligne.trim().replace(',', '.'));
+                            switch (type) {
+                                case "P":
+                                    slacksP.put(id,value);
+                                    break;
+                                case "Q":
+                                    slacksQ.put(id,value);
+                                    break;
+                                case "V":
+                                    slacksV.put(id,value);
+                                    break;
+                            }
+                        } catch (NumberFormatException e) {
+                            System.err.println("Valeur non numérique : " + ligne);
+                            valeurs.add(null); // ou gérer différemment
+                        }
+                    }
+                    isId = !isId; // alterner ID/valeur
+                }
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
         try {
-            ArrayList<Integer> switches = countAndSwitch(network, listMinQ, listMaxQ);
+            ArrayList<Integer> switches = countAndSwitch(network, listMinQ, listMaxQ, slacksP, slacksQ, slacksV);
             assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
                     "No control on any voltage magnitude : all buses switched");
             System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup");

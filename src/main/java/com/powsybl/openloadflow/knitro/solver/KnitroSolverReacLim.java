@@ -291,6 +291,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-1);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
 //        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, 8);
+        solver.setParam(KNConstants.KN_PARAM_BAR_MPEC_HEURISTIC,1);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
@@ -460,11 +461,16 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
     }
 
     private void logSlackValues(String type, int startIndex, int count, List<Double> x) {
+        KnitroWritter slackPWritter = new KnitroWritter("D:\\Documents\\Slacks\\SlacksP.txt");
+        KnitroWritter slackQWritter = new KnitroWritter("D:\\Documents\\Slacks\\SlacksQ.txt");
+        KnitroWritter slackVWritter = new KnitroWritter("D:\\Documents\\Slacks\\SlacksV.txt");
         final double threshold = 1e-6;  // Threshold for significant slack values
         final double sbase = 100.0;     // Base power in MVA
 
         LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
-
+        boolean firstIterP = true;
+        boolean firstIterQ = true;
+        boolean firstIterV = true;
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
@@ -495,6 +501,23 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             String msg = String.format("Slack %s[ %s ] → Sm = %.4f, Sp = %.4f → %s", type, name, sm, sp, interpretation);
             LOGGER.info(msg);
             knitroWritter.write(msg,true);
+            switch(type) {
+                case "P":
+                    slackPWritter.write(name,!firstIterP);
+                    slackPWritter.write(String.format("%.4f", epsilon),true);
+                    firstIterP = false;
+                    break;
+                case "Q":
+                    slackQWritter.write(name,!firstIterQ);
+                    slackQWritter.write(String.format("%.4f", epsilon),true);
+                    firstIterQ = false;
+                    break;
+                case "V":
+                    slackVWritter.write(name,!firstIterV);
+                    slackVWritter.write(String.format("%.4f", epsilon),true);
+                    firstIterV = false;
+                    break;
+            }
         }
     }
 
@@ -602,7 +625,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         }
 
         // Slacks variables contributions in the objective function
-        for (int iSlack = slackStartIndex; iSlack < numTotalVariables; iSlack++) {
+        for (int iSlack = slackStartIndex; iSlack < compVarIndex; iSlack++) {
             hessianEntries.add(new NnzCoordinates(iSlack, iSlack));
             if (((iSlack - slackStartIndex) & 1) == 0) {
                 hessianEntries.add(new NnzCoordinates(iSlack, iSlack + 1));
@@ -790,8 +813,8 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 //                }
 
                 if (i < slackVStartIndex) {
-//                    scalingFactors.set(i, 1e-2);
-//                    scaled = true;
+                    scalingFactors.set(i, 1e-2);
+                    scaled = true;
                 }
 
                 if (i >= slackVStartIndex) {
@@ -851,15 +874,25 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                     .map(e -> e.getTerms().get(0).getElementNum())
                     .sorted().toList();
 
-            // Picking non-activated Q equations
+            // Picking non-activated Q equations only if Tehre are limits on Q indicated
             List<Equation<AcVariableType, AcEquationType>> equationQBusV = new ArrayList<>();
+            List<Equation<AcVariableType, AcEquationType>> equationQBusVToAdd = new ArrayList<>();
             for (int elementNum : listBusesWithVEq) {
                 equationQBusV.addAll(equationSystem.getEquations(ElementType.BUS,
                         elementNum).stream().filter(e ->
                         e.getType() == BUS_TARGET_Q).toList());
             }
-            List<Equation<AcVariableType, AcEquationType>> equationsQBusV = Stream.concat(equationQBusV.stream(),
-                    equationQBusV.stream()).toList(); //Duplication to get b_low and b_up eq
+            for (Equation<AcVariableType, AcEquationType> equation : equationQBusV) {
+                boolean limitedOnQ = false;
+                for (LfGenerator g : network.getBuses().get(equation.getElement(network).get().getNum()).getGenerators()) {
+                    if (g.getMaxQ() < 1.7976931348623157E308) {
+                        limitedOnQ = true;
+                    }
+                }
+                equationQBusVToAdd.add(equation);
+            }
+            List<Equation<AcVariableType, AcEquationType>> equationsQBusV = Stream.concat(equationQBusVToAdd.stream(),
+                    equationQBusVToAdd.stream()).toList(); //Duplication to get b_low and b_up eq
 
             // Linear and nonlinear constraints (the latter are deferred to callback)
             NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
@@ -878,7 +911,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             for (int equationId = totalActiveConstraints; equationId < completeEquationsToSolve.size(); equationId++) {
                 Equation<AcVariableType, AcEquationType> equation = completeEquationsToSolve.get(equationId);
                 LfBus b = network.getBus(equation.getElementNum());
-                if (equationId-totalActiveConstraints < equationQBusV.size()) {
+                if (equationId-totalActiveConstraints < equationQBusVToAdd.size()) {
                     wholeTargetVector.add(b.getMinQ() - b.getLoadTargetQ());
                 } else {
                     wholeTargetVector.add(b.getMaxQ() - b.getLoadTargetQ());
