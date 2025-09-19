@@ -39,11 +39,12 @@ public class ReacLimPertubationTest {
     public ReacLimPertubationTest() throws IOException {
     }
 
-    private void fixReacLim(Network network, HashMap<String, Double> listMinQ, HashMap<String, Double> listMaxQ) {
+    private int fixReacLim(Network network, HashMap<String, Double> listMinQ, HashMap<String, Double> listMaxQ) {
+        int numbreLimReacAdded = 0;
         for (var g : network.getGenerators()) {
-            if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()) > -1.7976931348623157E308) {
-                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()));
-                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP()));
+            if (g.getReactiveLimits().getMinQ(g.getTargetP()) > -1.7976931348623157E308) {
+                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTargetP()));
+                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTargetP()));
             } else {
                 g.newMinMaxReactiveLimits()
                         .setMinQ(-2000)
@@ -51,8 +52,10 @@ public class ReacLimPertubationTest {
                         .add();
                 listMinQ.put(g.getId(), -2000.0);
                 listMaxQ.put(g.getId(), 2000.0);
+                numbreLimReacAdded++;
             }
         }
+        return numbreLimReacAdded;
     }
 
     void logsWriting (KnitroLoadFlowParameters knitroLoadFlowParameters, KnitroWritter knitroWritter) {
@@ -85,9 +88,11 @@ public class ReacLimPertubationTest {
         HashMap<String, Double> listMinQ = new HashMap<>();
         HashMap<String, Double> listMaxQ = new HashMap<>();
         parameters.setUseReactiveLimits(true);
-        fixReacLim(network, listMinQ, listMaxQ);
+        int numbreLimReacAdded = fixReacLim(network, listMinQ, listMaxQ);;
+
 
         knitroWritter.write("[" + LocalDateTime.now() + "]",false);
+        knitroWritter.write(numbreLimReacAdded + " bus pour lesquels les limites réactif ont été ajoutées",true);
         logsWriting(knitroLoadFlowParameters, knitroWritter);
         switch (perturbProcess) {
             case "ActivePowerGlobal":
@@ -108,11 +113,15 @@ public class ReacLimPertubationTest {
             case "None":
                 knitroWritter.write("No Pertubations", true);
                 break;
+            default:
+                knitroWritter.write("No Pertubations, you have miswritten the pertubation's instruction", true);
+                break;
         }
 
         // solve and check
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
+        ReacLimitsTestsUtils.checkSwitches(network,listMinQ,listMaxQ);
         long end = System.nanoTime();
         knitroWritter.write("Durée du test : " + (end - start)*1e-9 + " secondes",true);
         knitroWritter.write("Nombre d'itérations : " + result.getComponentResults().get(0).getIterationCount(),true);
@@ -362,13 +371,8 @@ public class ReacLimPertubationTest {
                 .setSlackBusSelectionMode(SlackBusSelectionMode.NAME)
                 .setSlackBusId("VL_1_0");
 
-        // Final perturbed load's percentage
-        double targetQ = 1E12;
-        PerturbationFactory.ReactivePowerPerturbation perturbation = PerturbationFactory.getReactivePowerPerturbation(network);
-        PerturbationFactory.applyReactivePowerPerturbation(network, perturbation, targetQ);
-
         logFile = "D:\\Documents\\Logs_Tests\\Logs_3bus_Reactive_Power_Perturbation.txt";
-        testprocess(logFile,network,"ReactivePower",1E12);
+        testprocess(logFile,network,"ReactivePower",1E10);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
@@ -571,6 +575,7 @@ public class ReacLimPertubationTest {
 
     @Test
     public void ieee118ActivePowerPerturbed() {
+
         logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee118_Active_Power_Perturbation.txt";
         Network network = IeeeCdfNetworkFactory.create118();
         testprocess(logFile, network, "ActivePowerLocal", 1.2);
@@ -581,7 +586,7 @@ public class ReacLimPertubationTest {
     public void ieee118ReactivePowerPerturbed() {
         logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee118_Reactive_Power_Perturbation.txt";
         Network network = IeeeCdfNetworkFactory.create118();
-        testprocess(logFile,network,"ReactivePower",1E11);
+        testprocess(logFile,network,"ReactivePower",1E10);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
@@ -636,34 +641,15 @@ public class ReacLimPertubationTest {
 
     @Test
     void testxiidm6515() throws IOException {
-        long start = System.nanoTime();
+        logFile = "D:\\Documents\\Logs_Tests\\Logs_Rte6515_No_Perturbation.txt";
+        Network network = Network.read("D:\\Documents\\Réseaux\\rte6515.xiidm");
+        testprocess(logFile,network,"None",1.2);
+    }
 
-        logFile = "D:\\Documents\\Logs_Tests\\Logs_Rte6515_Active_Power_One-Load_Perturbation.txt";
-        KnitroWritter knitroWritter = new KnitroWritter(logFile);
-        KnitroLoadFlowParameters knitroLoadFlowParameters = parameters.getExtension(KnitroLoadFlowParameters.class);
-        knitroLoadFlowParameters.setKnitroWritter(knitroWritter);
-        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
-
-        HashMap<String, Double> listMinQ = new HashMap<>();
-        HashMap<String, Double> listMaxQ = new HashMap<>();
-        parameters.setUseReactiveLimits(true);
-        Network network = Network.read("D:\\Documents\\Réseaux\\rte65" +
-                "15.xiidm");
-
-
-        knitroWritter.write("[" + LocalDateTime.now() + "]",false);
-//        knitroWritter.write("Perturbed by uniq big load (" + alpha * 100 + "% of total load)",true);
-
-        logsWriting(knitroLoadFlowParameters, knitroWritter);
-
-        // solve and check
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged(), "Not Fully Converged");
-
-        long end = System.nanoTime();
-        knitroWritter.write("Durée du test : " + (end - start)*1e-9 + " secondes",true);
-        knitroWritter.write("Nombre d'itérations : " + result.getComponentResults().get(0).getIterationCount(),true);
-        knitroWritter.write("Status à l'arrivée : " + result.getComponentResults().get(0).getStatus().name(),true);
-
+    @Test
+    void testTYNDP() {
+        logFile = "D:\\Documents\\Logs_Tests\\Logs_TYNDP.txt";
+        Network network = Network.read("D:\\Documents\\Réseaux\\CGM_TYNDP22.xiidm");
+        testprocess(logFile,network,"None",1.2);
     }
 }
