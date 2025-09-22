@@ -50,7 +50,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResilientKnitroSolver.class);
 
     // Penalty weights in the objective function
-    private final double wK = 1.0;
     private final double wP = 1.0;
     private final double wQ = 1.0;
     private final double wV = 1.0;
@@ -293,8 +292,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             logSlackValues("V", slackVStartIndex, numVEquations, x);
 
             // ========== Penalty Computation ==========
-            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wK * wP, lambda);
-            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wK * wQ, lambda);
+            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wP, lambda);
+            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wQ, lambda);
             double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV, lambda);
             double totalPenalty = penaltyP + penaltyQ + penaltyV;
 
@@ -707,8 +706,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             List<Double> linCoefs = new ArrayList<>();
 
             // Slack penalty terms: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
-            addSlackObjectiveTerms(numPEquations, slackPStartIndex, wK * wP, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numQEquations, slackQStartIndex, wK * wQ, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numPEquations, slackPStartIndex, wP, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numQEquations, slackQStartIndex, wQ, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
             addSlackObjectiveTerms(numVEquations, slackVStartIndex, wV, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
 
             setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
@@ -1066,7 +1065,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                                 // set Jacobian entry to +1.0 if slack variable is Sp
                                 value = 1.0;
                             }
-                        } else if (rowIndices[colStart + iRowIndices] != var){
+                        } else if (rowIndices[colStart + iRowIndices] != var) {
                             value = 0.0;
                         } else {
                             value = values[colStart + iRowIndices++];
