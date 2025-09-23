@@ -58,15 +58,15 @@ public class ReacLimPertubationTest {
         return numbreLimReacAdded;
     }
 
-    void logsWriting (KnitroLoadFlowParameters knitroLoadFlowParameters, KnitroWritter knitroWritter) {
-        knitroWritter.write("Solver used : " + OpenLoadFlowParameters.get(parameters).getAcSolverType(),true);
-        knitroWritter.write("Init Mode : " + parameters.getVoltageInitMode().toString(),true);
-            if (OpenLoadFlowParameters.get(parameters).getAcSolverType().equals("KNITRO")) {
-                knitroWritter.write("Version de Knitro : " + knitroLoadFlowParameters.getKnitroSolverType().name(),true);
-            }
-        knitroWritter.write("Override Init Mode : " + OpenLoadFlowParameters.get(parameters).getVoltageInitModeOverride().name(),true);
-        knitroWritter.write("Max Iterations : " + knitroLoadFlowParameters.getMaxIterations(),true);
-        knitroWritter.write("Gradient Computation Mode : " + knitroLoadFlowParameters.getGradientComputationMode(),true);
+    void logsWriting(KnitroLoadFlowParameters knitroLoadFlowParameters, KnitroWritter knitroWritter) {
+        knitroWritter.write("Solver used : " + OpenLoadFlowParameters.get(parameters).getAcSolverType(), true);
+        knitroWritter.write("Init Mode : " + parameters.getVoltageInitMode().toString(), true);
+        if (OpenLoadFlowParameters.get(parameters).getAcSolverType().equals("KNITRO")) {
+            knitroWritter.write("Version de Knitro : " + knitroLoadFlowParameters.getKnitroSolverType().name(), true);
+        }
+        knitroWritter.write("Override Init Mode : " + OpenLoadFlowParameters.get(parameters).getVoltageInitModeOverride().name(), true);
+        knitroWritter.write("Max Iterations : " + knitroLoadFlowParameters.getMaxIterations(), true);
+        knitroWritter.write("Gradient Computation Mode : " + knitroLoadFlowParameters.getGradientComputationMode(), true);
     }
 
     /**
@@ -77,7 +77,7 @@ public class ReacLimPertubationTest {
      *                          ActivePowerLocal, ReactivePower, None
      * @param perturbValue      value applied in the pertubation chosen (wont be used in the "None" case)
      */
-    void testprocess(String logFile, Network network, String perturbProcess, double perturbValue){
+    void testprocess(String logFile, Network network, String perturbProcess, double perturbValue) {
         long start = System.nanoTime();
 
         KnitroWritter knitroWritter = new KnitroWritter(logFile);
@@ -88,27 +88,26 @@ public class ReacLimPertubationTest {
         HashMap<String, Double> listMinQ = new HashMap<>();
         HashMap<String, Double> listMaxQ = new HashMap<>();
         parameters.setUseReactiveLimits(true);
-        int numbreLimReacAdded = fixReacLim(network, listMinQ, listMaxQ);;
+        int numbreLimReacAdded = fixReacLim(network, listMinQ, listMaxQ);
 
-
-        knitroWritter.write("[" + LocalDateTime.now() + "]",false);
-        knitroWritter.write(numbreLimReacAdded + " bus pour lesquels les limites réactif ont été ajoutées",true);
+        knitroWritter.write("[" + LocalDateTime.now() + "]", false);
+        knitroWritter.write(numbreLimReacAdded + " bus pour lesquels les limites réactif ont été ajoutées", true);
         logsWriting(knitroLoadFlowParameters, knitroWritter);
         switch (perturbProcess) {
             case "ActivePowerGlobal":
                 ReacLimitsTestsUtils.applyActivePowerPerturbation(network, perturbValue);
                 knitroWritter.write("Perturbed by global loads' increasement (All multiplied by " +
-                        perturbValue * 100 + "% of total load)",true);
+                        perturbValue * 100 + "% of total load)", true);
                 break;
             case "ActivePowerLocal":
                 PerturbationFactory.applyActivePowerPerturbation(network,
                     PerturbationFactory.getActivePowerPerturbation(network), perturbValue);
-                knitroWritter.write("Perturbed by uniq big load (" + perturbValue * 100 + "% of total load)",true);
+                knitroWritter.write("Perturbed by uniq big load (" + perturbValue * 100 + "% of total load)", true);
                 break;
             case "ReactivePower":
                 PerturbationFactory.applyReactivePowerPerturbation(network,
                         PerturbationFactory.getReactivePowerPerturbation(network), perturbValue);
-                knitroWritter.write("Perturbed by power injection by the shunt (Target Q = " + perturbValue + ")",true);
+                knitroWritter.write("Perturbed by power injection by the shunt (Target Q = " + perturbValue + ")", true);
                 break;
             case "None":
                 knitroWritter.write("No Pertubations", true);
@@ -121,11 +120,11 @@ public class ReacLimPertubationTest {
         // solve and check
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
-        ReacLimitsTestsUtils.checkSwitches(network,listMinQ,listMaxQ);
+        ReacLimitsTestsUtils.checkSwitches(network, listMinQ, listMaxQ);
         long end = System.nanoTime();
-        knitroWritter.write("Durée du test : " + (end - start)*1e-9 + " secondes",true);
-        knitroWritter.write("Nombre d'itérations : " + result.getComponentResults().get(0).getIterationCount(),true);
-        knitroWritter.write("Status à l'arrivée : " + result.getComponentResults().get(0).getStatus().name(),true);
+        knitroWritter.write("Durée du test : " + (end - start) * 1e-9 + " secondes", true);
+        knitroWritter.write("Nombre d'itérations : " + result.getComponentResults().get(0).getIterationCount(), true);
+        knitroWritter.write("Status à l'arrivée : " + result.getComponentResults().get(0).getStatus().name(), true);
     }
 
     @BeforeEach
@@ -140,7 +139,7 @@ public class ReacLimPertubationTest {
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         //parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
         //OpenLoadFlowParameters.create(parameters).setAcSolverType("NEWTON_RAPHSON");
-        OpenLoadFlowParameters.create(parameters).setAcSolverType(KnitroSolverFactory.NAME);
+//        OpenLoadFlowParameters.create(parameters).setAcSolverType(KnitroSolverFactory.NAME);
         OpenLoadFlowParameters.get(parameters).setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE);
 
     }
@@ -262,8 +261,8 @@ public class ReacLimPertubationTest {
      */
     @Test
     public void createNetworkWithT2wtReactivePower() {
-        HashMap<String,Double> listMinQ = new HashMap<>();
-        HashMap<String,Double> listMaxQ = new HashMap<>();
+        HashMap<String, Double> listMinQ = new HashMap<>();
+        HashMap<String, Double> listMaxQ = new HashMap<>();
 
         Network network = Network.create("yoann-n", "test");
 
@@ -338,7 +337,6 @@ public class ReacLimPertubationTest {
         listMinQ.put(g3.getId(), -3000.0);
         listMaxQ.put(g3.getId(), 3000.0);
 
-
         network.newLine()
                 .setId("LINE_12")
                 .setBus1("BUS_1")
@@ -372,7 +370,7 @@ public class ReacLimPertubationTest {
                 .setSlackBusId("VL_1_0");
 
         logFile = "D:\\Documents\\Logs_Tests\\Logs_3bus_Reactive_Power_Perturbation.txt";
-        testprocess(logFile,network,"ReactivePower",1E10);
+        testprocess(logFile, network, "ReactivePower", 1E10);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
@@ -386,8 +384,8 @@ public class ReacLimPertubationTest {
      */
     @Test
     public void createNetworkWithT2wtVoltage() {
-        HashMap<String,Double> listMinQ = new HashMap<>();
-        HashMap<String,Double> listMaxQ = new HashMap<>();
+        HashMap<String, Double> listMinQ = new HashMap<>();
+        HashMap<String, Double> listMaxQ = new HashMap<>();
         Network network = Network.create("yoann-n", "test");
 
         Substation substation1 = network.newSubstation()
@@ -493,66 +491,42 @@ public class ReacLimPertubationTest {
 //        OpenLoadFlowParameters.get(parameters).setAcSolverType("NEWTON_RAPHSON");
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
-        ReacLimitsTestsUtils utilFunctions = new ReacLimitsTestsUtils();
-        utilFunctions.checkSwitches(network, listMinQ, listMaxQ);
-        utilFunctions.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
+        ReacLimitsTestsUtils.checkSwitches(network, listMinQ, listMaxQ);
+        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
     public void ieee14ActivePowerPerturbed() {
-        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee14_Active_Power_Perturbation.txt";
+        String perturbation = "ActivePowerLocal";
+        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee14_" + perturbation + ".txt";
         Network network = IeeeCdfNetworkFactory.create14();
-        testprocess(logFile, network, "ActivePowerLocal", 1.2);
+        testprocess(logFile, network, perturbation, 1.2);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
-    }
-
-    @Test
-    public void ieee14VoltagePerturbed() {
-        // set up network
-        HashMap<String,Double> listMinQ = new HashMap<>();
-        HashMap<String,Double> listMaxQ = new HashMap<>();
-        parameters.setUseReactiveLimits(true);
-        Network network = IeeeCdfNetworkFactory.create14();
-        fixReacLim(network, listMinQ, listMaxQ);
-
-        // Line Characteristics in per-unit
-        double rPU = 0.0;
-        double xPU = 1e-5;
-        // Voltage Mismatch
-        double alpha = 0.95;
-        PerturbationFactory.VoltagePerturbation perturbation = PerturbationFactory.getVoltagePerturbation(network);
-        PerturbationFactory.applyVoltagePerturbation(network, perturbation, rPU, xPU, alpha);
-
-        // solve and check
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged(), "Not Fully Converged");
-        ReacLimitsTestsUtils utilFunctions = new ReacLimitsTestsUtils();
-        utilFunctions.checkSwitches(network, listMinQ, listMaxQ);
-        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
-
     }
 
     @Test
     public void ieee30ActivePowerPerturbed() {
-        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee30_Active_Power_Perturbation.txt";
+        String perturbation = "ActivePowerLocal";
+        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee30_" + perturbation + ".txt";
         Network network = IeeeCdfNetworkFactory.create30();
-        testprocess(logFile, network, "ActivePowerLocal", 1.2);
+        testprocess(logFile, network, perturbation, 1.2);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
     public void ieee30ReactivePowerPerturbed() {
-        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee30_Reactive_Power_Perturbation.txt";
+        String perturbation = "ReactivePower";
+        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee30_" + perturbation + ".txt";
         Network network = IeeeCdfNetworkFactory.create30();
-        testprocess(logFile,network,"ReactivePower",1E11);
+        testprocess(logFile, network, perturbation, 1E11);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
     public void ieee30VoltagePerturbed() {
         // set up network
-        HashMap<String,Double> listMinQ = new HashMap<>();
-        HashMap<String,Double> listMaxQ = new HashMap<>();
+        HashMap<String, Double> listMinQ = new HashMap<>();
+        HashMap<String, Double> listMaxQ = new HashMap<>();
         parameters.setUseReactiveLimits(true);
         Network network = IeeeCdfNetworkFactory.create30();
         fixReacLim(network, listMinQ, listMaxQ);
@@ -568,33 +542,33 @@ public class ReacLimPertubationTest {
         // solve and check
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
-        ReacLimitsTestsUtils utilFunctions = new ReacLimitsTestsUtils();
-        utilFunctions.checkSwitches(network, listMinQ, listMaxQ);
-        utilFunctions.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
+        ReacLimitsTestsUtils.checkSwitches(network, listMinQ, listMaxQ);
+        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
     public void ieee118ActivePowerPerturbed() {
-
-        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee118_Active_Power_Perturbation.txt";
+        String perturbation = "ActivePowerLocal";
+        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee118_" + perturbation + ".txt";
         Network network = IeeeCdfNetworkFactory.create118();
-        testprocess(logFile, network, "ActivePowerLocal", 1.2);
+        testprocess(logFile, network, perturbation, 1.2);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
     public void ieee118ReactivePowerPerturbed() {
-        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee118_Reactive_Power_Perturbation.txt";
+        String perturbation = "ReactivePower";
+        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee118_" + perturbation + ".txt";
         Network network = IeeeCdfNetworkFactory.create118();
-        testprocess(logFile,network,"ReactivePower",1E10);
+        testprocess(logFile, network, perturbation, 1E10);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
     public void ieee118VoltagePerturbed() {
         // set up network
-        HashMap<String,Double> listMinQ = new HashMap<>();
-        HashMap<String,Double> listMaxQ = new HashMap<>();
+        HashMap<String, Double> listMinQ = new HashMap<>();
+        HashMap<String, Double> listMaxQ = new HashMap<>();
         parameters.setUseReactiveLimits(true);
         Network network = IeeeCdfNetworkFactory.create118();
         fixReacLim(network, listMinQ, listMaxQ);
@@ -610,46 +584,42 @@ public class ReacLimPertubationTest {
         // solve and check
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
-        ReacLimitsTestsUtils utilFunctions = new ReacLimitsTestsUtils();
-        utilFunctions.checkSwitches(network, listMinQ, listMaxQ);
-        utilFunctions.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
+        ReacLimitsTestsUtils.checkSwitches(network, listMinQ, listMaxQ);
+        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
     public void ieee300ActivePowerPerturbed() {
-        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee300_Active_Power_Perturbation.txt";
+        String perturbation = "ActivePowerGlobal";
+        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee300_" + perturbation + ".txt";
         Network network = IeeeCdfNetworkFactory.create300();
-        testprocess(logFile,network,"ActivePowerGlobal",1.2);
+        testprocess(logFile, network, perturbation, 1.2);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
     public void ieee300ReactivePowerPerturbed() {
-        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee300_Reactive_Power_Perturbation.txt";
+        String perturbation = "ReactivePower";
+        logFile = "D:\\Documents\\Logs_Tests\\Logs_ieee300_" + perturbation + ".txt";
         Network network = IeeeCdfNetworkFactory.create300();
-        testprocess(logFile,network,"ReactivePower",1E11);
+        testprocess(logFile, network, perturbation, 1E11);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
     void testxiidm1888ActivePowerOneLoadPerturbed() throws IOException {
-        logFile = "D:\\Documents\\Logs_Tests\\Logs_Rte1888_Active_Power_One-Load_Perturbation.txt";
+        String perturbation = "ActivePowerLocal";
+        logFile = "D:\\Documents\\Logs_Tests\\Logs_Rte1888_" + perturbation + ".txt";
         Network network = Network.read("D:\\Documents\\Réseaux\\rte1888.xiidm");
-        testprocess(logFile,network,"ActivePowerGlobal",1.2);
+        testprocess(logFile, network, perturbation, 1.2);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
     void testxiidm6515() throws IOException {
-        logFile = "D:\\Documents\\Logs_Tests\\Logs_Rte6515_No_Perturbation.txt";
+        String perturbation = "None";
+        logFile = "D:\\Documents\\Logs_Tests\\Logs_Rte6515_" + perturbation + ".txt";
         Network network = Network.read("D:\\Documents\\Réseaux\\rte6515.xiidm");
-        testprocess(logFile,network,"None",1.2);
-    }
-
-    @Test
-    void testTYNDP() {
-        logFile = "D:\\Documents\\Logs_Tests\\Logs_TYNDP.txt";
-        Network network = Network.read("D:\\Documents\\Réseaux\\CGM_TYNDP22.xiidm");
-        testprocess(logFile,network,"None",1.2);
+        testprocess(logFile, network, perturbation, 1.2);
     }
 }

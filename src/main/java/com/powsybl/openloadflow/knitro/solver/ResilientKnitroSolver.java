@@ -252,7 +252,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 //        solver.setParam(KNConstants.KN_PARAM_ALG, 1);
 //        solver.setParam(KNConstants.KN_PARAM_DERIVCHECK, 1);
 //        solver.setParam(KNConstants.KN_PARAM_FINDIFF_NUMTHREADS, 1);
-        
+
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
                 knitroParameters.getHessianComputationMode(),

@@ -10,8 +10,6 @@ package com.powsybl.openloadflow.knitro.solver;
 import com.powsybl.commons.extensions.AbstractExtension;
 import com.powsybl.loadflow.LoadFlowParameters;
 
-import java.util.logging.Logger;
-
 /**
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
