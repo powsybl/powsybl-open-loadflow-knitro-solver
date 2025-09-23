@@ -3,7 +3,6 @@ package com.powsybl.openloadflow.knitro.solver;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.time.LocalDateTime;
 
 public class KnitroWritter {
     private final String logFile;
