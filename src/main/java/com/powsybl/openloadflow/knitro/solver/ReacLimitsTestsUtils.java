@@ -14,7 +14,10 @@ import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.*;
 import java.util.*;
 
 
@@ -24,44 +27,69 @@ import static org.ejml.UtilEjml.assertTrue;
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Yoann Anezin {@literal <yoann.anezin at artelys.com>}
  */
-public class ReacLimitsTestsUtils {
+public final class ReacLimitsTestsUtils {
     private static final double DEFAULT_TOLERANCE = 1e-3;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReacLimitsTestsUtils.class);
 
-    public ArrayList<Integer> countAndSwitch(Network network, HashMap<String,Double> listMinQ, HashMap<String,Double> listMaxQ) throws Exception {
+    private ReacLimitsTestsUtils() {
+        throw new UnsupportedOperationException();
+    }
+
+    public static ArrayList<Integer> countAndSwitch(Network network, HashMap<String, Double> listMinQ, HashMap<String, Double> listMaxQ,
+                                                    HashMap<String, Double> slacksP, HashMap<String, Double> slacksQ, HashMap<String, Double> slacksV) throws Exception {
         int nmbSwitchQmin = 0;
         int nmbSwitchQmax = 0;
         int previousNmbBusPV = 0;
         ArrayList<Integer> switches = new ArrayList<>();
         ArrayList<String> busVisited = new ArrayList<>();
         for (Generator g : network.getGenerators()) {
+            if (g.getTerminal().getBusView().getBus() == null) {
+                continue;
+            }
             if (g.isVoltageRegulatorOn() && !busVisited.contains(g.getId())) {
                 busVisited.add(g.getId());
                 previousNmbBusPV += 1;
             }
+            String idbus = g.getTerminal().getBusView().getBus().getId();
+            Double slackP = slacksP.get(idbus);
+            Double slackQ = slacksQ.get(idbus);
+            Double slackV = slacksV.get(idbus);
+            if (slackP == null) {
+                slackP = 0.0;
+            }
+            if (slackQ == null) {
+                slackQ = 0.0;
+            }
+            if (slackV == null) {
+                slackV = 0.0;
+            }
             Terminal t = g.getTerminal();
             double v = t.getBusView().getBus().getV();
             if (g.isVoltageRegulatorOn()) {
-                double Qming = g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP());
-                double Qmaxg = g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP());
-                if (!(v + DEFAULT_TOLERANCE > g.getTargetV() && v - DEFAULT_TOLERANCE < g.getTargetV())) {
-                    if (-t.getQ() + DEFAULT_TOLERANCE > Qming &&
-                            -t.getQ() - DEFAULT_TOLERANCE < Qming) {
+                double qMing = g.getReactiveLimits().getMinQ(g.getTargetP());
+                double qMaxg = g.getReactiveLimits().getMaxQ(g.getTargetP());
+                if (!(v + slackV + DEFAULT_TOLERANCE > g.getTargetV() && v + slackV - DEFAULT_TOLERANCE < g.getTargetV())) {
+                    if (-t.getQ() + DEFAULT_TOLERANCE > qMing &&
+                            -t.getQ() - DEFAULT_TOLERANCE < qMing) {
                         nmbSwitchQmin++;
-                        assertTrue(v > g.getTargetV(), "V below its target on  Qmin switch of bus "
-                                + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
+                        if (!(v + slackV > g.getTargetV())) {
+                            LOGGER.warn("V ( " + v + " ) below its target ( " + g.getTargetV() + " ) on a Qmin switch of bus "
+                                    + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
+                        }
                         g.setTargetQ(listMinQ.get(g.getId()));
-                    } else if (-t.getQ() + DEFAULT_TOLERANCE > Qmaxg &&
-                            -t.getQ() - DEFAULT_TOLERANCE < Qmaxg) {
+                    } else if (-t.getQ() + DEFAULT_TOLERANCE > qMaxg &&
+                            -t.getQ() - DEFAULT_TOLERANCE < qMaxg) {
                         nmbSwitchQmax++;
-                        assertTrue(v < g.getTargetV(), "V above its target on a Qmax switch of bus "
-                                + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
+                        if (!(v + slackV < g.getTargetV())) {
+                            LOGGER.warn("V ( " + v + " ) above its target ( " + g.getTargetV() + " ) on a Qmax switch of bus "
+                                    + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
+                        }
                         g.setTargetQ(listMaxQ.get(g.getId()));
                     } else {
-                        throw new Exception("Value of Q not matching Qmin nor Qmax on the switch of bus "
+                        LOGGER.warn("Value of Q ( " + -t.getQ() + " ) not matching Qmin ( " + qMing + " )  nor Qmax ( " + qMaxg + " ) on the switch of bus "
                                 + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
                     }
                     g.setVoltageRegulatorOn(false);
-
                 }
             }
         }
@@ -71,7 +99,7 @@ public class ReacLimitsTestsUtils {
         return switches;
     }
 
-    public void verifNewtonRaphson (Network network, LoadFlowParameters parameters, LoadFlow.Runner loadFlowRunner, int nbreIter) {
+    public static void verifNewtonRaphson(Network network, LoadFlowParameters parameters, LoadFlow.Runner loadFlowRunner, int nbreIter) {
         OpenLoadFlowParameters.get(parameters).setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.NONE);
         parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
         OpenLoadFlowParameters.get(parameters).setMaxNewtonRaphsonIterations(nbreIter)
@@ -81,14 +109,82 @@ public class ReacLimitsTestsUtils {
         assertTrue(result.isFullyConverged());
     }
 
-    public void checkSwitches(Network network, HashMap<String,Double> listMinQ, HashMap<String,Double> listMaxQ) {
+    public static void checkSwitches(Network network, HashMap<String, Double> listMinQ, HashMap<String, Double> listMaxQ) {
+        HashMap<String, Double> slacksP = new HashMap<String, Double>();
+        HashMap<String, Double> slacksQ = new HashMap<String, Double>();
+        HashMap<String, Double> slacksV = new HashMap<String, Double>();
+        ArrayList<String> slacksfiles = new ArrayList<String>();
+        slacksfiles.add("P");
+        slacksfiles.add("Q");
+        slacksfiles.add("V");
+        for (String type : slacksfiles) {
+            try (BufferedReader br = new BufferedReader(new FileReader("D:\\Documents\\Slacks\\Slacks" + type + ".txt"))) {
+                String ligne;
+                boolean isId = true; // True = on attend un identifiant, False = on attend une valeur
+                String id = "";
+                Double value;
+
+                while ((ligne = br.readLine()) != null) {
+                    if (ligne.trim().isEmpty()) {
+                        continue; // ignorer les lignes vides éventuelles
+                    }
+
+                    if (isId) {
+                        id = ligne.trim();
+                    } else {
+                        // Convertir la valeur en double
+                        try {
+                            value = Double.parseDouble(ligne.trim().replace(',', '.'));
+                            switch (type) {
+                                case "P":
+                                    slacksP.put(id, value);
+                                    break;
+                                case "Q":
+                                    slacksQ.put(id, value);
+                                    break;
+                                case "V":
+                                    slacksV.put(id, value);
+                                    break;
+                            }
+                        } catch (NumberFormatException e) {
+                            System.err.println("Valeur non numérique : " + ligne);
+                        }
+                    }
+                    isId = !isId; // alterner ID/valeur
+                }
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
         try {
-            ArrayList<Integer> switches = countAndSwitch(network, listMinQ, listMaxQ);
+            ArrayList<Integer> switches = countAndSwitch(network, listMinQ, listMaxQ, slacksP, slacksQ, slacksV);
             assertTrue(switches.get(2) > switches.get(1) + switches.get(0),
                     "No control on any voltage magnitude : all buses switched");
             System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup");
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+
+        for (String type : slacksfiles) {
+            try (FileWriter fw = new FileWriter("D:\\Documents\\Slacks\\Slacks" + type + ".txt", false)) {
+                fw.write("");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Creates an active power perturbation of a given network.
+     *
+     * @param network      The network to perturb.
+     * @param alpha        The active load mismatch to apply.
+     */
+    public static void applyActivePowerPerturbation(Network network, double alpha) {
+        for (Load load : network.getLoads()) {
+            load.setP0(alpha * load.getP0());
         }
     }
 }

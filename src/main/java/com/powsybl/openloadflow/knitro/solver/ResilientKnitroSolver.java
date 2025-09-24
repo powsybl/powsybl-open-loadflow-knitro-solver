@@ -115,9 +115,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         this.slackVStartIndex = slackQStartIndex + 2 * numQEquations;
 
         // Map equations to local indices
-        this.pEquationLocalIds = new HashMap<>();
-        this.qEquationLocalIds = new HashMap<>();
-        this.vEquationLocalIds = new HashMap<>();
+        this.pEquationLocalIds = new LinkedHashMap<>();
+        this.qEquationLocalIds = new LinkedHashMap<>();
+        this.vEquationLocalIds = new LinkedHashMap<>();
 
         int pCounter = 0;
         int qCounter = 0;
@@ -243,16 +243,16 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
-        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
+//        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
         solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_BOTH);
         solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-3);
         solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-1);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
-        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, 8);
-        solver.setParam(KNConstants.KN_PARAM_ALG, 1);
-        solver.setParam(KNConstants.KN_PARAM_DERIVCHECK, 1);
-        solver.setParam(KNConstants.KN_PARAM_FINDIFF_NUMTHREADS, 1);
-        
+        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, 1);
+//        solver.setParam(KNConstants.KN_PARAM_ALG, 1);
+//        solver.setParam(KNConstants.KN_PARAM_DERIVCHECK, 1);
+//        solver.setParam(KNConstants.KN_PARAM_FINDIFF_NUMTHREADS, 1);
+
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
                 knitroParameters.getHessianComputationMode(),

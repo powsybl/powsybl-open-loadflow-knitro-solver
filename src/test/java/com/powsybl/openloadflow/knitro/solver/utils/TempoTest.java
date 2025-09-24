@@ -32,12 +32,14 @@ import com.artelys.knitro.api.*;
 
 import java.util.Arrays;
 
-public class TempoTest
-{
-    private static class ProblemMPEC1  extends KNProblem
-    {
-        public ProblemMPEC1() throws KNException
-        {
+public final class TempoTest {
+
+    private TempoTest() {
+        throw new UnsupportedOperationException();
+    }
+
+    private static class ProblemMPEC1 extends KNProblem {
+        public ProblemMPEC1() throws KNException {
             super(8, 4);
 
             // Variables
@@ -63,22 +65,21 @@ public class TempoTest
 
             // Constraints Strucutres
             /* c0 */
-            addConstraintLinearPart(0, Arrays.asList(0,1,2,3,4), Arrays.asList(-1.5,2.0,1.0,-0.5,1.0));
+            addConstraintLinearPart(0, Arrays.asList(0, 1, 2, 3, 4), Arrays.asList(-1.5, 2.0, 1.0, -0.5, 1.0));
             /* c1 */
-            addConstraintLinearPart(1, Arrays.asList(0,1,5), Arrays.asList(3.0,-1.0,-1.0));
+            addConstraintLinearPart(1, Arrays.asList(0, 1, 5), Arrays.asList(3.0, -1.0, -1.0));
             /* c2 */
-            addConstraintLinearPart(2, Arrays.asList(0,1,6), Arrays.asList(-1.0,0.5,-1.0));
+            addConstraintLinearPart(2, Arrays.asList(0, 1, 6), Arrays.asList(-1.0, 0.5, -1.0));
             /* c3 */
-            addConstraintLinearPart(3, Arrays.asList(0,1,7), Arrays.asList(-1.0,-1.0,-1.0));
+            addConstraintLinearPart(3, Arrays.asList(0, 1, 7), Arrays.asList(-1.0, -1.0, -1.0));
         }
     }
 
-    public static void main(String args[]) throws KNException
-    {
+    public static void main(String[] args) throws KNException {
         // Create a problem instance.
         ProblemMPEC1 instance = new ProblemMPEC1();
         // Create a solver
-        try(KNSolver solver = new KNSolver(instance)) {
+        try (KNSolver solver = new KNSolver(instance)) {
 
             solver.initProblem();
             solver.solve();
@@ -96,9 +97,5 @@ public class TempoTest
             System.out.format("  feasibility violation    = %f%n", solver.getAbsFeasError());
             System.out.format("  KKT optimality violation = %f%n", solver.getAbsOptError());
         }
-
     }
-
-
-
 }

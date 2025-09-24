@@ -27,6 +27,15 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private boolean alwaysUpdateNetwork = KnitroSolverParameters.ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
     private boolean checkLoadFlowSolution = KnitroSolverParameters.CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE;
     private KnitroSolverParameters.KnitroSolverType knitroSolverType = KnitroSolverParameters.DEFAULT_KNITRO_SOLVER_TYPE;
+    private KnitroWritter knitroWritter;
+
+    public KnitroLoadFlowParameters(KnitroWritter knitroWritter) {
+        this.knitroWritter = knitroWritter;
+    }
+
+    public KnitroLoadFlowParameters() {
+        this.knitroWritter = new KnitroWritter("Logs.txt");
+    }
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -139,6 +148,15 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
 
     public KnitroLoadFlowParameters setKnitroSolverType(KnitroSolverParameters.KnitroSolverType knitroSolverType) {
         this.knitroSolverType = knitroSolverType;
+        return this;
+    }
+
+    public KnitroWritter getKnitroWritter() {
+        return knitroWritter;
+    }
+
+    public KnitroLoadFlowParameters setKnitroWritter(KnitroWritter knitroWritter) {
+        this.knitroWritter = knitroWritter;
         return this;
     }
 

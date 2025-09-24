@@ -58,8 +58,8 @@ public class KnitroSolverFactory implements AcSolverFactory {
                     .setConvEps(parameters.getExtension(KnitroLoadFlowParameters.class).getConvEps())
                     .setAlwaysUpdateNetwork(parameters.getExtension(KnitroLoadFlowParameters.class).isAlwaysUpdateNetwork())
                     .setCheckLoadFlowSolution(parameters.getExtension(KnitroLoadFlowParameters.class).isCheckLoadFlowSolution())
+                    .setKnitroWritter(parameters.getExtension(KnitroLoadFlowParameters.class).getKnitroWritter())
                     .setKnitroSolverType(parameters.getExtension(KnitroLoadFlowParameters.class).getKnitroSolverType());
-
         }
         return knitroSolverParameters;
     }

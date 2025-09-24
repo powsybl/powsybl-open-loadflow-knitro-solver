@@ -15,10 +15,9 @@
     </appender>
 
     <appender name="ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>D:/Documents/La_Doc/logrte1888.log</file> <!-- Chemin sans espace recommandé -->
+        <file>D:/Documents/La_Doc/logrte1888.log</file>
 
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- Modèle pour les fichiers archivés -->
             <fileNamePattern>D:/Documents/La_Doc/logrte1888.%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>30</maxHistory>
         </rollingPolicy>
@@ -28,7 +27,7 @@
         </encoder>
     </appender>
 
-    <root level="TRACE">
+    <root level="INFO">
         <appender-ref ref="ROLLING" />
         <appender-ref ref="STDOUT" />
     </root>
