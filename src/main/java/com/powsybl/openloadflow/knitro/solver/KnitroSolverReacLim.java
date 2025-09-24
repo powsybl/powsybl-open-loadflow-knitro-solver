@@ -11,6 +11,7 @@ package com.powsybl.openloadflow.knitro.solver;
 import com.artelys.knitro.api.*;
 import com.artelys.knitro.api.callbacks.KNEvalFCCallback;
 import com.artelys.knitro.api.callbacks.KNEvalGACallback;
+import com.artelys.knitro.api.nativelibrary.KNLibrary;
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.commons.report.ReportNode;
 import com.powsybl.math.matrix.SparseMatrix;
@@ -341,7 +342,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-1);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
 //        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, 1);
-        solver.setParam(KNConstants.KN_PARAM_BAR_MPEC_HEURISTIC, 1);
+//        solver.setParam(KNConstants.KN_PARAM_BAR_MPEC_HEURISTIC, 1);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
@@ -510,8 +511,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                     firstIterQ = false;
                     break;
                 case "V":
+                    var bus = network.getBusById(name);
                     slackVWritter.write(name, !firstIterV);
-                    slackVWritter.write(String.format("%.4f", epsilon), true);
+                    slackVWritter.write(String.format("%.4f", epsilon * bus.getNominalV()), true);
                     firstIterV = false;
                     break;
             }
@@ -580,12 +582,12 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             String bus = equationSystem.getIndex()
                     .getSortedEquationsToSolve().stream().filter(e ->
                             e.getType() == BUS_TARGET_V).toList().get(i).getElement(network).get().getId();
-            if (Math.abs(bLow) < 1E-3 && !(vInf < 1E-4 && vSup < 1E-4)) {
+            if (Math.abs(bLow) < 1E-4 && !(vInf < 1E-4 && vSup < 1E-4)) {
                 nombreSwitches++;
                 LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmin", bus);
                 knitroWritter.write("Switch PV -> PQ on bus " + bus + ", Q set at Qmin", true);
 
-            } else if (Math.abs(bUp) < 1E-3 && !(vInf < 1E-4 && vSup < 1E-4)) {
+            } else if (Math.abs(bUp) < 1E-4 && !(vInf < 1E-4 && vSup < 1E-4)) {
                 nombreSwitches++;
                 LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmax", bus);
                 knitroWritter.write("Switch PV -> PQ on bus " + bus + ", Q set at Qmax", true);

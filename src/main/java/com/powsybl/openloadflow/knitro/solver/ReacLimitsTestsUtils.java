@@ -14,6 +14,7 @@ import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
+import com.powsybl.openloadflow.network.PlausibleValues;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +29,7 @@ import static org.ejml.UtilEjml.assertTrue;
  * @author Yoann Anezin {@literal <yoann.anezin at artelys.com>}
  */
 public final class ReacLimitsTestsUtils {
-    private static final double DEFAULT_TOLERANCE = 1e-3;
+    private static final double DEFAULT_TOLERANCE = 1e-4;
     private static final Logger LOGGER = LoggerFactory.getLogger(ReacLimitsTestsUtils.class);
 
     private ReacLimitsTestsUtils() {
@@ -41,14 +42,10 @@ public final class ReacLimitsTestsUtils {
         int nmbSwitchQmax = 0;
         int previousNmbBusPV = 0;
         ArrayList<Integer> switches = new ArrayList<>();
-        ArrayList<String> busVisited = new ArrayList<>();
+        HashMap<String, String> visitedBuses = new HashMap<>();
         for (Generator g : network.getGenerators()) {
-            if (g.getTerminal().getBusView().getBus() == null) {
+            if (g.getTerminal().getBusView().getBus() == null || !g.isVoltageRegulatorOn()) {
                 continue;
-            }
-            if (g.isVoltageRegulatorOn() && !busVisited.contains(g.getId())) {
-                busVisited.add(g.getId());
-                previousNmbBusPV += 1;
             }
             String idbus = g.getTerminal().getBusView().getBus().getId();
             Double slackP = slacksP.get(idbus);
@@ -65,32 +62,78 @@ public final class ReacLimitsTestsUtils {
             }
             Terminal t = g.getTerminal();
             double v = t.getBusView().getBus().getV();
-            if (g.isVoltageRegulatorOn()) {
-                double qMing = g.getReactiveLimits().getMinQ(g.getTargetP());
-                double qMaxg = g.getReactiveLimits().getMaxQ(g.getTargetP());
-                if (!(v + slackV + DEFAULT_TOLERANCE > g.getTargetV() && v + slackV - DEFAULT_TOLERANCE < g.getTargetV())) {
-                    if (-t.getQ() + DEFAULT_TOLERANCE > qMing &&
-                            -t.getQ() - DEFAULT_TOLERANCE < qMing) {
-                        nmbSwitchQmin++;
-                        if (!(v + slackV > g.getTargetV())) {
-                            LOGGER.warn("V ( " + v + " ) below its target ( " + g.getTargetV() + " ) on a Qmin switch of bus "
-                                    + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
-                        }
-                        g.setTargetQ(listMinQ.get(g.getId()));
-                    } else if (-t.getQ() + DEFAULT_TOLERANCE > qMaxg &&
-                            -t.getQ() - DEFAULT_TOLERANCE < qMaxg) {
-                        nmbSwitchQmax++;
-                        if (!(v + slackV < g.getTargetV())) {
-                            LOGGER.warn("V ( " + v + " ) above its target ( " + g.getTargetV() + " ) on a Qmax switch of bus "
-                                    + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
-                        }
-                        g.setTargetQ(listMaxQ.get(g.getId()));
-                    } else {
-                        LOGGER.warn("Value of Q ( " + -t.getQ() + " ) not matching Qmin ( " + qMing + " )  nor Qmax ( " + qMaxg + " ) on the switch of bus "
+            double qMing = g.getReactiveLimits().getMinQ(g.getTargetP());
+            double qMaxg = g.getReactiveLimits().getMaxQ(g.getTargetP());
+            if (Math.abs(qMing - qMaxg) < PlausibleValues.MIN_REACTIVE_RANGE) {
+                continue;
+            }
+            if (Math.abs(qMing) > PlausibleValues.MAX_REACTIVE_RANGE || Math.abs(qMaxg) > PlausibleValues.MAX_REACTIVE_RANGE) {
+                continue;
+            }
+
+            if (visitedBuses.containsKey(idbus)) {
+                switch (visitedBuses.get(idbus)) {
+                    case "Switch Qmin":
+                        assertTrue(v + slackV > g.getTargetV(), "Another generator did a Qmin switch," +
+                                " expected the same thing to happened. Current generator : " + g.getId() + " on bus " + idbus);
+                        assertTrue(-t.getQ() + DEFAULT_TOLERANCE > qMing && -t.getQ() - DEFAULT_TOLERANCE < qMing,
+                                "Another generator did a Qmin switch, expected the same thing to happened. " +
+                                        "Current generator : " + g.getId() + " on bus " + idbus);
+                        break;
+                    case "Switch Qmax":
+                        assertTrue(v + slackV < g.getTargetV(), "Another generator did a Qmax switch," +
+                                " expected the same thing to happened. Current generator : " + g.getId() + " on bus " + idbus);
+                        assertTrue(-t.getQ() + DEFAULT_TOLERANCE > qMaxg && -t.getQ() - DEFAULT_TOLERANCE < qMaxg,
+                                "Another generator did a Qmax switch, expected the same thing to happened. " +
+                                        "Current generator : " + g.getId() + " on bus " + idbus);
+                        break;
+                    case "No Switch":
+                        assertTrue(v + slackV + DEFAULT_TOLERANCE > g.getTargetV() && v + slackV - DEFAULT_TOLERANCE < g.getTargetV());
+                }
+                continue;
+            }
+            previousNmbBusPV++;
+            if (!(v + slackV + DEFAULT_TOLERANCE > g.getTargetV() && v + slackV - DEFAULT_TOLERANCE < g.getTargetV())) {
+
+                if ((-t.getQ() + 2*DEFAULT_TOLERANCE > qMing &&
+                        -t.getQ() - 2*DEFAULT_TOLERANCE < qMing) && qMing != qMaxg) {
+                    nmbSwitchQmin++;
+                    if (!(v + slackV > g.getTargetV())) {
+                        LOGGER.warn("V ( " + v + " ) below its target ( " + g.getTargetV() + " ) on a Qmin switch of bus "
                                 + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
                     }
-                    g.setVoltageRegulatorOn(false);
+                    g.setTargetQ(listMinQ.get(g.getId()));
+                    visitedBuses.put(idbus, "Switch Qmin");
+                } else if ((-t.getQ() + DEFAULT_TOLERANCE > qMaxg &&
+                        -t.getQ() - DEFAULT_TOLERANCE < qMaxg) && qMing != qMaxg) {
+                    nmbSwitchQmax++;
+                    if (!(v + slackV < g.getTargetV())) {
+                        LOGGER.warn("V ( " + v + " ) above its target ( " + g.getTargetV() + " ) on a Qmax switch of bus "
+                                + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
+                    }
+                    g.setTargetQ(listMaxQ.get(g.getId()));
+                    visitedBuses.put(idbus, "Switch Qmax");
+                } else if ((-t.getQ() + DEFAULT_TOLERANCE > qMaxg &&
+                        -t.getQ() - DEFAULT_TOLERANCE < qMaxg) && qMaxg == qMing) {
+                    if (v + slackV > g.getTargetV()) {
+                        nmbSwitchQmin++;
+                        g.setTargetQ(listMinQ.get(g.getId()));
+                        visitedBuses.put(idbus, "Switch Qmin");
+                    } else {
+                        nmbSwitchQmax++;
+                        g.setTargetQ(listMaxQ.get(g.getId()));
+                        visitedBuses.put(idbus, "Switch Qmax");
+                    }
+                } else {
+                    assertTrue((-t.getQ() + DEFAULT_TOLERANCE > qMaxg && -t.getQ() - DEFAULT_TOLERANCE < qMaxg) ||
+                            (-t.getQ() + DEFAULT_TOLERANCE > qMing && -t.getQ() - DEFAULT_TOLERANCE < qMing),
+                            "Value of Q ( " + -t.getQ() + " ) not matching Qmin ( " + qMing + " )  nor Qmax ( "
+                                    + qMaxg + " ) on the switch of bus " + t.getBusView().getBus().getId() +
+                                    ". Current generator checked : " + g.getId());
                 }
+                g.setVoltageRegulatorOn(false);
+            } else {
+                visitedBuses.put(idbus, "No Switch");
             }
         }
         switches.add(nmbSwitchQmin);
