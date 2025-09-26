@@ -49,12 +49,12 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
     // Penalty weights in the objective function
     private final double wK = 1.0;
-    private final double wP = 1.0;
-    private final double wQ = 1.0;
-    private final double wV = 10.0;
+    private double wP;
+    private double wQ;
+    private double wV;
 
     // Lambda
-    private final double lambda = 2.0;
+    private final double lambda = 1.0;
     private final double mu = 1.0;
 
     // Number of Load Flows (LF) variables in the system
@@ -107,6 +107,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         super(network, equationSystem, jacobian, targetVector, equationVector, detailedReport);
         long start = System.nanoTime();
         this.knitroParameters = knitroParameters;
+        this.wV = knitroParameters.getWeightSlackV();
+        this.wP = knitroParameters.getWeightSlackP();
+        this.wQ = knitroParameters.getWeightSlackQ();
         this.knitroWritter = knitroParameters.getKnitroWritter();
 
         this.numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
@@ -336,12 +339,13 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
 //        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
-//        solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_BOTH);
+//        solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_FILE);
         solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-3);
-        solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-1);
+        solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-2);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
-//        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, 1);
-        solver.setParam(KNConstants.KN_PARAM_BAR_MPEC_HEURISTIC, 1);
+        solver.setParam(KNConstants.KN_PARAM_ALGORITHM, 0);
+        //        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, 1);
+//        solver.setParam(KNConstants.KN_PARAM_BAR_MPEC_HEURISTIC, 1);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
@@ -366,10 +370,13 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         }
 
         try {
+            long startOptimization = System.nanoTime();
             KNSolver solver = new KNSolver(problemInstance);
             solver.initProblem();
             setSolverParameters(solver);
             solver.solve();
+            long endOptimization = System.nanoTime();
+            knitroWritter.write("Durée optimization = " + (endOptimization - startOptimization) * 1e-9 + " secondes", true);
             KNSolution solution = solver.getSolution();
             List<Double> constraintValues = solver.getConstraintValues();
             List<Double> x = solution.getX();
@@ -381,11 +388,11 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
             LOGGER.info("==== Solution Summary ====");
             LOGGER.info("Objective value            = {}", solution.getObjValue());
-            LOGGER.info("Feasibility violation      = {}", solution.getFeasError());
+//            LOGGER.info("Feasibility violation      = {}", solution.getFeasError());
             LOGGER.info("Optimality violation       = {}", solver.getAbsOptError());
             knitroWritter.write("==== Solution Summary ====", true);
             knitroWritter.write("Objective value = " + solution.getObjValue(), true);
-            knitroWritter.write("Feasibility violation = " + solution.getFeasError(), true);
+//            knitroWritter.write("Feasibility violation = " + solution.getFeasError(), true);
             knitroWritter.write("Optimality violation = " + solver.getAbsOptError(), true);
 
             // Log primal solution
@@ -421,9 +428,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             LOGGER.info("Penalty V = {}", penaltyV);
             LOGGER.info("Total penalty = {}", totalPenalty);
 
-            knitroWritter.write("Penalty P = " + penaltyP, true);
-            knitroWritter.write("Penalty Q = " + penaltyQ, true);
-            knitroWritter.write("Penalty V = " + penaltyV, true);
+            knitroWritter.write("Penalty P = " + penaltyP / wP, true);
+            knitroWritter.write("Penalty Q = " + penaltyQ / wQ, true);
+            knitroWritter.write("Penalty V = " + penaltyV / wV, true);
             knitroWritter.write("Total penalty = " + totalPenalty, true);
 
             LOGGER.info("=== Switches Done===");
@@ -511,7 +518,12 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                     break;
                 case "V":
                     slackVWritter.write(name, !firstIterV);
-                    slackVWritter.write(String.format("%.4f", epsilon), true);
+                    var bus = network.getBusById(name);
+                    if (bus == null) {
+                        LOGGER.warn("Bus {} not found while logging V slack.", name);
+                        continue;
+                    }
+                    slackVWritter.write(String.format("%.4f", epsilon * bus.getNominalV()), true);
                     firstIterV = false;
                     break;
             }
@@ -555,7 +567,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
             double diff = sp - sm;
-            penalty += weight * mu * (diff * diff); // Quadratic terms
+            //penalty += weight * mu * (diff * diff); // Quadratic terms
             penalty += weight * lambda * (sp + sm); // Linear terms
         }
         long end = System.nanoTime();
@@ -821,9 +833,13 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                     scaled = true;
                 }
 
-                if (i >= slackVStartIndex) {
-//                    upperBounds.set(i,0.0);
+                if (i < slackVStartIndex && i >= slackPStartIndex) {
+                    upperBounds.set(i,0.0);
                 }
+//                if (i >= slackVStartIndex) {
+//                    upperBounds.set(i, 0.0);
+//                }
+
                 if (scaled && firstIter) {
                     knitroWritter.write("Scaling value sur les slacks P et Q : " + 1e-2, true);
                     firstIter = false;
