@@ -272,7 +272,8 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             throw new PowsyblException("Exception while building Knitro problem", e);
         }
 
-        try (KNSolver solver = new KNSolver(problemInstance)) {
+        try {
+            KNSolver solver = new KNSolver(problemInstance);
             solver.initProblem();
             setSolverParameters(solver);
             solver.solve();

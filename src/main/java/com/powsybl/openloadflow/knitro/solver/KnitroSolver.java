@@ -548,7 +548,8 @@ public class KnitroSolver extends AbstractAcSolver {
             throw new PowsyblException("Exception while trying to build Knitro Problem", e);
         }
 
-        try (KNSolver solver = new KNSolver(instance)) {
+        try {
+            KNSolver solver = new KNSolver(instance);
             // Initialize problem
             solver.initProblem();
 

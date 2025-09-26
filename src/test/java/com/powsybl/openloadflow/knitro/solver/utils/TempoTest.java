@@ -79,7 +79,8 @@ public final class TempoTest {
         // Create a problem instance.
         ProblemMPEC1 instance = new ProblemMPEC1();
         // Create a solver
-        try (KNSolver solver = new KNSolver(instance)) {
+        try {
+            KNSolver solver = new KNSolver(instance);
 
             solver.initProblem();
             solver.solve();
@@ -96,6 +97,8 @@ public final class TempoTest {
             System.out.format("                         x4=%f complements x7=%f%n", solution.getX().get(4), solution.getX().get(7));
             System.out.format("  feasibility violation    = %f%n", solver.getAbsFeasError());
             System.out.format("  KKT optimality violation = %f%n", solver.getAbsOptError());
+        } catch (KNException e) {
+            throw new RuntimeException(e);
         }
     }
 }
