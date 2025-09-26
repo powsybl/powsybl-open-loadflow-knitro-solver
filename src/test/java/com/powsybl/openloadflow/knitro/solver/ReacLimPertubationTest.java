@@ -619,7 +619,7 @@ public class ReacLimPertubationTest {
     void testxiidm6515() throws IOException {
         String perturbation = "None";
         logFile = "D:\\Documents\\Logs_Tests\\Logs_Rte6515_" + perturbation + ".txt";
-        Network network = Network.read("D:\\Documents\\Réseaux\\rte6515.xiidm");
+        Network network = Network.read("C:\\Users\\parvy\\Downloads\\rte6515.xiidm");
         testprocess(logFile, network, perturbation, 1.2);
     }
 }

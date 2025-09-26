@@ -69,6 +69,10 @@ public final class ReacLimitsTestsUtils {
                 double qMing = g.getReactiveLimits().getMinQ(g.getTargetP());
                 double qMaxg = g.getReactiveLimits().getMaxQ(g.getTargetP());
                 if (!(v + slackV + DEFAULT_TOLERANCE > g.getTargetV() && v + slackV - DEFAULT_TOLERANCE < g.getTargetV())) {
+                    if (qMing == qMaxg) {
+                        continue;
+                    }
+
                     if (-t.getQ() + DEFAULT_TOLERANCE > qMing &&
                             -t.getQ() - DEFAULT_TOLERANCE < qMing) {
                         nmbSwitchQmin++;
