@@ -27,13 +27,16 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final int DEFAULT_GRADIENT_USER_ROUTINE = 2; // If the user chooses to pass the exact Jacobian to knitro, specifies the sparsity pattern for the Jacobian matrix.
     public static final int DEFAULT_HESSIAN_COMPUTATION_MODE = 6; // Specifies how the Hessian matrix is computed. 6 means that the Hessian is approximated using the L-BFGS method, which is a quasi-Newton method.
     public static final double DEFAULT_LOWER_VOLTAGE_BOUND = 0.5; // Lower bound for voltage magnitude
-    public static final double DEFAULT_UPPER_VOLTAGE_BOUND = 2.0; // Upper bound for voltage magnitude
+    public static final double DEFAULT_UPPER_VOLTAGE_BOUND = 1.5; // Upper bound for voltage magnitude
     public static final int DEFAULT_MAX_ITERATIONS = 400;
     public static final double DEFAULT_STOPPING_CRITERIA = Math.pow(10, -6);
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = true;
     public static final boolean CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE = false; // If the solver converges, launches a load flow taking into account slack variable results to check if the solution is a real load flow solution
     public static final KnitroSolverType DEFAULT_KNITRO_SOLVER_TYPE = KnitroSolverType.STANDARD;
+    public static final double DEFAULT_WEIGHT_SLACK_V = 10.0;
+    public static final double DEFAULT_WEIGHT_SLACK_P = 1.0;
+    public static final double DEFAULT_WEIGHT_SLACK_Q = 1.0;
     public KnitroSolverType knitroSolverType = DEFAULT_KNITRO_SOLVER_TYPE;
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
     private int lineSearchStateVectorScalingMaxIteration = LineSearchStateVectorScaling.DEFAULT_MAX_ITERATION;
@@ -51,6 +54,9 @@ public class KnitroSolverParameters implements AcSolverParameters {
     private int hessianComputationMode = DEFAULT_HESSIAN_COMPUTATION_MODE;
     private String logFileName = DEFAULT_LOG_FILE_NAME;
     private KnitroWritter knitroWritter;
+    private double weightSlackV = DEFAULT_WEIGHT_SLACK_V;
+    private double weightSlackP = DEFAULT_WEIGHT_SLACK_P;
+    private double weightSlackQ = DEFAULT_WEIGHT_SLACK_Q;
 
     public KnitroSolverParameters(KnitroWritter knitroWritter) {
         this.knitroWritter = knitroWritter;
@@ -209,8 +215,9 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return knitroSolverType;
     }
 
-    public void setKnitroSolverType(KnitroSolverType knitroSolverType) {
+    public KnitroSolverParameters setKnitroSolverType(KnitroSolverType knitroSolverType) {
         this.knitroSolverType = Objects.requireNonNull(knitroSolverType);
+        return this;
     }
 
     public KnitroWritter getKnitroWritter() {
@@ -219,6 +226,33 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     public KnitroSolverParameters setKnitroWritter(KnitroWritter knitroWritter) {
         this.knitroWritter = knitroWritter;
+        return this;
+    }
+
+    public double getWeightSlackV() {
+        return weightSlackV;
+    }
+
+    public KnitroSolverParameters setWeightSlackV(double weightSlackV) {
+        this.weightSlackV = weightSlackV;
+        return this;
+    }
+
+    public double getWeightSlackP() {
+        return weightSlackP;
+    }
+
+    public KnitroSolverParameters setWeightSlackP(double weightSlackP) {
+        this.weightSlackP = weightSlackP;
+        return this;
+    }
+
+    public double getWeightSlackQ() {
+        return weightSlackQ;
+    }
+
+    public KnitroSolverParameters setWeightSlackQ(double weightSlackQ) {
+        this.weightSlackQ = weightSlackQ;
         return this;
     }
 

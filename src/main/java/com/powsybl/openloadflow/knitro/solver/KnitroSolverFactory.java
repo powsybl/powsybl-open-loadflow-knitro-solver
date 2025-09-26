@@ -59,7 +59,11 @@ public class KnitroSolverFactory implements AcSolverFactory {
                     .setAlwaysUpdateNetwork(parameters.getExtension(KnitroLoadFlowParameters.class).isAlwaysUpdateNetwork())
                     .setCheckLoadFlowSolution(parameters.getExtension(KnitroLoadFlowParameters.class).isCheckLoadFlowSolution())
                     .setKnitroWritter(parameters.getExtension(KnitroLoadFlowParameters.class).getKnitroWritter())
-                    .setKnitroSolverType(parameters.getExtension(KnitroLoadFlowParameters.class).getKnitroSolverType());
+                    .setKnitroSolverType(parameters.getExtension(KnitroLoadFlowParameters.class).getKnitroSolverType())
+                    .setWeightSlackP(parameters.getExtension(KnitroLoadFlowParameters.class).getSlackPenalP())
+                    .setWeightSlackQ(parameters.getExtension(KnitroLoadFlowParameters.class).getSlackPenalQ())
+                    .setWeightSlackV(parameters.getExtension(KnitroLoadFlowParameters.class).getSlackPenalV())
+            ;
         }
         return knitroSolverParameters;
     }

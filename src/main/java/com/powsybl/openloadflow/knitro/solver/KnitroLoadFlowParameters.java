@@ -28,6 +28,9 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private boolean checkLoadFlowSolution = KnitroSolverParameters.CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE;
     private KnitroSolverParameters.KnitroSolverType knitroSolverType = KnitroSolverParameters.DEFAULT_KNITRO_SOLVER_TYPE;
     private KnitroWritter knitroWritter;
+    private double slackPenalV = KnitroSolverParameters.DEFAULT_WEIGHT_SLACK_V;
+    private double slackPenalP = KnitroSolverParameters.DEFAULT_WEIGHT_SLACK_P;
+    private double slackPenalQ = KnitroSolverParameters.DEFAULT_WEIGHT_SLACK_Q;
 
     public KnitroLoadFlowParameters(KnitroWritter knitroWritter) {
         this.knitroWritter = knitroWritter;
@@ -157,6 +160,33 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
 
     public KnitroLoadFlowParameters setKnitroWritter(KnitroWritter knitroWritter) {
         this.knitroWritter = knitroWritter;
+        return this;
+    }
+
+    public double getSlackPenalV() {
+        return slackPenalV;
+    }
+
+    public KnitroLoadFlowParameters setSlackPenalV(double slackPenalV) {
+        this.slackPenalV = slackPenalV;
+        return this;
+    }
+
+    public double getSlackPenalP() {
+        return slackPenalP;
+    }
+
+    public KnitroLoadFlowParameters setSlackPenalP(double slackPenalP) {
+        this.slackPenalP = slackPenalP;
+        return this;
+    }
+
+    public double getSlackPenalQ() {
+        return slackPenalQ;
+    }
+
+    public KnitroLoadFlowParameters setSlackPenalQ(double slackPenalQ) {
+        this.slackPenalQ = slackPenalQ;
         return this;
     }
 
