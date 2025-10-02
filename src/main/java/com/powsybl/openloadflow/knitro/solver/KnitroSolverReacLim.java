@@ -340,8 +340,8 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
 //        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
 //        solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_FILE);
-        solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-3);
-        solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-2);
+        solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-4);
+        solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-3);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
         solver.setParam(KNConstants.KN_PARAM_ALGORITHM, 0);
         //        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, 1);
@@ -823,22 +823,18 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             boolean scaled = false;
             for (int i = slackStartIndex; i < numLFandSlackVariables; i++) {
                 lowerBounds.set(i, 0.0);
-//                upperBounds.set(i, 0.0);
-//                if (i >= slackQStartIndex) {
-//                    upperBounds.set(i, 0.0);
-//                }
 
                 if (i < slackVStartIndex) {
                     scalingFactors.set(i, 1e-2);
                     scaled = true;
                 }
 
-                if (i < slackVStartIndex && i >= slackPStartIndex) {
-                    upperBounds.set(i,0.0);
+                if (!knitroParameters.isWithPQSlacks() && i < slackVStartIndex && i >= slackPStartIndex) {
+                    upperBounds.set(i, 0.0);
                 }
-//                if (i >= slackVStartIndex) {
-//                    upperBounds.set(i, 0.0);
-//                }
+                if (!knitroParameters.isWithVSlacks() && i >= slackVStartIndex) {
+                    upperBounds.set(i, 0.0);
+                }
 
                 if (scaled && firstIter) {
                     knitroWritter.write("Scaling value sur les slacks P et Q : " + 1e-2, true);
