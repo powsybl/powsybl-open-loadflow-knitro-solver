@@ -31,6 +31,8 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private double slackPenalV = KnitroSolverParameters.DEFAULT_WEIGHT_SLACK_V;
     private double slackPenalP = KnitroSolverParameters.DEFAULT_WEIGHT_SLACK_P;
     private double slackPenalQ = KnitroSolverParameters.DEFAULT_WEIGHT_SLACK_Q;
+    private boolean withPenalV = true;
+    private boolean withPenalPQ = true;
 
     public KnitroLoadFlowParameters(KnitroWritter knitroWritter) {
         this.knitroWritter = knitroWritter;
@@ -188,6 +190,22 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     public KnitroLoadFlowParameters setSlackPenalQ(double slackPenalQ) {
         this.slackPenalQ = slackPenalQ;
         return this;
+    }
+
+    public boolean isWithPenalV() {
+        return withPenalV;
+    }
+
+    public void setWithPenalV(boolean withPenalV) {
+        this.withPenalV = withPenalV;
+    }
+
+    public boolean isWithPenalPQ() {
+        return withPenalPQ;
+    }
+
+    public void setWithPenalPQ(boolean withPenalPQ) {
+        this.withPenalPQ = withPenalPQ;
     }
 
     @Override
