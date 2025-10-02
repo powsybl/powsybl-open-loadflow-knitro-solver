@@ -63,6 +63,8 @@ public class KnitroSolverFactory implements AcSolverFactory {
                     .setWeightSlackP(parameters.getExtension(KnitroLoadFlowParameters.class).getSlackPenalP())
                     .setWeightSlackQ(parameters.getExtension(KnitroLoadFlowParameters.class).getSlackPenalQ())
                     .setWeightSlackV(parameters.getExtension(KnitroLoadFlowParameters.class).getSlackPenalV())
+                    .setWithPQSlacks(parameters.getExtension(KnitroLoadFlowParameters.class).isWithPenalPQ())
+                    .setWithVSlacks(parameters.getExtension(KnitroLoadFlowParameters.class).isWithPenalV())
             ;
         }
         return knitroSolverParameters;

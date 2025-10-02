@@ -57,6 +57,8 @@ public class KnitroSolverParameters implements AcSolverParameters {
     private double weightSlackV = DEFAULT_WEIGHT_SLACK_V;
     private double weightSlackP = DEFAULT_WEIGHT_SLACK_P;
     private double weightSlackQ = DEFAULT_WEIGHT_SLACK_Q;
+    private boolean withVSlacks = true;
+    private boolean withPQSlacks = true;
 
     public KnitroSolverParameters(KnitroWritter knitroWritter) {
         this.knitroWritter = knitroWritter;
@@ -253,6 +255,24 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     public KnitroSolverParameters setWeightSlackQ(double weightSlackQ) {
         this.weightSlackQ = weightSlackQ;
+        return this;
+    }
+
+    public boolean isWithVSlacks() {
+        return withVSlacks;
+    }
+
+    public KnitroSolverParameters setWithVSlacks(boolean withVSlacks) {
+        this.withVSlacks = withVSlacks;
+        return this;
+    }
+
+    public boolean isWithPQSlacks() {
+        return withPQSlacks;
+    }
+
+    public KnitroSolverParameters setWithPQSlacks(boolean withPQSlacks) {
+        this.withPQSlacks = withPQSlacks;
         return this;
     }
 
