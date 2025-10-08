@@ -336,6 +336,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
         solver.setParam(KNConstants.KN_PARAM_GRADOPT, knitroParameters.getGradientComputationMode());
         solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
+        solver.setParam(KNConstants.KN_PARAM_FEASTOLABS, knitroParameters.getConvEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
 //        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
@@ -567,7 +568,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
             double diff = sp - sm;
-            //penalty += weight * mu * (diff * diff); // Quadratic terms
+            penalty += weight * mu * (diff * diff); // Quadratic terms
             penalty += weight * lambda * (sp + sm); // Linear terms
         }
         long end = System.nanoTime();
