@@ -37,16 +37,6 @@ public final class ReacLimitsTestsUtils {
         throw new UnsupportedOperationException();
     }
 
-    public static void deleteSlacks(ArrayList<String> slackstypes) {
-        for (String type : slackstypes) {
-            try (FileWriter fw = new FileWriter("D:\\Documents\\Slacks\\Slacks" + type + ".txt", false)) {
-                fw.write("");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
     public static ArrayList<Integer> countAndSwitch(Network network, HashMap<String, Double> listMinQ, HashMap<String, Double> listMaxQ,
                                                     HashMap<String, Double> slacksP, HashMap<String, Double> slacksQ, HashMap<String, Double> slacksV) throws Exception {
         int nmbSwitchQmin = 0;
@@ -220,6 +210,13 @@ public final class ReacLimitsTestsUtils {
                     "No control on any voltage magnitude : all buses switched");
             System.out.println(switches.get(0) + " switches to PQ with Q = Qlow and " + switches.get(1) + " with Q = Qup");
         } catch (Exception e) {
+            for (String type : slacksfiles) {
+                try (FileWriter fw = new FileWriter("D:\\Documents\\Slacks\\Slacks" + type + ".txt", false)) {
+                    fw.write("");
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+            }
             throw new RuntimeException(e);
         }
 
