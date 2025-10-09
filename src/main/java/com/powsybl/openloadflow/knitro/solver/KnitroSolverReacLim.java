@@ -32,7 +32,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.artelys.knitro.api.nativelibrary.KNLibrary.KN_get_solve_time_cpu;
 import static com.google.common.primitives.Doubles.toArray;
 import static com.powsybl.openloadflow.ac.equations.AcEquationType.*;
 
@@ -82,6 +81,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
     private final Map<Integer, Integer> pEquationLocalIds;
     private final Map<Integer, Integer> qEquationLocalIds;
     private final Map<Integer, Integer> vEquationLocalIds;
+    private final Map<Integer, Integer> elemNumControlledControllerBus;
     private static final Map<Integer, Equation<AcVariableType, AcEquationType>> INDEQUNACTIVEQ = new LinkedHashMap<>();
 
     // Mapping of slacked bus
@@ -130,42 +130,46 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         this.slackVStartIndex = slackQStartIndex + 2 * numQEquations;
         this.compVarStartIndex = slackVStartIndex + 2 * numVEquations;
 
+        this.elemNumControlledControllerBus = new LinkedHashMap<>();
+
         // The new equation system implemented here duplicates and modifies V equations
         // It also adds two equations on Q on each PV bus
         // First we need to collect those Q equations
+
+        // At first, we isolate buses with V equation
         List<Equation<AcVariableType, AcEquationType>> activeEquationsV = sortedEquations.stream()
                 .filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).toList();
         List<Integer> listBusesWithVEq = activeEquationsV.stream()
                 .map(e -> e.getTerms().get(0).getElementNum()).toList();
-        List<Equation<AcVariableType, AcEquationType>> equationQBusElementNum = new ArrayList<>();
-        for (int elementNum : listBusesWithVEq) {
-            List<Equation<AcVariableType, AcEquationType>> listEqElementNum = equationSystem.getEquations(ElementType.BUS, elementNum);
-            equationQBusElementNum.addAll(listEqElementNum.stream().filter(e ->
-                    e.getType() == BUS_TARGET_Q).toList());
-        }
 
-        // Are taking into account only buses with limits on reactive power, the others are left as in the initial model
+        List<Equation<AcVariableType, AcEquationType>> equationsQToAdd = new ArrayList<>();
+
+        // Collect the Q equation associated
         List<Integer> listBusesWithQEqToAdd = new ArrayList<>();
-        List<Equation<AcVariableType, AcEquationType>> equationQBusVToAdd = new ArrayList<>();
-        for (Equation<AcVariableType, AcEquationType> equation : equationQBusElementNum) {
-            boolean limitedOnQ = true;
-            for (LfGenerator g : network.getBuses().get(equation.getElement(network).get().getNum()).getGenerators()) {
-                if (g.getMaxQ() >= 1.7976931348623156E306 || g.getMinQ() <= -1.7976931348623156E306) {
-                    limitedOnQ = false;
-                }
+        for (int elementNum : listBusesWithVEq) {
+            LfBus controlledBus = network.getBuses().get(elementNum);
+
+            // Look at the bus controlling voltage and take its Q equation
+            LfBus controllerBus = controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
+            List<Equation<AcVariableType, AcEquationType>> listEqControllerBus = equationSystem.getEquations(ElementType.BUS, controllerBus.getNum());
+            Equation<AcVariableType, AcEquationType> equationQToAdd = listEqControllerBus.stream()
+                    .filter(e -> e.getType() == BUS_TARGET_Q).toList().get(0);
+
+            // Are taking into account only buses with limits on reactive power
+            if (!(controllerBus.getMaxQ() >= 1.7976931348623156E30 || controllerBus.getMinQ() <= -1.7976931348623156E30)) {
+                equationsQToAdd.add(equationQToAdd);
+                elemNumControlledControllerBus.put(controllerBus.getNum(), controlledBus.getNum());  // link between controller and controlled bus
+                listBusesWithQEqToAdd.add(controllerBus.getNum());
             }
-            if (limitedOnQ) {
-                equationQBusVToAdd.add(equation);
-                listBusesWithQEqToAdd.add(equation.getElementNum());
-            }
+
         }
 
         // 3 new variables are used on both V equations modified, and 2 on the Q equations listed above
-        this.complConstVariables = equationQBusVToAdd.size() * 5;
+        this.complConstVariables = equationsQToAdd.size() * 5;
 
         this.numTotalVariables = numLFandSlackVariables + complConstVariables;
-        this.equationsQBusV = Stream.concat(equationQBusVToAdd.stream(),
-                equationQBusVToAdd.stream()).toList(); //Duplication to get b_low and b_up eq
+        this.equationsQBusV = Stream.concat(equationsQToAdd.stream(),
+                equationsQToAdd.stream()).toList(); //Duplication to get b_low and b_up eq
         this.listElementNumWithQEqUnactivated = listBusesWithQEqToAdd;
 
         // Map equations to local indices
@@ -180,7 +184,8 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         int vSuppCounter = 0;
 
         for (int i = 0; i < sortedEquations.size(); i++) {
-            AcEquationType type = sortedEquations.get(i).getType();
+            Equation<AcVariableType, AcEquationType> equation = sortedEquations.get(i);
+            AcEquationType type = equation.getType();
             switch (type) {
                 case BUS_TARGET_P:
                     pEquationLocalIds.put(i, pCounter++);
@@ -190,7 +195,10 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                     break;
                 case BUS_TARGET_V:
                     vEquationLocalIds.put(i, vCounter++);
-                    if (listElementNumWithQEqUnactivated.contains(sortedEquations.get(i).getElementNum())) {
+                    // In case there is a Vsup equation
+                    LfBus controlledBus = network.getBuses().get(equation.getElement(network).get().getNum());
+                    LfBus controllerBus = controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
+                    if (listElementNumWithQEqUnactivated.contains(controllerBus.getNum())) {
                         vSuppEquationLocalIds.put(i, vSuppCounter++);
                     }
                     break;
@@ -304,10 +312,17 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             int compVarStart;
             // Case of inactive Q equations
             if (equationType == BUS_TARGET_Q && !equation.isActive()) {
-                compVarStart = vSuppEquationLocalIds.getOrDefault(equationSystem.getIndex().getSortedEquationsToSolve()
-                        .indexOf(equationSystem.getEquations(ElementType.BUS, equation.getElementNum()).stream()
-                                .filter(e -> e.getType() == BUS_TARGET_V).toList()
-                                .get(0)), -1);
+                int elemNumControlledBus = elemNumControlledControllerBus.get(equation.getElementNum());
+                List<Equation<AcVariableType, AcEquationType>> listEqControlledBus = equationSystem
+                        .getEquations(ElementType.BUS, elemNumControlledBus);
+                Equation<AcVariableType, AcEquationType> eqVControlledBus = listEqControlledBus.stream()
+                        .filter(e -> e.getType() == BUS_TARGET_V).toList().get(0);
+                int indexEqVAssociated = equationSystem.getIndex().getSortedEquationsToSolve().indexOf(eqVControlledBus);
+                compVarStart = vSuppEquationLocalIds.get(indexEqVAssociated);
+//                compVarStart = vSuppEquationLocalIds.getOrDefault(equationSystem.getIndex().getSortedEquationsToSolve()
+//                        .indexOf(equationSystem.getEquations(ElementType.BUS, equation.getElementNum()).stream()
+//                                .filter(e -> e.getType() == BUS_TARGET_V).toList()
+//                                .get(0)), -1);
                 if (constraintIndex < numberLFEq + 2 * vSuppEquationLocalIds.size()) {
                     involvedVariables.add(compVarStartIndex + 5 * compVarStart + 2); // b_low
                 } else {
@@ -472,6 +487,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         final double sbase = 100.0;     // Base power in MVA
 
         LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
+        slackPWritter.write("",false);
+        slackQWritter.write("",false);
+        slackVWritter.write("",false);
         boolean firstIterP = true;
         boolean firstIterQ = true;
         boolean firstIterV = true;
@@ -507,24 +525,21 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             knitroWritter.write(msg, true);
             switch (type) {
                 case "P":
-                    slackPWritter.write(name, !firstIterP);
+                    slackPWritter.write(name, true);
                     slackPWritter.write(String.format("%.4f", epsilon), true);
-                    firstIterP = false;
                     break;
                 case "Q":
-                    slackQWritter.write(name, !firstIterQ);
+                    slackQWritter.write(name, true);
                     slackQWritter.write(String.format("%.4f", epsilon), true);
-                    firstIterQ = false;
                     break;
                 case "V":
-                    slackVWritter.write(name, !firstIterV);
+                    slackVWritter.write(name, true);
                     var bus = network.getBusById(name);
                     if (bus == null) {
                         LOGGER.warn("Bus {} not found while logging V slack.", name);
                         continue;
                     }
                     slackVWritter.write(String.format("%.4f", epsilon * bus.getNominalV()), true);
-                    firstIterV = false;
                     break;
             }
         }
@@ -891,7 +906,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             List<Equation<AcVariableType, AcEquationType>> completeEquationsToSolve = new ArrayList<>(activeConstraints);
             List<Double> wholeTargetVector = new ArrayList<>(Arrays.stream(targetVector.getArray()).boxed().toList());
             for (int equationId = 0; equationId < activeConstraints.size(); equationId++) {
-                addActivatedConstraints(equationId, activeConstraints, solverUtils, nonlinearConstraintIndexes,
+                addActivatedConstraints(network, equationId, activeConstraints, solverUtils, nonlinearConstraintIndexes,
                         completeEquationsToSolve, targetVector, wholeTargetVector, listElementNumWithQEqUnactivated); // Add Linear constraints, index nonLinear ones and get target values
             }
             int totalActiveConstraints = completeEquationsToSolve.size();
@@ -900,11 +915,11 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             // Set Target Q on the unactive equations added
             for (int equationId = totalActiveConstraints; equationId < completeEquationsToSolve.size(); equationId++) {
                 Equation<AcVariableType, AcEquationType> equation = completeEquationsToSolve.get(equationId);
-                LfBus b = network.getBus(equation.getElementNum());
+                LfBus controllerBus = network.getBus(equation.getElementNum()); //controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
                 if (equationId - totalActiveConstraints < equationsQBusV.size() / 2) {
-                    wholeTargetVector.add(b.getMinQ() - b.getLoadTargetQ());
+                    wholeTargetVector.add(controllerBus.getMinQ() - controllerBus.getLoadTargetQ());
                 } else {
-                    wholeTargetVector.add(b.getMaxQ() - b.getLoadTargetQ());
+                    wholeTargetVector.add(controllerBus.getMaxQ() - controllerBus.getLoadTargetQ());
                 }
                 nonlinearConstraintIndexes.add(equationId);
                 INDEQUNACTIVEQ.put(equationId, equation);
@@ -1019,6 +1034,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
          * @param nonLinearConstraintIds Output list of non-linear constraint indices.
          */
         private void addActivatedConstraints(
+                LfNetwork network,
                 int equationId,
                 List<Equation<AcVariableType, AcEquationType>> equationsToSolve,
                 NonLinearExternalSolverUtils solverUtils,
@@ -1033,9 +1049,12 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             Equation<AcVariableType, AcEquationType> equation = equationsToSolve.get(equationId);
             AcEquationType equationType = equation.getType();
             List<EquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
-            boolean addComplConstraintsVariable = listBusesWithQEqToAdd.contains(equation.getElementNum());
 
             if (equationType == BUS_TARGET_V) {
+                // TODO : check with debogguer : on regarde les equations en V et donc les bus controlés
+                LfBus controlledBus = network.getBuses().get(equation.getElement(network).get().getNum());
+                LfBus controllerBus = controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
+                boolean addComplConstraintsVariable = listBusesWithQEqToAdd.contains(controllerBus.getNum());
                 if (NonLinearExternalSolverUtils.isLinear(equationType, terms)) {
                     try {
 
@@ -1170,6 +1189,10 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             return compVarStartIndex + 5 * vSuppEquationLocalIds.get(equationId);
         }
 
+        private int getElemNumControlledBus(int elemNum) {
+            return elemNumControlledControllerBus.get(elemNum);
+        }
+
         /**
          * Configures the Jacobian matrix for the Knitro problem, using either a dense or sparse representation.
          *
@@ -1280,8 +1303,10 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                         }
                     } else { // add blow / bup depending on the constraint
                         int elemNum = equation.getElementNum();
-                        Equation<AcVariableType, AcEquationType> equationV = sortedEquationsToSolve.stream().filter(
-                                e -> e.getElementNum() == elemNum).filter(
+                        int elemNumControlledBus = problemInstance.getElemNumControlledBus(elemNum);
+                        List<Equation<AcVariableType, AcEquationType>> controlledBusEquations = sortedEquationsToSolve.stream()
+                                .filter(e -> e.getElementNum() == elemNumControlledBus).toList();
+                        Equation<AcVariableType, AcEquationType> equationV = controlledBusEquations.stream().filter(
                                     e -> e.getType() == BUS_TARGET_V).toList().get(0);
                         int equationVId = sortedEquationsToSolve.indexOf(equationV);
                         int compVarBaseIndex = problemInstance.getcompVarBaseIndex(equationVId);

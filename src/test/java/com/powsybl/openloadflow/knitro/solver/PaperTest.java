@@ -9,6 +9,7 @@ package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.iidm.network.Network;
 import com.powsybl.ieeecdf.converter.IeeeCdfNetworkFactory;
+import com.powsybl.iidm.network.ReactiveLimits;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
@@ -224,9 +225,9 @@ public class PaperTest {
     }
 
     @Test
-    void testxiidm1888ActivePowerOneLoadPerturbed() throws IOException {
+    void testxiidm1888() throws IOException {
         String logFile = path + "Rte1888_" + Perturbation + ".txt";
-        Network network = Network.read("C:\\Users\\parvy\\Downloads\\rte1888.xiidm");
+        Network network = Network.read("D:\\Documents\\Réseaux\\rte1888.xiidm");
         testprocess(logFile, network, Perturbation, 1.2);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
@@ -234,7 +235,7 @@ public class PaperTest {
     @Test
     void testxiidm6515() throws IOException {
         String logFile = path + "Rte6515_" + Perturbation + ".txt";
-        Network network = Network.read("C:\\Users\\parvy\\Downloads\\rte6515.xiidm");
+        Network network = Network.read("D:\\Documents\\Réseaux\\rte6515.xiidm");
         testprocess(logFile, network, Perturbation, 1.2);
     }
 
