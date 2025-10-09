@@ -45,14 +45,6 @@ public class ReacLimPertubationTest {
             if (g.getReactiveLimits().getMinQ(g.getTargetP()) > -1.7976931348623157E308) {
                 listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTargetP()));
                 listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTargetP()));
-            } else {
-                g.newMinMaxReactiveLimits()
-                        .setMinQ(-2000)
-                        .setMaxQ(2000)
-                        .add();
-                listMinQ.put(g.getId(), -2000.0);
-                listMaxQ.put(g.getId(), 2000.0);
-                numbreLimReacAdded++;
             }
         }
         return numbreLimReacAdded;
@@ -139,7 +131,7 @@ public class ReacLimPertubationTest {
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         //parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
         //OpenLoadFlowParameters.create(parameters).setAcSolverType("NEWTON_RAPHSON");
-//        OpenLoadFlowParameters.create(parameters).setAcSolverType(KnitroSolverFactory.NAME);
+        OpenLoadFlowParameters.create(parameters).setAcSolverType(KnitroSolverFactory.NAME);
         OpenLoadFlowParameters.get(parameters).setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE);
 
     }
@@ -535,7 +527,7 @@ public class ReacLimPertubationTest {
         double rPU = 0.0;
         double xPU = 1e-5;
         // Voltage Mismatch
-        double alpha = 0.95;
+        double alpha = 1.10;
         PerturbationFactory.VoltagePerturbation perturbation = PerturbationFactory.getVoltagePerturbation(network);
         PerturbationFactory.applyVoltagePerturbation(network, perturbation, rPU, xPU, alpha);
 
@@ -577,7 +569,7 @@ public class ReacLimPertubationTest {
         double rPU = 0.0;
         double xPU = 1e-5;
         // Voltage Mismatch
-        double alpha = 0.95;
+        double alpha = 1.0;
         PerturbationFactory.VoltagePerturbation perturbation = PerturbationFactory.getVoltagePerturbation(network);
         PerturbationFactory.applyVoltagePerturbation(network, perturbation, rPU, xPU, alpha);
 
