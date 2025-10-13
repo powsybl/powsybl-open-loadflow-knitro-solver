@@ -44,6 +44,7 @@ public final class ReacLimitsTestsUtils {
         int previousNmbBusPV = 0;
         ArrayList<Integer> switches = new ArrayList<>();
         HashMap<String, String> visitedBuses = new HashMap<>();
+        List<String> listBusSwitched = new ArrayList<>();
         for (Generator g : network.getGenerators()) {
             if (g.getRegulatingTerminal().getBusView().getBus() == null || !g.isVoltageRegulatorOn()) {
                 continue;
@@ -101,30 +102,30 @@ public final class ReacLimitsTestsUtils {
                 if ((-t.getQ() + 2*DEFAULT_Q_TOLERANCE > qMing &&
                         -t.getQ() - 2*DEFAULT_Q_TOLERANCE < qMing) && qMing != qMaxg) {
                     nmbSwitchQmin++;
+                    listBusSwitched.add(idbus);
                     if (!(v + slackV > g.getTargetV())) {
-                        LOGGER.warn("V ( " + v + " ) below its target ( " + g.getTargetV() + " ) on a Qmin switch of bus "
+                        LOGGER.warn("V ( " + v + slackV + " ) below its target ( " + g.getTargetV() + " ) on a Qmin switch of bus "
                                 + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
                     }
-                    g.setTargetQ(listMinQ.get(g.getId()));
                     visitedBuses.put(idbus, "Switch Qmin");
                 } else if ((-t.getQ() + DEFAULT_Q_TOLERANCE > qMaxg &&
                         -t.getQ() - DEFAULT_Q_TOLERANCE < qMaxg) && qMing != qMaxg) {
                     nmbSwitchQmax++;
+                    listBusSwitched.add(idbus);
                     if (!(v + slackV < g.getTargetV())) {
                         LOGGER.warn("V ( " + v + slackV + " ) above its target ( " + g.getTargetV() + " ) on a Qmax switch of bus "
                                 + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
                     }
-                    g.setTargetQ(listMaxQ.get(g.getId()));
                     visitedBuses.put(idbus, "Switch Qmax");
                 } else if ((-t.getQ() + DEFAULT_Q_TOLERANCE > qMaxg &&
                         -t.getQ() - DEFAULT_Q_TOLERANCE < qMaxg) && qMaxg == qMing) {
                     if (v + slackV > g.getTargetV()) {
                         nmbSwitchQmin++;
-                        g.setTargetQ(listMinQ.get(g.getId()));
+                        listBusSwitched.add(idbus);
                         visitedBuses.put(idbus, "Switch Qmin");
                     } else {
                         nmbSwitchQmax++;
-                        g.setTargetQ(listMaxQ.get(g.getId()));
+                        listBusSwitched.add(idbus);
                         visitedBuses.put(idbus, "Switch Qmax");
                     }
                 } else {
@@ -134,7 +135,6 @@ public final class ReacLimitsTestsUtils {
                                     + qMaxg + " ) on the switch of bus " + t.getBusView().getBus().getId() +
                                     ". Current generator checked : " + g.getId());
                 }
-                g.setVoltageRegulatorOn(false);
             } else {
                 visitedBuses.put(idbus, "No Switch");
             }
@@ -142,7 +142,42 @@ public final class ReacLimitsTestsUtils {
         switches.add(nmbSwitchQmin);
         switches.add(nmbSwitchQmax);
         switches.add(previousNmbBusPV);
+        applicationStacks(network, slacksP, slacksQ, slacksV, listBusSwitched);
         return switches;
+    }
+
+    private static void applicationStacks(Network network, HashMap<String, Double> slacksP, HashMap<String,
+            Double> slacksQ, HashMap<String, Double> slacksV, List<String> listBusSwitched) {
+        for (Generator g : network.getGenerators()) {
+            if (g.getRegulatingTerminal().getBusView().getBus() == null || !g.isVoltageRegulatorOn()) {
+                continue;
+            }
+            String idbus = g.getRegulatingTerminal().getBusView().getBus().getId();
+            Double slackP = slacksP.get(idbus);
+            Double slackQ = slacksQ.get(idbus);
+            Double slackV = slacksV.get(idbus);
+
+            if (slackP == null) {
+                slackP = 0.0;
+            }
+            if (slackQ == null) {
+                slackQ = 0.0;
+            }
+            if (slackV == null) {
+                slackV = 0.0;
+            }
+
+            Terminal t = g.getTerminal();
+            Terminal regulatingTerm = g.getRegulatingTerminal();
+            double p = t.getP();
+            double q = t.getQ();
+            double v = regulatingTerm.getBusView().getBus().getV();
+
+
+//            g.setTargetP(p);
+//            g.setTargetQ(q);
+            g.setTargetV(v);
+        }
     }
 
     public static void verifNewtonRaphson(Network network, LoadFlowParameters parameters, LoadFlow.Runner loadFlowRunner, int nbreIter) {
@@ -220,13 +255,13 @@ public final class ReacLimitsTestsUtils {
             throw new RuntimeException(e);
         }
 
-        for (String type : slacksfiles) {
-            try (FileWriter fw = new FileWriter("D:\\Documents\\Slacks\\Slacks" + type + ".txt", false)) {
-                fw.write("");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+//        for (String type : slacksfiles) {
+//            try (FileWriter fw = new FileWriter("D:\\Documents\\Slacks\\Slacks" + type + ".txt", false)) {
+//                fw.write("");
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
     }
 
     /**

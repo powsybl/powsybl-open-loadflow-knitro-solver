@@ -488,9 +488,11 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         final double sbase = 100.0;     // Base power in MVA
 
         LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
-        slackPWritter.write("",false);
-        slackQWritter.write("",false);
-        slackVWritter.write("",false);
+        switch (type) {
+            case "P" -> slackPWritter.write("", false);
+            case "Q" -> slackQWritter.write("", false);
+            case "V" -> slackVWritter.write("", false);
+        }
         boolean firstIterP = true;
         boolean firstIterQ = true;
         boolean firstIterV = true;
@@ -1052,7 +1054,6 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             List<EquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
 
             if (equationType == BUS_TARGET_V) {
-                // TODO : check with debogguer : on regarde les equations en V et donc les bus controlés
                 LfBus controlledBus = network.getBuses().get(equation.getElement(network).get().getNum());
                 LfBus controllerBus = controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
                 boolean addComplConstraintsVariable = listBusesWithQEqToAdd.contains(controllerBus.getNum());
