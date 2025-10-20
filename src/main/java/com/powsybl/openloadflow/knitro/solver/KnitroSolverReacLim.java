@@ -356,7 +356,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
 //        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
 //        solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_FILE);
-        solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-4);
+        solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-3);
         solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-3);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
         solver.setParam(KNConstants.KN_PARAM_ALGORITHM, 0);
@@ -404,12 +404,21 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
             LOGGER.info("==== Solution Summary ====");
             LOGGER.info("Objective value            = {}", solution.getObjValue());
-//            LOGGER.info("Feasibility violation      = {}", solution.getFeasError());
+            LOGGER.info("Feasibility violation      = {}", solver.getAbsFeasError());
             LOGGER.info("Optimality violation       = {}", solver.getAbsOptError());
             knitroWritter.write("==== Solution Summary ====", true);
             knitroWritter.write("Objective value = " + solution.getObjValue(), true);
-//            knitroWritter.write("Feasibility violation = " + solution.getFeasError(), true);
+            knitroWritter.write("Feasibility violation = " + solver.getAbsFeasError(), true);
             knitroWritter.write("Optimality violation = " + solver.getAbsOptError(), true);
+
+            // add voltage quality index
+            double vqi = 0;
+            for (var b : network.getBuses()) {
+                vqi += Math.abs(b.getV() - 1.0);
+            }
+            int n = network.getBuses().size();
+            LOGGER.info("VQI = {}", vqi / n);
+            knitroWritter.write("VQI = " + vqi / n, true);
 
             // Log primal solution
             LOGGER.debug("==== Optimal variables ====");
@@ -447,7 +456,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             knitroWritter.write("Penalty P = " + penaltyP / wP, true);
             knitroWritter.write("Penalty Q = " + penaltyQ / wQ, true);
             knitroWritter.write("Penalty V = " + penaltyV / wV, true);
-            knitroWritter.write("Total penalty = " + totalPenalty, true);
+            knitroWritter.write("Total penalty = " + (penaltyP / wP + penaltyQ / wQ + penaltyV / wV), true);
 
             LOGGER.info("=== Switches Done===");
             checkSwitchesDone(x, compVarStartIndex, complConstVariables / 5);
@@ -494,6 +503,10 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         boolean firstIterP = true;
         boolean firstIterQ = true;
         boolean firstIterV = true;
+
+        int numSlackP = 0;
+        int numSlackQ = 0;
+        int numSlackV = 0;
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
@@ -507,15 +520,15 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             String interpretation;
 
             switch (type) {
-                case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * sbase);
-                case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * sbase);
+                case "P" -> interpretation = String.format("ΔP = %.10f p.u. (%.1f MW)", epsilon, epsilon * sbase);
+                case "Q" -> interpretation = String.format("ΔQ = %.10f p.u. (%.1f MVAr)", epsilon, epsilon * sbase);
                 case "V" -> {
                     var bus = network.getBusById(name);
                     if (bus == null) {
                         LOGGER.warn("Bus {} not found while logging V slack.", name);
                         continue;
                     }
-                    interpretation = String.format("ΔV = %.4f p.u. (%.1f kV)", epsilon, epsilon * bus.getNominalV());
+                    interpretation = String.format("ΔV = %.10f p.u. (%.1f kV)", epsilon, epsilon * bus.getNominalV());
                 }
                 default -> interpretation = "Unknown slack type";
             }
@@ -526,26 +539,45 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             knitroWritter.write(msg, true);
             switch (type) {
                 case "P":
-                    slackPWritter.write(name, true);
-                    slackPWritter.write(String.format("%.4f", epsilon), true);
+                    slackPWritter.write(name, !firstIterP);
+                    slackPWritter.write(String.format("%.10f", epsilon), true);
+                    firstIterP = false;
+                    numSlackP++;
                     break;
                 case "Q":
-                    slackQWritter.write(name, true);
-                    slackQWritter.write(String.format("%.4f", epsilon), true);
+                    slackQWritter.write(name, !firstIterQ);
+                    slackQWritter.write(String.format("%.10f", epsilon), true);
+                    firstIterQ = false;
+                    numSlackQ++;
                     break;
                 case "V":
-                    slackVWritter.write(name, true);
+                    slackVWritter.write(name, !firstIterV);
                     var bus = network.getBusById(name);
                     if (bus == null) {
                         LOGGER.warn("Bus {} not found while logging V slack.", name);
                         continue;
                     }
-                    slackVWritter.write(String.format("%.4f", epsilon * bus.getNominalV()), true);
+                    slackVWritter.write(String.format("%.10f", epsilon * bus.getNominalV()), true);
+                    firstIterV = false;
+                    numSlackV++;
                     break;
             }
         }
         long end = System.nanoTime();
         time += end - start;
+
+        // write number of slack activated for each type
+        switch (type) {
+            case "P":
+                knitroWritter.write("Num Slack P = " + numSlackP, true);
+                break;
+            case "Q":
+                knitroWritter.write("Num Slack Q = " + numSlackQ, true);
+                break;
+            case "V":
+                knitroWritter.write("Num Slack V = " + numSlackV, true);
+                break;
+        }
     }
 
     private String getSlackVariableBusName(Integer index, String type) {
