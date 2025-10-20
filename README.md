@@ -80,11 +80,16 @@ Optimality violation     = 0,000003
 
 
 ### Installing Knitro Java Bindings
-Knitro Java bindings require a private JAR file that must be installed locally, as it is not available on Maven Central.
-Use the following command:
+The Knitro Java bindings require a private JAR file that must be installed locally, as it is not available on Maven Central.
 
+On **Linux**, use the following command:
 ```bash
 ./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_15.0.1.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=15.0.1 -Dpackaging=jar -DgeneratePom=true
+```
+
+On **Windows**, use the following command:
+```bash
+mvn install:install-file -Dfile="$env:KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.2.0.jar" -DgroupId="com.artelys" -DartifactId=knitro-interfaces -Dversion="14.2.0" -Dpackaging=jar -DgeneratePom=true
 ```
 
 ### Running a Load Flow with Knitro Solver
@@ -96,12 +101,12 @@ dependencies to respectively have access to network model, IEEE test networks an
 <dependency>
     <groupId>com.powsybl</groupId>
     <artifactId>powsybl-iidm-impl</artifactId>
-    <version>6.8.1</version>
+    <version>7.0.0</version>
 </dependency>
 <dependency>
     <groupId>com.powsybl</groupId>
     <artifactId>powsybl-ieee-cdf-converter</artifactId>
-    <version>6.8.1</version>
+    <version>7.0.0</version>
 </dependency>
 <dependency>
     <groupId>org.slf4j</groupId>
@@ -120,7 +125,7 @@ After adding dependency on both Open Load Flow implementation and Knitro Solver 
 <dependency>
     <groupId>com.powsybl</groupId>
     <artifactId>powsybl-open-loadflow</artifactId>
-    <version>1.16.0</version>
+    <version>2.0.0</version>
 </dependency>
 <dependency>
     <groupId>com.powsybl</groupId>

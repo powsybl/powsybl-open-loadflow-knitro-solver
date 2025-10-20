@@ -64,4 +64,8 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 j, targetVector, equationVector, parameters.isDetailedReport());
     }
 
+    @Override
+    public void checkSolverAndParameterConsistency(LoadFlowParameters loadFlowParameters, OpenLoadFlowParameters openLoadFlowParameters) {
+        // no current incompatibilities between Knitro Solver and parameters
+    }
 }
