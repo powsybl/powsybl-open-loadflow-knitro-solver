@@ -89,7 +89,7 @@ On **Linux**, use the following command:
 
 On **Windows**, use the following command:
 ```bash
-mvn install:install-file -Dfile="$env:KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.2.0.jar" -DgroupId="com.artelys" -DartifactId=knitro-interfaces -Dversion="14.2.0" -Dpackaging=jar -DgeneratePom=true
+mvn install:install-file -Dfile="$env:KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_15.0.1.jar" -DgroupId="com.artelys" -DartifactId=knitro-interfaces -Dversion="15.0.1" -Dpackaging=jar -DgeneratePom=true
 ```
 
 ### Running a Load Flow with Knitro Solver
