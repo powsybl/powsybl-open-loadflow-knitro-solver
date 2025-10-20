@@ -1,5 +1,6 @@
 package com.powsybl.openloadflow.knitro.solver;
 
+import com.powsybl.ieeecdf.converter.IeeeCdfNetworkFactory;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
@@ -47,20 +48,21 @@ public class ResilientAcLoadFlowPerturbationTest {
     void setUp() {
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new SparseMatrixFactory()));
         parameters = new LoadFlowParameters()
-                .setUseReactiveLimits(false)
+                .setUseReactiveLimits(true)
                 .setDistributedSlack(false);
     }
 
     private void configureSolver(String solver) {
         OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
-                .setAcSolverType(solver)
-                .setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE);
+                .setAcSolverType(solver);
+//                .setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE);
 
         if (RKN.equals(solver)) {
             KnitroLoadFlowParameters knitroParams = new KnitroLoadFlowParameters();
             // Set the Knitro solver type to RESILIENT
             knitroParams.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.RESILIENT);
+            knitroParams.setWithPenalV(true);
             parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
         }
     }
@@ -121,11 +123,13 @@ public class ResilientAcLoadFlowPerturbationTest {
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
 
+//        parameters.getExtension(KnitroLoadFlowParameters.class).setWithPenalV(false);
+
         // Line Characteristics in per-unit
         double rPU = 0.0;
         double xPU = 1e-5;
         // Voltage Mismatch
-        double alpha = 1.0;
+        double alpha = 1.075;
 
         voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha);
     }
@@ -140,7 +144,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         double rPU = 0.0;
         double xPU = 1e-5;
         // Voltage Mismatch
-        double alpha = 0.95;
+        double alpha = 0.9;
 
         voltagePerturbationTest(rknNetwork, nrNetwork, "HU", rPU, xPU, alpha);
     }
@@ -190,7 +194,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         double rPU = 0.0;
         double xPU = 1e-5;
         // Voltage Mismatch
-        double alpha = 0.95;
+        double alpha = 0.85;
 
         voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha);
     }
@@ -204,7 +208,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         Network nrNetwork = pair.nrNetwork();
 
         // Final perturbed load's percentage
-        double alpha = 0.10;
+        double alpha = 0.2;
         activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha);
     }
 
@@ -298,18 +302,20 @@ public class ResilientAcLoadFlowPerturbationTest {
         reactivePowerPerturbationTest(rknNetwork, nrNetwork, "ES", targetQ);
     }
 
-    @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on RTE networks: {0}")
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
-    void testReactivePowerPerturbationOnRteNetworks(NetworkPair pair) {
-        String baseFilename = pair.baseFilename();
+//    @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on RTE networks: {0}")
+//    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
+    @Test
+    void testReactivePowerPerturbationOnRteNetworks() {
+//        String baseFilename = pair.baseFilename();
 
-        Network rknNetwork = pair.rknNetwork();
-        Network nrNetwork = pair.nrNetwork();
-        LOGGER.info(String.valueOf(nrNetwork.getShuntCompensators().iterator().next()));
+//        Network rknNetwork = pair.rknNetwork();
+//        Network nrNetwork = pair.nrNetwork();
+        Network network = IeeeCdfNetworkFactory.create300();
+        LOGGER.info(String.valueOf(network.getShuntCompensators().iterator().next()));
 
         // Target reactive power injection by the shunt section in VArs
         double targetQ = 1e9;
 
-        reactivePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, targetQ);
+        reactivePowerPerturbationTest(network, network, "baseFilename", targetQ);
     }
 }

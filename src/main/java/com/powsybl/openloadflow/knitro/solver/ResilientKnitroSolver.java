@@ -51,12 +51,12 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
     // Penalty weights in the objective function
     private final double wK = 1.0;
-    private final double wP = 1.0;
-    private final double wQ = 1.0;
-    private final double wV = 10.0;
+    private double wP;
+    private double wQ;
+    private double wV;
 
     // Weights of the linear and quadratic terms in the objective function
-    private final double lambda = 3.0;
+    private final double lambda = 1.0;
     private final double mu = 1.0;
 
     // Number of Load Flows (LF) variables in the system
@@ -96,6 +96,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
         super(network, equationSystem, jacobian, targetVector, equationVector, detailedReport);
         this.knitroParameters = knitroParameters;
+        this.wV = knitroParameters.getWeightSlackV();
+        this.wP = knitroParameters.getWeightSlackP();
+        this.wQ = knitroParameters.getWeightSlackQ();
 
         this.numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
 
@@ -241,17 +244,17 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
         solver.setParam(KNConstants.KN_PARAM_GRADOPT, knitroParameters.getGradientComputationMode());
         solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
+        solver.setParam(KNConstants.KN_PARAM_FEASTOLABS, knitroParameters.getConvEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
 //        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
-        solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_BOTH);
+//        solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_FILE);
         solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-3);
-        solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-1);
+        solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-3);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
-        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, 1);
-//        solver.setParam(KNConstants.KN_PARAM_ALG, 1);
-//        solver.setParam(KNConstants.KN_PARAM_DERIVCHECK, 1);
-//        solver.setParam(KNConstants.KN_PARAM_FINDIFF_NUMTHREADS, 1);
+        solver.setParam(KNConstants.KN_PARAM_ALGORITHM, 0);
+        //        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, 1);
+//        solver.setParam(KNConstants.KN_PARAM_BAR_MPEC_HEURISTIC, 1);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
@@ -289,6 +292,14 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             LOGGER.info("Objective value            = {}", solution.getObjValue());
             LOGGER.info("Feasibility violation      = {}", solver.getAbsFeasError());
             LOGGER.info("Optimality violation       = {}", solver.getAbsOptError());
+
+            // add voltage quality index
+            double vqi = 0;
+            for (var b : network.getBuses()) {
+                vqi += Math.abs(b.getV() - 1.0);
+            }
+            int n = network.getBuses().size();
+            LOGGER.info("VQI = {}", vqi / n);
 
             // ========== Slack Logging ==========
             logSlackValues("P", slackPStartIndex, numPEquations, x);
@@ -669,6 +680,10 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             // Initialize slack variables (≥ 0, initial value = 0)
             for (int i = slackStartIndex; i < numTotalVariables; i++) {
                 lowerBounds.set(i, 0.0);
+
+//                if (i >= slackVStartIndex) {
+//                    upperBounds.set(i, 0.0);
+//                }
             }
 
             // Set bounds for voltage variables based on Knitro parameters

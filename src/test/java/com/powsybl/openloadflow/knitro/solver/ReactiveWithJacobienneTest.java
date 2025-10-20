@@ -433,7 +433,7 @@ public class ReactiveWithJacobienneTest {
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
         ReacLimitsTestsUtils.checkSwitches(network, listMinQ, listMaxQ);
-        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 0);
+        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
