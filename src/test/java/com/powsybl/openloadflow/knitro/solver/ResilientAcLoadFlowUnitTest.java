@@ -10,14 +10,10 @@ import com.powsybl.openloadflow.OpenLoadFlowProvider;
 import com.powsybl.openloadflow.ac.solver.NewtonRaphsonStoppingCriteriaType;
 import com.powsybl.openloadflow.network.SlackBusSelectionMode;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.nio.file.Path;
 
 import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -166,42 +162,4 @@ public class ResilientAcLoadFlowUnitTest {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
     }
 
-    @Test
-    void testConvergenceOnHUInstance() {
-        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, HU_INSTANCE);
-        Network nrNetwork = Network.read(fileName).getNetwork();
-        Network rknNetwork = Network.read(fileName).getNetwork();
-        compareSolvers(rknNetwork, nrNetwork, "HU_INSTANCE");
-    }
-
-    @ParameterizedTest(name = "Test HU networks convergence: {0}")
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideNodeBreakerHUNetworks")
-    @Disabled("Temporarily disabled")
-    void testConvergenceOnHUData(NetworkPair pair) {
-        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
-    }
-
-    @Test
-    void testConvergenceOnESData() {
-        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, ES_INSTANCE);
-        Network nrNetwork = Network.read(fileName).getNetwork();
-        Network rknNetwork = Network.read(fileName).getNetwork();
-        compareSolvers(rknNetwork, nrNetwork, "ES");
-    }
-
-    @ParameterizedTest
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
-    void testLoadFlowComparisonOnRteNetworks(NetworkPair pair) {
-        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
-    }
-
-    @Test
-    @Disabled("Temporarily disabled")
-    void testConvergenceOnTyndpData() {
-        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, TYNDP_INSTANCE);
-        Network network = Network.read(fileName).getNetwork();
-        configureSolver(RKN);
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged());
-    }
 }

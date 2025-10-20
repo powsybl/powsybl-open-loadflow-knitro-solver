@@ -9,12 +9,8 @@ import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
 import com.powsybl.openloadflow.network.SlackBusSelectionMode;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
@@ -22,11 +18,6 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import com.powsybl.openloadflow.knitro.solver.NetworkProviders.NetworkPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR;
-import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR_BUS_BREAKER;
-import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.HU_INSTANCE;
-import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.ES_INSTANCE;
 
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
@@ -129,71 +120,6 @@ public class ResilientAcLoadFlowPerturbationTest {
         voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha);
     }
 
-    @Test
-    void testVoltagePerturbationOnHUInstance() {
-        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, HU_INSTANCE);
-        Network nrNetwork = Network.read(fileName).getNetwork();
-        Network rknNetwork = Network.read(fileName).getNetwork();
-
-        // Line Characteristics in per-unit
-        double rPU = 0.0;
-        double xPU = 1e-5;
-        // Voltage Mismatch
-        double alpha = 0.95;
-
-        voltagePerturbationTest(rknNetwork, nrNetwork, "HU", rPU, xPU, alpha);
-    }
-
-    @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on HU networks: {0}")
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideNodeBreakerHUNetworks")
-    @Disabled("Temporarily disabled")
-    void testVoltagePerturbationOnHUData(NetworkPair pair) {
-        String baseFilename = pair.baseFilename();
-
-        Network rknNetwork = pair.rknNetwork();
-        Network nrNetwork = pair.nrNetwork();
-
-        // Line Characteristics in per-unit
-        double rPU = 0.0;
-        double xPU = 1e-5;
-        // Voltage Mismatch
-        double alpha = 0.95;
-
-        voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha);
-    }
-
-    @Test
-    void testVoltagePerturbationOnESData() {
-        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, ES_INSTANCE);
-        Network nrNetwork = Network.read(fileName).getNetwork();
-        Network rknNetwork = Network.read(fileName).getNetwork();
-
-        // Line Characteristics in per-unit
-        double rPU = 0.0;
-        double xPU = 1e-5;
-        // Voltage Mismatch
-        double alpha = 0.95;
-
-        voltagePerturbationTest(rknNetwork, nrNetwork, "ES", rPU, xPU, alpha);
-    }
-
-    @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on RTE networks: {0}")
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
-    void testVoltagePerturbationOnRteNetworks(NetworkPair pair) {
-        String baseFilename = pair.baseFilename();
-
-        Network rknNetwork = pair.rknNetwork();
-        Network nrNetwork = pair.nrNetwork();
-
-        // Line Characteristics in per-unit
-        double rPU = 0.0;
-        double xPU = 1e-5;
-        // Voltage Mismatch
-        double alpha = 0.95;
-
-        voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha);
-    }
-
     @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on various IEEE networks: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
     void testActivePowerPerturbationOnVariousI3ENetworks(NetworkPair pair) {
@@ -206,110 +132,5 @@ public class ResilientAcLoadFlowPerturbationTest {
         double alpha = 0.10;
 
         activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha);
-    }
-
-    @Test
-    void testActivePowerPerturbationOnHUInstance() {
-        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, HU_INSTANCE);
-        Network nrNetwork = Network.read(fileName).getNetwork();
-        Network rknNetwork = Network.read(fileName).getNetwork();
-
-        // Final perturbed load's percentage
-        double alpha = 0.10;
-
-        activePowerPerturbationTest(rknNetwork, nrNetwork, "HU", alpha);
-    }
-
-    @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on HU networks: {0}")
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideNodeBreakerHUNetworks")
-    @Disabled("Temporarily disabled")
-    void testActivePowerPerturbationOnHUData(NetworkPair pair) {
-        Network rknNetwork = pair.rknNetwork();
-        Network nrNetwork = pair.nrNetwork();
-
-        // Final perturbed load's percentage
-        double alpha = 0.10;
-
-        activePowerPerturbationTest(rknNetwork, nrNetwork, null, alpha);
-    }
-
-    @Test
-    void testActivePowerPerturbationOnESData() {
-        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, ES_INSTANCE);
-        Network nrNetwork = Network.read(fileName).getNetwork();
-        Network rknNetwork = Network.read(fileName).getNetwork();
-
-        // Final perturbed load's percentage
-        double alpha = 0.10;
-
-        activePowerPerturbationTest(rknNetwork, nrNetwork, "ES", alpha);
-    }
-
-    @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on RTE networks: {0}")
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
-    void testActivePowerPerturbationOnRteNetworks(NetworkPair pair) {
-        String baseFilename = pair.baseFilename();
-
-        Network rknNetwork = pair.rknNetwork();
-        Network nrNetwork = pair.nrNetwork();
-
-        // Final perturbed load's percentage
-        double alpha = 0.10;
-
-        activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha);
-    }
-
-    @Test
-    void tesReactivePowerPerturbationOnHUInstance() {
-        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR_BUS_BREAKER, HU_INSTANCE);
-        Network nrNetwork = Network.read(fileName).getNetwork();
-        Network rknNetwork = Network.read(fileName).getNetwork();
-
-        // Target reactive power injection by the shunt section in VArs
-        double targetQ = 1e9;
-
-        reactivePowerPerturbationTest(rknNetwork, nrNetwork, "HU", targetQ);
-    }
-
-    @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on HU networks: {0}")
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideBusBreakerHUNetworks")
-    @Disabled("Temporarily disabled")
-    void testReactivePowerPerturbationOnHUData(NetworkPair pair) {
-        String baseFilename = pair.baseFilename();
-
-        Network rknNetwork = pair.rknNetwork();
-        Network nrNetwork = pair.nrNetwork();
-
-        // Target reactive power injection by the shunt section in VArs
-        double targetQ = 1e9;
-
-        reactivePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, targetQ);
-    }
-
-    @Test
-    void testReactivePowerPerturbationOnESData() {
-        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, ES_INSTANCE);
-        Network nrNetwork = Network.read(fileName).getNetwork();
-        Network rknNetwork = Network.read(fileName).getNetwork();
-
-        // Target reactive power injection by the shunt section in VArs
-        double targetQ = 5e9;
-
-        reactivePowerPerturbationTest(rknNetwork, nrNetwork, "ES", targetQ);
-    }
-
-    @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on RTE networks: {0}")
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
-    void testReactivePowerPerturbationOnRteNetworks(NetworkPair pair) {
-        String baseFilename = pair.baseFilename();
-
-        Network rknNetwork = pair.rknNetwork();
-        Network nrNetwork = pair.nrNetwork();
-        LOGGER.info(String.valueOf(nrNetwork.getShuntCompensators().iterator().next()));
-
-        // Target reactive power injection by the shunt section in VArs
-        double targetQ = 1e9;
-
-        reactivePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, targetQ);
     }
 }
