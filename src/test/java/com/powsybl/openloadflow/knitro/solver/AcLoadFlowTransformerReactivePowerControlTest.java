@@ -54,7 +54,7 @@ class AcLoadFlowTransformerReactivePowerControlTest {
         parameters.setTransformerVoltageControlOn(false);
         parameters.setDistributedSlack(false);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setGradientComputationMode(2);
+        knitroLoadFlowParameters.setGradientComputationMode(1);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         parametersExt = OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.FIRST)
@@ -576,7 +576,7 @@ class AcLoadFlowTransformerReactivePowerControlTest {
         assertReactivePowerEquals(0.035, t3wt.getLeg1().getTerminal());
         assertReactivePowerEquals(8.076e-6, t3wt.getLeg2().getTerminal());
         assertReactivePowerEquals(6.698e-8, t3wt.getLeg3().getTerminal());
-        assertEquals(2, t3wt.getLeg2().getRatioTapChanger().getSolvedTapPosition());
+        assertEquals(0, t3wt.getLeg2().getRatioTapChanger().getSolvedTapPosition());
         assertEquals(0, t3wt.getLeg2().getRatioTapChanger().getTapPosition());
     }
 

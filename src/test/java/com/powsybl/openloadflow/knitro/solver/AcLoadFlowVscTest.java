@@ -35,7 +35,7 @@ class AcLoadFlowVscTest {
                 .setUseReactiveLimits(false)
                 .setDistributedSlack(false);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setGradientComputationMode(2);
+        knitroLoadFlowParameters.setGradientComputationMode(1);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters).setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED).setAcSolverType(KnitroSolverFactory.NAME);
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
@@ -84,7 +84,7 @@ class AcLoadFlowVscTest {
         LoadFlowParameters parameters = new LoadFlowParameters().setUseReactiveLimits(false)
                 .setDistributedSlack(false);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setGradientComputationMode(2);
+        knitroLoadFlowParameters.setGradientComputationMode(1);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters).setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED).setAcSolverType(KnitroSolverFactory.NAME);
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
@@ -107,7 +107,7 @@ class AcLoadFlowVscTest {
                 .setUseReactiveLimits(false)
                 .setDistributedSlack(false);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setGradientComputationMode(2);
+        knitroLoadFlowParameters.setGradientComputationMode(1);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters).setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED).setAcSolverType(KnitroSolverFactory.NAME);
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
@@ -136,7 +136,7 @@ class AcLoadFlowVscTest {
         LoadFlow.Runner loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
         LoadFlowParameters parameters = new LoadFlowParameters().setHvdcAcEmulation(true);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setGradientComputationMode(2);
+        knitroLoadFlowParameters.setGradientComputationMode(1);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters).setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED).setAcSolverType(KnitroSolverFactory.NAME);
 
@@ -165,7 +165,7 @@ class AcLoadFlowVscTest {
         LoadFlowParameters parameters = new LoadFlowParameters();
         parameters.setBalanceType(LoadFlowParameters.BalanceType.PROPORTIONAL_TO_LOAD).setHvdcAcEmulation(true);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setGradientComputationMode(2);
+        knitroLoadFlowParameters.setGradientComputationMode(1);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters).setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED).setAcSolverType(KnitroSolverFactory.NAME);
 
@@ -203,7 +203,7 @@ class AcLoadFlowVscTest {
         LoadFlow.Runner loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
         LoadFlowParameters parameters = new LoadFlowParameters().setHvdcAcEmulation(true);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setGradientComputationMode(2);
+        knitroLoadFlowParameters.setGradientComputationMode(1);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters).setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED).setAcSolverType(KnitroSolverFactory.NAME);
 
@@ -228,7 +228,7 @@ class AcLoadFlowVscTest {
                 .setUseReactiveLimits(false)
                 .setDistributedSlack(false);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setGradientComputationMode(2);
+        knitroLoadFlowParameters.setGradientComputationMode(1);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters).setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED).setAcSolverType(KnitroSolverFactory.NAME);
         LoadFlowResult result = loadFlowRunner.run(network, parameters);

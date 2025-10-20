@@ -48,7 +48,7 @@ class AcLoadFlow3wtTest {
         parameters = new LoadFlowParameters().setUseReactiveLimits(false)
                 .setDistributedSlack(false);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setGradientComputationMode(2);
+        knitroLoadFlowParameters.setGradientComputationMode(1);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
