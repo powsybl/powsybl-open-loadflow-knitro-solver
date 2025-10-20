@@ -519,6 +519,7 @@ class AcLoadFlowTransformerVoltageControlTest {
         selectNetwork(createNetworkWithSharedControl());
 
         parameters.setTransformerVoltageControlOn(true);
+        parametersExt.setTransformerVoltageControlMode(OpenLoadFlowParameters.TransformerVoltageControlMode.WITH_GENERATOR_VOLTAGE_CONTROL);
         t2wt.getRatioTapChanger()
                 .setTargetDeadband(0)
                 .setRegulating(true)
@@ -545,6 +546,7 @@ class AcLoadFlowTransformerVoltageControlTest {
         selectNetwork(createNetworkWithSharedControl());
 
         parameters.setTransformerVoltageControlOn(true);
+        parametersExt.setTransformerVoltageControlMode(OpenLoadFlowParameters.TransformerVoltageControlMode.WITH_GENERATOR_VOLTAGE_CONTROL);
         t2wt.getRatioTapChanger()
             .setTargetDeadband(0)
             .setRegulating(true)

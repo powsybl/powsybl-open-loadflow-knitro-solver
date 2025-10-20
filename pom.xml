@@ -15,7 +15,7 @@
     <parent>
         <groupId>com.powsybl</groupId>
         <artifactId>powsybl-parent</artifactId>
-        <version>23</version>
+        <version>24</version>
         <relativePath/>
     </parent>
 
@@ -49,8 +49,8 @@
 
     <properties>
         <java.version>21</java.version>
-        <powsybl-core.version>6.8.1</powsybl-core.version>
-        <powsybl-open-loadflow.version>1.16.0</powsybl-open-loadflow.version>
+        <powsybl-core.version>7.0.0</powsybl-core.version>
+        <powsybl-open-loadflow.version>2.0.0</powsybl-open-loadflow.version>
         <knitro-interfaces.version>14.2.0</knitro-interfaces.version>
         <bridj.version>0.7.0</bridj.version>
     </properties>
@@ -72,6 +72,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration>
+                        <argLine>@{argLine} -Duser.language=en -Duser.region=US</argLine>
                         <classpathDependencyExcludes>
                             <classpathDependencyExclude>com.powsybl:powsybl-config-classic</classpathDependencyExclude>
                         </classpathDependencyExcludes>
