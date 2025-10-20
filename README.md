@@ -80,11 +80,16 @@ Optimality violation     = 0,000003
 
 
 ### Installing Knitro Java Bindings
-Knitro Java bindings require a private JAR file that must be installed locally, as it is not available on Maven Central.
-Use the following command:
+The Knitro Java bindings require a private JAR file that must be installed locally, as it is not available on Maven Central.
 
+On **Linux**, use the following command:
 ```bash
 ./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.2.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=14.2.0 -Dpackaging=jar -DgeneratePom=true
+```
+
+On **Windows**, use the following command:
+```bash
+mvn install:install-file -Dfile="$env:KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.2.0.jar" -DgroupId="com.artelys" -DartifactId=knitro-interfaces -Dversion="14.2.0" -Dpackaging=jar -DgeneratePom=true
 ```
 
 ### Running a Load Flow with Knitro Solver
