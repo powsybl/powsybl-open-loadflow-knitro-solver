@@ -358,7 +358,7 @@ public class KnitroSolver extends AbstractAcSolver {
         /**
          * Callback function to evaluate the Hessian Matrix
          */
-        private static class CallbackEvalH extends KNEvalHCallback {
+        private static final class CallbackEvalH extends KNEvalHCallback {
             @Override
             public void evaluateH(final List<Double> x, final double sigma, final List<Double> lambda, List<Double> hess) {
                 // TODO : add Hessian matrix to improve performances

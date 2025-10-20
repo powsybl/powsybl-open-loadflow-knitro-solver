@@ -189,6 +189,10 @@ class SecondaryVoltageControlTest {
         g6.setTargetV(11.8);
         g8.setTargetV(19.5);
 
+        // This scenario works if the slack distribution fails and an injection is added at the slack bus
+        parametersExt.setPlausibleActivePowerLimit(5000); // Remove large generators from slack distribution
+        parametersExt.setSlackDistributionFailureBehavior(OpenLoadFlowParameters.SlackDistributionFailureBehavior.LEAVE_ON_SLACK_BUS);
+
         parametersExt.setSecondaryVoltageControl(true);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
         knitroLoadFlowParameters.setUpperVoltageBound(2.0);  // for this specific test, we allow the voltage to be greater than 1.5 (knitro's default maxRealisticVoltage) for the network to converge
@@ -231,7 +235,7 @@ class SecondaryVoltageControlTest {
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         var result = loadFlowRunner.run(network, parameters);
         assertEquals(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getComponentResults().get(0).getStatus());
-        assertEquals(9, result.getComponentResults().get(0).getIterationCount());
+        assertEquals(12, result.getComponentResults().get(0).getIterationCount());
         assertVoltageEquals(142, b4);
         assertVoltageEquals(14.5, b10);
     }
@@ -255,7 +259,7 @@ class SecondaryVoltageControlTest {
 
         var result = loadFlowRunner.run(network, parameters);
         assertEquals(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getComponentResults().get(0).getStatus());
-        assertEquals(9, result.getComponentResults().get(0).getIterationCount());
+        assertEquals(11, result.getComponentResults().get(0).getIterationCount());
         assertVoltageEquals(14.4, b10);
         assertVoltageEquals(14.151, b6);
         assertVoltageEquals(28.913, b8);
