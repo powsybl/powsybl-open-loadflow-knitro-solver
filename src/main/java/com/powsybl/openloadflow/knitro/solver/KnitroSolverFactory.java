@@ -77,9 +77,9 @@ public class KnitroSolverFactory implements AcSolverFactory {
         KnitroSolverParameters.KnitroSolverType knitroSolverType = knitroSolverParameters.getKnitroSolverType();
         return switch (knitroSolverType) {
             case STANDARD ->
-                    new KnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
+                new KnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
             case RESILIENT ->
-                    new ResilientKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
+                new ResilientKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
         };
     }
 
