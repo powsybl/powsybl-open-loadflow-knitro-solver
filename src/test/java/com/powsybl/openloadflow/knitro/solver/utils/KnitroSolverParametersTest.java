@@ -7,6 +7,7 @@
  */
 package com.powsybl.openloadflow.knitro.solver.utils;
 
+import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroSolverParameters;
 import org.junit.jupiter.api.Test;
@@ -105,4 +106,22 @@ class KnitroSolverParametersTest {
                 ", knitroSolverType=STANDARD" +
                 ")", parameters.toString());
     }
+
+    @Test
+    void testSetAndGetHessianComputationMode(){
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
+        // check default value
+        assertEquals(6, knitroLoadFlowParameters.getHessianComputationMode());
+
+        // set other value
+        knitroLoadFlowParameters.setConvEps(2);
+        assertEquals(2, knitroLoadFlowParameters.getConvEps());
+
+        // wrong values
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setHessianComputationMode(-1));
+        assertEquals("Hessian computation mode must be between 1 and 7", e.getMessage());
+        IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setHessianComputationMode(8));
+        assertEquals("Hessian computation mode must be between 1 and 7", e2.getMessage());
+    }
+
 }

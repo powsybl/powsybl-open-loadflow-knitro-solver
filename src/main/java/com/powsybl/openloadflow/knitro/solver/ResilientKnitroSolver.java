@@ -5,7 +5,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  * SPDX-License-Identifier: MPL-2.0
  */
-
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.artelys.knitro.api.*;
@@ -243,7 +242,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_OPTTOL, knitroParameters.getOptEps());
         solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, knitroParameters.getAbsOptEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
-        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, knitroParameters.getNumThreads());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
         solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
         solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_BOTH);
@@ -323,63 +321,63 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 .mapToDouble(LfBus::getMismatchP)
                 .sum();
 
-        // Update the target vector with the solution to check load flow validity
-        if (knitroParameters.isCheckLoadFlowSolution()) {
-            slackContributions.forEach(slackKey -> {
-                String type = slackKey.type();
-                String busId = slackKey.busId();
-                double contribution = slackKey.contribution();
-
-                LfBus bus = network.getBusById(busId);
-                if (bus == null) {
-                    LOGGER.warn("Bus {} not found in the network.", busId);
-                    return;
-                }
-                switch (type) {
-                    case "P" -> {
-                        Optional<LfGenerator> maybeGenerator = bus.getGenerators().stream().findAny();
-                        if (maybeGenerator.isPresent()) {
-                            LfGenerator generator = maybeGenerator.get();
-                            if (generator.getGeneratorControlType() == LfGenerator.GeneratorControlType.VOLTAGE) {
-                                generator.setTargetP(generator.getTargetP() - contribution);
-                            }
-                        } else {
-                            Optional<LfLoad> maybeLoadP = bus.getLoads().stream().findAny();
-                            maybeLoadP.ifPresent(l -> l.setTargetP(l.getTargetP() + contribution));
-                        }
-                    }
-                    case "Q" -> {
-                        Optional<LfLoad> maybeLoadQ = bus.getLoads().stream().findAny();
-                        maybeLoadQ.ifPresent(l -> l.setTargetQ(l.getTargetQ() + contribution));
-                    }
-                    case "V" -> {
-                        Optional<VoltageControl<?>> maybeControl = bus.getVoltageControls().stream()
-                                .filter(vc -> vc.getControlledBus().getId().equals(bus.getId()))
-                                .findFirst();
-
-                        maybeControl.ifPresent(vc -> {
-                            double targetV = vc.getTargetValue();
-                            vc.setTargetValue(targetV + contribution);
-                        });
-                    }
-                }
-            });
-
-            LOGGER.info("==== Load flow validation ====");
-            LoadFlowParameters parameters = new LoadFlowParameters()
-                    .setUseReactiveLimits(false)
-                    .setDistributedSlack(false)
-                    .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
-
-            OpenLoadFlowParameters parametersExt = OpenLoadFlowParameters.create(parameters)
-                    .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
-                    .setAcSolverType("NEWTON_RAPHSON");
-
-            AcLoadFlowParameters param = OpenLoadFlowParameters.createAcParameters(parameters, parametersExt, new SparseMatrixFactory(), new EvenShiloachGraphDecrementalConnectivityFactory<>(), false, false);
-            AcLoadFlowContext context = new AcLoadFlowContext(network, param);
-            AcLoadFlowResult r = new AcloadFlowEngine(context).run();
-            LOGGER.info("Load flow status after Knitro solution: {}", r.getSolverStatus());
-        }
+//        // Update the target vector with the solution to check load flow validity
+//        if (knitroParameters.isCheckLoadFlowSolution()) {
+//            slackContributions.forEach(slackKey -> {
+//                String type = slackKey.type();
+//                String busId = slackKey.busId();
+//                double contribution = slackKey.contribution();
+//
+//                LfBus bus = network.getBusById(busId);
+//                if (bus == null) {
+//                    LOGGER.warn("Bus {} not found in the network.", busId);
+//                    return;
+//                }
+//                switch (type) {
+//                    case "P" -> {
+//                        Optional<LfGenerator> maybeGenerator = bus.getGenerators().stream().findAny();
+//                        if (maybeGenerator.isPresent()) {
+//                            LfGenerator generator = maybeGenerator.get();
+//                            if (generator.getGeneratorControlType() == LfGenerator.GeneratorControlType.VOLTAGE) {
+//                                generator.setTargetP(generator.getTargetP() - contribution);
+//                            }
+//                        } else {
+//                            Optional<LfLoad> maybeLoadP = bus.getLoads().stream().findAny();
+//                            maybeLoadP.ifPresent(l -> l.setTargetP(l.getTargetP() + contribution));
+//                        }
+//                    }
+//                    case "Q" -> {
+//                        Optional<LfLoad> maybeLoadQ = bus.getLoads().stream().findAny();
+//                        maybeLoadQ.ifPresent(l -> l.setTargetQ(l.getTargetQ() + contribution));
+//                    }
+//                    case "V" -> {
+//                        Optional<VoltageControl<?>> maybeControl = bus.getVoltageControls().stream()
+//                                .filter(vc -> vc.getControlledBus().getId().equals(bus.getId()))
+//                                .findFirst();
+//
+//                        maybeControl.ifPresent(vc -> {
+//                            double targetV = vc.getTargetValue();
+//                            vc.setTargetValue(targetV + contribution);
+//                        });
+//                    }
+//                }
+//            });
+//
+//            LOGGER.info("==== Load flow validation ====");
+//            LoadFlowParameters parameters = new LoadFlowParameters()
+//                    .setUseReactiveLimits(false)
+//                    .setDistributedSlack(false)
+//                    .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
+//
+//            OpenLoadFlowParameters parametersExt = OpenLoadFlowParameters.create(parameters)
+//                    .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
+//                    .setAcSolverType("NEWTON_RAPHSON");
+//
+//            AcLoadFlowParameters param = OpenLoadFlowParameters.createAcParameters(parameters, parametersExt, new SparseMatrixFactory(), new EvenShiloachGraphDecrementalConnectivityFactory<>(), false, false);
+//            AcLoadFlowContext context = new AcLoadFlowContext(network, param);
+//            AcLoadFlowResult r = new AcloadFlowEngine(context).run();
+//            LOGGER.info("Load flow status after Knitro solution: {}", r.getSolverStatus());
+//        }
 
         return new AcSolverResult(solverStatus, nbIterations, slackBusMismatch);
     }
@@ -387,7 +385,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private void logSlackValues(String type, int startIndex, int count, List<Double> x) {
         final double sbase = 100.0;     // Base power in MVA
 
-        LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
+        LOGGER.debug("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
 
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
@@ -418,7 +416,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
             slackContributions.add(new SlackKey(type, name, epsilon));
             String msg = String.format("Slack %s[ %s ] → Sm = %.4f, Sp = %.4f → %s", type, name, sm, sp, interpretation);
-            LOGGER.info(msg);
+            LOGGER.debug(msg);
         }
     }
 

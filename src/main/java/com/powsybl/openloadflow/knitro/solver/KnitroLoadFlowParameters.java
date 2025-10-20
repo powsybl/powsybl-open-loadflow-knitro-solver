@@ -28,7 +28,6 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private double optEps = KnitroSolverParameters.DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA;
     private double absOptEps = KnitroSolverParameters.DEFAULT_ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA;
     private double slackThreshold = KnitroSolverParameters.DEFAULT_SLACK_THRESHOLD;
-    private int numThreads = KnitroSolverParameters.DEFAULT_THREAD_NUMBER;
     private boolean alwaysUpdateNetwork = KnitroSolverParameters.ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
     private boolean checkLoadFlowSolution = KnitroSolverParameters.CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE;
     private KnitroSolverParameters.KnitroSolverType knitroSolverType = KnitroSolverParameters.DEFAULT_KNITRO_SOLVER_TYPE;
@@ -71,14 +70,6 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
         if (gradientUserRoutine < 1 || gradientUserRoutine > 2) {
             throw new IllegalArgumentException("User routine must be between 1 and 2");
         }
-
-        if (gradientComputationMode == 1) {
-            this.numThreads = KnitroSolverParameters.DEFAULT_THREAD_NUMBER;
-        } else {
-            // Evaluation callback is not thread safe when gradient computation mode is set to finite differences
-            this.numThreads = KnitroSolverParameters.DEFAULT_THREAD_NUMBER_FINITE_DIFFERENCES;
-        }
-
         this.gradientUserRoutine = gradientUserRoutine;
         return this;
     }
@@ -191,18 +182,6 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
             throw new IllegalArgumentException("Slack value threshold must be strictly greater than 0");
         }
         this.slackThreshold = slackThreshold;
-        return this;
-    }
-
-    public int getNumThreads() {
-        return numThreads;
-    }
-
-    public KnitroLoadFlowParameters setNumThreads(int numThreads) {
-        if (this.gradientComputationMode != 1 && numThreads != KnitroSolverParameters.DEFAULT_THREAD_NUMBER_FINITE_DIFFERENCES) {
-            throw new IllegalArgumentException("Solver uses finite differences to evaluate the Jacobian. Cannot use multithreading");
-        }
-        this.numThreads = numThreads;
         return this;
     }
 

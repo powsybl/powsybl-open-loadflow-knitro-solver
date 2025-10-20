@@ -33,8 +33,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final double DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA = Math.pow(10, -6);
     public static final double DEFAULT_ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA = Math.pow(10, -3);
     public static final double DEFAULT_SLACK_THRESHOLD = Math.pow(10, -6);
-    public static final int DEFAULT_THREAD_NUMBER = 8;
-    public static final int DEFAULT_THREAD_NUMBER_FINITE_DIFFERENCES = 1;
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
     public static final boolean CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE = false; // If the solver converges, launches a load flow taking into account slack variable results to check if the solution is a real load flow solution
@@ -58,7 +56,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
     private double absOptEps = DEFAULT_ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA;
     private double slackThreshold = DEFAULT_SLACK_THRESHOLD;
     private int hessianComputationMode = DEFAULT_HESSIAN_COMPUTATION_MODE;
-    private int numThreads = DEFAULT_THREAD_NUMBER;
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -67,13 +64,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public KnitroSolverParameters setGradientComputationMode(int gradientComputationMode) {
         if (gradientComputationMode < 1 || gradientComputationMode > 3) {
             throw new IllegalArgumentException("Knitro gradient computation mode must be between 1 and 3");
-        }
-
-        if (gradientComputationMode == 1) {
-            this.numThreads = DEFAULT_THREAD_NUMBER;
-        } else {
-            // Evaluation callback is not thread safe when gradient computation mode is set to finite differences
-            this.numThreads = DEFAULT_THREAD_NUMBER_FINITE_DIFFERENCES;
         }
 
         this.gradientComputationMode = gradientComputationMode;
@@ -249,18 +239,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
             throw new IllegalArgumentException("Slack value threshold must be strictly greater than 0");
         }
         this.slackThreshold = slackThreshold;
-        return this;
-    }
-
-    public int getNumThreads() {
-        return numThreads;
-    }
-
-    public KnitroSolverParameters setNumThreads(int numThreads) {
-        if (this.gradientComputationMode != 1 && numThreads != DEFAULT_THREAD_NUMBER_FINITE_DIFFERENCES) {
-            throw new IllegalArgumentException("Solver uses finite differences to evaluate the Jacobian. Cannot use multithreading");
-        }
-        this.numThreads = numThreads;
         return this;
     }
 
