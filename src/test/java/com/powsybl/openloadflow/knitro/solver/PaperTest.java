@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
  * @author Yoann Anezin {@literal <yoann.anezin at artelys.com>}
  */
 public class PaperTest {
+    private static final String REACTIVE_POWER_PERTURBATION = "reactive-perturbation";
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
     private KnitroLoadFlowParameters knitroLoadFlowParameters;
@@ -190,7 +191,6 @@ public class PaperTest {
         };
 
         testprocess(logFile, network, Perturbation, 1.2, perturb);
-        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
@@ -226,7 +226,6 @@ public class PaperTest {
         };
 
         testprocess(logFile, network, Perturbation, 1.2, perturb);
-        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
@@ -260,7 +259,6 @@ public class PaperTest {
             );
         };
         testprocess(logFile, network, Perturbation, 1.2, perturb);
-        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
@@ -297,7 +295,6 @@ public class PaperTest {
         };
 
         testprocess(logFile, network, Perturbation, 1.2, perturb);
-        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 0);
     }
 
     @Test
@@ -333,7 +330,6 @@ public class PaperTest {
         };
 
         testprocess(logFile, network, Perturbation, 1.2, perturb);
-        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
@@ -344,8 +340,8 @@ public class PaperTest {
         Runnable perturb = () -> {
             network.getLoadStream().forEach(
                     l -> {
-                        double kq = 1.2;
-                        double kp = 1.1;
+                        double kq = 1.3;
+                        double kp = 1.15;
                         l.setP0(l.getP0() * kp);
                         l.setQ0(l.getQ0() * kq);
                     }
@@ -369,10 +365,7 @@ public class PaperTest {
         };
 
         testprocess(logFile, network, Perturbation, 1.2, perturb);
-        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
-
-
 
 
     /// Case with NR converges and same solution than knitro
@@ -423,55 +416,6 @@ public class PaperTest {
         testprocess(logFile, network, Perturbation, 1.2);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
-
-//    @Test
-//    void paretoFront() throws IOException {
-//        double wPower = 1;
-////        double[] wV = {0.0, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 15};
-//        for (int i = 0; i < 1000; i++) {
-//            String logFile = path + "ieee118_" + Perturbation + i + ".txt";
-//            knitroLoadFlowParameters.setSlackPenalV(0.5 + i * 0.0075)
-//                    .setSlackPenalP(wPower)
-//                    .setSlackPenalQ(wPower);
-//            Network network = IeeeCdfNetworkFactory.create118();
-//            testprocess(logFile, network, Perturbation, 1.2);
-//            parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
-//        }
-//    }
-
-    @Test
-    public void ieee118WithAblation() {
-        String logFile = path + "ieee118_" + Perturbation + ".txt";
-
-        // verify that will all mismatches this will work well
-        Network network = IeeeCdfNetworkFactory.create118();
-        testprocess(logFile, network, Perturbation, 1.2);
-//        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
-
-        // verify results without penalty on V
-        logFile = path + "ieee118_" + Perturbation + "_withoutV" + ".txt";
-        network = IeeeCdfNetworkFactory.create118();
-        knitroLoadFlowParameters.setWithPenalV(false);
-        testprocess(logFile, network, Perturbation, 1.2);
-//        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
-
-        // verify results without penalty on P/Q
-        logFile = path + "ieee118_" + Perturbation + "_withoutPQ" + ".txt";
-        network = IeeeCdfNetworkFactory.create118();
-        knitroLoadFlowParameters.setWithPenalPQ(false);
-        knitroLoadFlowParameters.setWithPenalV(true);
-        testprocess(logFile, network, Perturbation, 1.2);
-//        ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
-    }
-
-
-
-
-
-
-
-
-
 
 
     // Case NR divergence but Knitro converges without slack
@@ -551,20 +495,38 @@ public class PaperTest {
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
-    // TODO : find cases for RTE cases
-
     @Test
     void rte1888NRDiverge() throws IOException {
         String logFile = path + "Rte1888_NR_diverge" + Perturbation + ".txt";
         Network network = Network.read("C:\\Users\\parvy\\Downloads\\rte1888.xiidm");
+
+        var g = network.getGenerator("GEN-1320");
+        double newT = 1.2404753313918695;
+        System.out.println("Bus = " + g.getTerminal().getBusView().getBus().getId());
+        System.out.println("Target original (kV) = " + g.getTargetV());
+        System.out.println("Target original (p.u.) = " + g.getTargetV() / g.getTerminal().getVoltageLevel().getNominalV());
+        System.out.println("Target new (kV) = " + newT);
+        System.out.println("Target new (kV) = " + newT / g.getTerminal().getVoltageLevel().getNominalV());
+        System.out.println("Delta = " + (newT - g.getTargetV()) / g.getTargetV());
+
         testprocess(logFile, network, Perturbation, 1.2);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
 
     @Test
     void rte6515NRDiverge() throws IOException {
-        String logFile = path + "Rte6515_" + Perturbation + ".txt";
+        String logFile = path + "Rte6515_NR_diverge" + Perturbation + ".txt";
         Network network = Network.read("C:\\Users\\parvy\\Downloads\\rte6515.xiidm");
+
+        var g = network.getGenerator("GEN-102");
+        double newT = 1.433457858406;
+        System.out.println("Bus = " + g.getTerminal().getBusView().getBus().getId());
+        System.out.println("Target original (kV) = " + g.getTargetV());
+        System.out.println("Target original (p.u.) = " + g.getTargetV() / g.getTerminal().getVoltageLevel().getNominalV());
+        System.out.println("Target new (kV) = " + newT);
+        System.out.println("Target new (kV) = " + newT / g.getTerminal().getVoltageLevel().getNominalV());
+        System.out.println("Delta = " + (newT - g.getTargetV()) / g.getTargetV());
+
         testprocess(logFile, network, Perturbation, 1.2);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 20);
     }
@@ -590,7 +552,7 @@ public class PaperTest {
         // Voltage Mismatch
         double alpha = 0.85;
 
-        String logFile = nrNetwork.getId()+"VoltagePerturbation2.txt";
+        String logFile = nrNetwork.getId()+"VoltagePerturbationIEEEResilient.txt";
         voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha, logFile);
     }
 
@@ -608,7 +570,7 @@ public class PaperTest {
         // Voltage Mismatch
         double alpha = 0.85;
 
-        String logFile = nrNetwork.getId()+"VoltagePerturbation2.txt";
+        String logFile = nrNetwork.getId()+"VoltagePerturbationRTEResilient.txt";
         voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha, logFile);
     }
 
@@ -636,29 +598,26 @@ public class PaperTest {
         boolean isConvergedNR = resultNR.isFullyConverged();
         boolean isFailedNR = resultNR.isFailed();
 
-        long start = System.nanoTime();
-
-        KnitroWritter knitroWritter = new KnitroWritter(logFile);
-        KnitroLoadFlowParameters knitroLoadFlowParameters = parameters.getExtension(KnitroLoadFlowParameters.class);
-        knitroLoadFlowParameters.setKnitroWritter(knitroWritter);
-        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
-        parameters.setUseReactiveLimits(true);
-
-        // Ecriture des paramètres initiaux
-        logsWriting(knitroLoadFlowParameters, knitroWritter);
-
         assumeFalse(isConvergedNR && !isFailedNR, baseFilename + ": NR should not converge");
 
         HashMap<String, Double> listMinQ = new HashMap<>();
         HashMap<String, Double> listMaxQ = new HashMap<>();
         parameters.setUseReactiveLimits(true);
 
+        long start = System.nanoTime();
+        KnitroWritter knitroWritter = new KnitroWritter(logFile);
+        KnitroLoadFlowParameters knitroLoadFlowParameters = parameters.getExtension(KnitroLoadFlowParameters.class);
+        knitroLoadFlowParameters.setKnitroWritter(knitroWritter);
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
+
         // Ecriture des paramètres initiaux
+        logsWriting(knitroLoadFlowParameters, knitroWritter);
+        // Ecriture des paramètres initiaux
+
         knitroWritter.write("[" + LocalDateTime.now() + "]", false);
+
+        // Knitro Resilient or ReactivLimits
         int numbreLimReacAdded = fixReacLim(rknNetwork, listMinQ, listMaxQ, knitroWritter);
-
-
-        // Knitro Resilient
         configureSolver(RKN);
         LoadFlowResult resultRKN = loadFlowRunner.run(rknNetwork, parameters);
         boolean isConvergedRKN = resultRKN.isFullyConverged();
@@ -696,6 +655,25 @@ public class PaperTest {
                 }
             }
         }
+    }
+
+    /// Case with reactive power modified
+    @Test
+    void testReactivePerturb() {
+        Network network = IeeeCdfNetworkFactory.create118();
+        Network network2 = IeeeCdfNetworkFactory.create118();
+
+        // Target reactive power injection by the shunt section in VArs
+        double targetQ = 1e10;
+
+        reactivePowerPerturbationTest(network, network2, "baseFilename", targetQ);
+    }
+
+    private void reactivePowerPerturbationTest(Network network, Network network2, String baseFilename, double targetQ) {
+        PerturbationFactory.ReactivePowerPerturbation perturbation = PerturbationFactory.getReactivePowerPerturbation(network);
+        PerturbationFactory.applyReactivePowerPerturbation(network, perturbation, targetQ);
+        PerturbationFactory.applyReactivePowerPerturbation(network2, perturbation, targetQ);
+        compareResilience(network, network2, baseFilename, REACTIVE_POWER_PERTURBATION, "logFileReactiveCase.txt");
     }
 }
  
