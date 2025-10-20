@@ -6,6 +6,7 @@ import com.powsybl.iidm.network.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -148,6 +149,8 @@ public final class PerturbationFactory {
         double vNomRegulator = regulatingBusVL.getNominalV();
         double vNomNoGenerator = noGeneratorBusVL.getNominalV();
         double targetV = generator.getTargetV() / vNomRegulator * vNomGenerator * alpha;
+        System.out.println("After application, new target V (kV) = " + targetV );
+        System.out.println("After application, new target V (pu) = " + targetV / vNomNoGenerator);
 
         // Acquire regulating terminal
         Terminal regulatingTerminal;
@@ -174,6 +177,8 @@ public final class PerturbationFactory {
         // Changing line parameters by setting their reactance and shunt admittance to 0
         double r = rPU * vNomGenerator * vNomNoGenerator / BASE_100MVA;
         double x = xPU * vNomGenerator * vNomNoGenerator / BASE_100MVA;
+        System.out.println("After application, R = " + r);
+        System.out.println("After application, X = " + x);
 
         lowImpedanceLine.setR(r)
                 .setX(x)
@@ -219,6 +224,9 @@ public final class PerturbationFactory {
                 .sum();
 
         Load targetLoad = network.getLoad(targetLoadID);
+        System.out.println("Load ID = " + targetLoadID);
+        System.out.println("New target = " + alpha * totalActiveLoad);
+        System.out.println("Old target = " + targetLoad.getP0());
         targetLoad.setP0(alpha * totalActiveLoad);
     }
 
@@ -341,6 +349,13 @@ public final class PerturbationFactory {
                                       String regulatingBusID,
                                       String generatorID,
                                       String lowImpedanceLineID) {
+        void print() {
+            System.out.println("No generator bus ID = " + noGeneratorBusID);
+            System.out.println("Regulating bus ID = " + regulatingBusID);
+            System.out.println("Generator ID = " + generatorID);
+            System.out.println("Low impedance line ID = " + lowImpedanceLineID);
+        }
+
     }
 
     public record ReactivePowerPerturbation(String targetBusID,
