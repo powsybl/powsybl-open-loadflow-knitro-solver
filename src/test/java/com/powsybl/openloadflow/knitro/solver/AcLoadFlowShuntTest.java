@@ -61,7 +61,7 @@ class AcLoadFlowShuntTest {
         parameters = new LoadFlowParameters().setUseReactiveLimits(true)
                 .setDistributedSlack(true);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setGradientComputationMode(2);
+        knitroLoadFlowParameters.setGradientComputationMode(1);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters)
                 .setAcSolverType(KnitroSolverFactory.NAME);

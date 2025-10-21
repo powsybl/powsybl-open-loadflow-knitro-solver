@@ -7,49 +7,58 @@
  */
 package com.powsybl.openloadflow.knitro.solver;
 
-import com.powsybl.openloadflow.ac.solver.*;
+import com.powsybl.openloadflow.ac.solver.AcSolverParameters;
+import com.powsybl.openloadflow.ac.solver.LineSearchStateVectorScaling;
+import com.powsybl.openloadflow.ac.solver.MaxVoltageChangeStateVectorScaling;
+import com.powsybl.openloadflow.ac.solver.StateVectorScalingMode;
 
 import java.util.Objects;
 
 /**
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
+ * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
+ * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
-
 public class KnitroSolverParameters implements AcSolverParameters {
 
     public static final int DEFAULT_GRADIENT_COMPUTATION_MODE = 1; // Specifies how the Jacobian matrix is computed
     public static final int DEFAULT_GRADIENT_USER_ROUTINE = 2; // If the user chooses to pass the exact Jacobian to knitro, specifies the sparsity pattern for the Jacobian matrix.
+    public static final int DEFAULT_HESSIAN_COMPUTATION_MODE = 6; // Specifies how the Hessian matrix is computed. 6 means that the Hessian is approximated using the L-BFGS method, which is a quasi-Newton method.
     public static final double DEFAULT_LOWER_VOLTAGE_BOUND = 0.5; // Lower bound for voltage magnitude
-    public static final double DEFAULT_UPPER_VOLTAGE_BOUND = 1.5; // Upper bound for voltage magnitude
-    public static final int DEFAULT_MAX_ITERATIONS = 200;
-    public static final double DEFAULT_STOPPING_CRITERIA = Math.pow(10, -6);
+    public static final double DEFAULT_UPPER_VOLTAGE_BOUND = 2.0; // Upper bound for voltage magnitude
+    public static final int DEFAULT_MAX_ITERATIONS = 400;
+    public static final double DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA = Math.pow(10, -6);
+    public static final double DEFAULT_ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA = Math.pow(10, -3);
+    public static final double DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA = Math.pow(10, -6);
+    public static final double DEFAULT_ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA = Math.pow(10, -3);
+    public static final double DEFAULT_SLACK_THRESHOLD = Math.pow(10, -6);
+    public static final int DEFAULT_THREAD_NUMBER = 8;
+    public static final int DEFAULT_THREAD_NUMBER_FINITE_DIFFERENCES = 1;
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
-
+    public static final boolean CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE = false; // If the solver converges, launches a load flow taking into account slack variable results to check if the solution is a real load flow solution
+    public static final KnitroSolverType DEFAULT_KNITRO_SOLVER_TYPE = KnitroSolverType.STANDARD;
+    public KnitroSolverType knitroSolverType = DEFAULT_KNITRO_SOLVER_TYPE;
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
-
     private int lineSearchStateVectorScalingMaxIteration = LineSearchStateVectorScaling.DEFAULT_MAX_ITERATION;
-
     private double lineSearchStateVectorScalingStepFold = LineSearchStateVectorScaling.DEFAULT_STEP_FOLD;
-
     private double maxVoltageChangeStateVectorScalingMaxDv = MaxVoltageChangeStateVectorScaling.DEFAULT_MAX_DV;
-
     private double maxVoltageChangeStateVectorScalingMaxDphi = MaxVoltageChangeStateVectorScaling.DEFAULT_MAX_DPHI;
-
     private int gradientComputationMode = DEFAULT_GRADIENT_COMPUTATION_MODE;
-
     private int gradientUserRoutine = DEFAULT_GRADIENT_USER_ROUTINE;
-
     private double lowerVoltageBound = DEFAULT_LOWER_VOLTAGE_BOUND;
-
     private double upperVoltageBound = DEFAULT_UPPER_VOLTAGE_BOUND;
-
     private boolean alwaysUpdateNetwork = ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
-
+    private boolean checkLoadFlowSolution = CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE;
     private int maxIterations = DEFAULT_MAX_ITERATIONS;
-
-    private double convEps = DEFAULT_STOPPING_CRITERIA;
+    private double convEps = DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA;
+    private double absConvEps = DEFAULT_ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA;
+    private double optEps = DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA;
+    private double absOptEps = DEFAULT_ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA;
+    private double slackThreshold = DEFAULT_SLACK_THRESHOLD;
+    private int hessianComputationMode = DEFAULT_HESSIAN_COMPUTATION_MODE;
+    private int numThreads = DEFAULT_THREAD_NUMBER;
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -59,6 +68,14 @@ public class KnitroSolverParameters implements AcSolverParameters {
         if (gradientComputationMode < 1 || gradientComputationMode > 3) {
             throw new IllegalArgumentException("Knitro gradient computation mode must be between 1 and 3");
         }
+
+        if (gradientComputationMode == 1) {
+            this.numThreads = DEFAULT_THREAD_NUMBER;
+        } else {
+            // Evaluation callback is not thread safe when gradient computation mode is set to finite differences
+            this.numThreads = DEFAULT_THREAD_NUMBER_FINITE_DIFFERENCES;
+        }
+
         this.gradientComputationMode = gradientComputationMode;
         return this;
     }
@@ -72,6 +89,18 @@ public class KnitroSolverParameters implements AcSolverParameters {
             throw new IllegalArgumentException("User routine must be between 1 and 2");
         }
         this.gradientUserRoutine = gradientUserRoutine;
+        return this;
+    }
+
+    public int getHessianComputationMode() {
+        return hessianComputationMode;
+    }
+
+    public KnitroSolverParameters setHessianComputationMode(int hessianComputationMode) {
+        if (hessianComputationMode < 1 || hessianComputationMode > 7) {
+            throw new IllegalArgumentException("Knitro hessian computation mode must be between 1 and 7. Please refer to the Knitro documentation for more details.");
+        }
+        this.hessianComputationMode = hessianComputationMode;
         return this;
     }
 
@@ -117,6 +146,15 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     public KnitroSolverParameters setAlwaysUpdateNetwork(boolean alwaysUpdateNetwork) {
         this.alwaysUpdateNetwork = alwaysUpdateNetwork;
+        return this;
+    }
+
+    public boolean isCheckLoadFlowSolution() {
+        return checkLoadFlowSolution;
+    }
+
+    public KnitroSolverParameters setCheckLoadFlowSolution(boolean checkLoadFlowSolution) {
+        this.checkLoadFlowSolution = checkLoadFlowSolution;
         return this;
     }
 
@@ -175,15 +213,81 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return this;
     }
 
+    public double getAbsConvEps() {
+        return absConvEps;
+    }
+
+    public KnitroSolverParameters setAbsConvEps(double absConvEps) {
+        this.absConvEps = absConvEps;
+        return this;
+    }
+
+    public double getOptEps() {
+        return optEps;
+    }
+
+    public KnitroSolverParameters setOptEps(double optEps) {
+        this.optEps = optEps;
+        return this;
+    }
+
+    public double getAbsOptEps() {
+        return absOptEps;
+    }
+
+    public KnitroSolverParameters setAbsOptEps(double absOptEps) {
+        this.absOptEps = absOptEps;
+        return this;
+    }
+
+    public double getSlackThreshold() {
+        return slackThreshold;
+    }
+
+    public KnitroSolverParameters setSlackThreshold(double slackThreshold) {
+        if (slackThreshold < 0) {
+            throw new IllegalArgumentException("Slack value threshold must be strictly greater than 0");
+        }
+        this.slackThreshold = slackThreshold;
+        return this;
+    }
+
+    public int getNumThreads() {
+        return numThreads;
+    }
+
+    public KnitroSolverParameters setNumThreads(int numThreads) {
+        if (this.gradientComputationMode != 1 && numThreads != DEFAULT_THREAD_NUMBER_FINITE_DIFFERENCES) {
+            throw new IllegalArgumentException("Solver uses finite differences to evaluate the Jacobian. Cannot use multithreading");
+        }
+        this.numThreads = numThreads;
+        return this;
+    }
+
+    public KnitroSolverType getKnitroSolverType() {
+        return knitroSolverType;
+    }
+
+    public void setKnitroSolverType(KnitroSolverType knitroSolverType) {
+        this.knitroSolverType = Objects.requireNonNull(knitroSolverType);
+    }
+
     @Override
     public String toString() {
         return "KnitroSolverParameters(" +
                 "gradientComputationMode=" + gradientComputationMode +
-                ", stoppingCriteria=" + convEps +
+                ", FeasibilityStoppingCriteria=" + convEps +
+                ", OptimalityStoppingCriteria=" + optEps +
                 ", minRealisticVoltage=" + lowerVoltageBound +
                 ", maxRealisticVoltage=" + upperVoltageBound +
                 ", alwaysUpdateNetwork=" + alwaysUpdateNetwork +
                 ", maxIterations=" + maxIterations +
+                ", knitroSolverType=" + knitroSolverType +
                 ')';
+    }
+
+    public enum KnitroSolverType {
+        STANDARD,
+        RESILIENT
     }
 }

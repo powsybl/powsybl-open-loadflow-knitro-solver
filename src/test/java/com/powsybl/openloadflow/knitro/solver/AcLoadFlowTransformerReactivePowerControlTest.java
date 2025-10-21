@@ -54,7 +54,7 @@ class AcLoadFlowTransformerReactivePowerControlTest {
         parameters.setTransformerVoltageControlOn(false);
         parameters.setDistributedSlack(false);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setGradientComputationMode(2);
+        knitroLoadFlowParameters.setGradientComputationMode(1);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         parametersExt = OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.FIRST)
