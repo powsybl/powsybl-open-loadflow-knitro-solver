@@ -533,6 +533,8 @@ public class KnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_GRADOPT, knitroParameters.getGradientComputationMode());
         solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
+        solver.setParam(KNConstants.KN_PARAM_OUTLEV, KNConstants.KN_OUTLEV_NONE);
+//        solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_FILE);
     }
 
     @Override
