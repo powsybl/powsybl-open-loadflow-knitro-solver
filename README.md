@@ -1,11 +1,11 @@
 # PowSyBl Open Load Flow - Knitro Solver
 
-[![Actions Status](https://github.com/powsybl/powsybl-open-loadflow-knitro-solver/workflows/CI/badge.svg)](https://github.com/powsybl/powsybl-open-loadflow-knitro-solver/actions/workflows/maven.yml)
-[![Snapshot Status](https://github.com/powsybl/powsybl-open-loadflow-knitro-solver/workflows/Snapshot%20CI/badge.svg)](https://github.com/powsybl/powsybl-open-loadflow-knitro-solver/actions/workflows/snapshot-ci.yml)
+[![Actions Status](https://github.com/powsybl/powsybl-open-loadflow-knitro-solver/actions/workflows/maven.yml/badge.svg?branch=main)](https://github.com/powsybl/powsybl-open-loadflow-knitro-solver/actions/workflows/maven.yml)
+[![Snapshot Status](https://github.com/powsybl/powsybl-open-loadflow-knitro-solver/actions/workflows/snapshot-ci.yml/badge.svg?branch=main)](https://github.com/powsybl/powsybl-open-loadflow-knitro-solver/actions/workflows/snapshot-ci.yml)
 [![Coverage Status](https://sonarcloud.io/api/project_badges/measure?project=com.powsybl%3Apowsybl-open-loadflow-knitro-solver&metric=coverage)](https://sonarcloud.io/component_measures?id=com.powsybl%3Apowsybl-open-loadflow-knitro-solver&metric=coverage)
 [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=com.powsybl%3Apowsybl-open-loadflow-knitro-solver&metric=alert_status)](https://sonarcloud.io/dashboard?id=com.powsybl%3Apowsybl-open-loadflow-knitro-solver)
 [![MPL-2.0 License](https://img.shields.io/badge/license-MPL_2.0-blue.svg)](https://www.mozilla.org/en-US/MPL/2.0/)
-[![Slack](https://img.shields.io/badge/slack-powsybl-blueviolet.svg?logo=slack)](https://join.slack.com/t/powsybl/shared_invite/zt-rzvbuzjk-nxi0boim1RKPS5PjieI0rA)
+[![Slack](https://img.shields.io/badge/slack-powsybl-blueviolet.svg?logo=slack)](https://join.slack.com/t/powsybl/shared_invite/zt-36jvd725u-cnquPgZb6kpjH8SKh~FWHQ)
 
 
 PowSyBl (**Pow**er **Sy**stem **Bl**ocks) is an open source library written in Java, that makes it easy to write complex
@@ -80,11 +80,16 @@ Optimality violation     = 0,000003
 
 
 ### Installing Knitro Java Bindings
-Knitro Java bindings require a private JAR file that must be installed locally, as it is not available on Maven Central.
-Use the following command:
+The Knitro Java bindings require a private JAR file that must be installed locally, as it is not available on Maven Central.
 
+On **Linux**, use the following command:
 ```bash
 ./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.2.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=14.2.0 -Dpackaging=jar -DgeneratePom=true
+```
+
+On **Windows**, use the following command:
+```bash
+mvn install:install-file -Dfile="$env:KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_14.2.0.jar" -DgroupId="com.artelys" -DartifactId=knitro-interfaces -Dversion="14.2.0" -Dpackaging=jar -DgeneratePom=true
 ```
 
 ### Running a Load Flow with Knitro Solver
@@ -96,12 +101,12 @@ dependencies to respectively have access to network model, IEEE test networks an
 <dependency>
     <groupId>com.powsybl</groupId>
     <artifactId>powsybl-iidm-impl</artifactId>
-    <version>6.6.0</version>
+    <version>7.0.0</version>
 </dependency>
 <dependency>
     <groupId>com.powsybl</groupId>
     <artifactId>powsybl-ieee-cdf-converter</artifactId>
-    <version>6.6.0</version>
+    <version>7.0.0</version>
 </dependency>
 <dependency>
     <groupId>org.slf4j</groupId>
@@ -120,7 +125,7 @@ After adding dependency on both Open Load Flow implementation and Knitro Solver 
 <dependency>
     <groupId>com.powsybl</groupId>
     <artifactId>powsybl-open-loadflow</artifactId>
-    <version>1.14.0</version>
+    <version>2.0.0</version>
 </dependency>
 <dependency>
     <groupId>com.powsybl</groupId>

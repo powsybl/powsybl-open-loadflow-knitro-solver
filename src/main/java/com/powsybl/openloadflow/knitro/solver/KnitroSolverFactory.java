@@ -83,4 +83,8 @@ public class KnitroSolverFactory implements AcSolverFactory {
         };
     }
 
+    @Override
+    public void checkSolverAndParameterConsistency(LoadFlowParameters loadFlowParameters, OpenLoadFlowParameters openLoadFlowParameters) {
+        // no current incompatibilities between Knitro Solver and parameters
+    }
 }
