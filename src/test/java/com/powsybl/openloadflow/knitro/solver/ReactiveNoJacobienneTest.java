@@ -31,6 +31,14 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Yoann Anezin {@literal <yoann.anezin at artelys.com>}
  */
+
+// A la fin de chacun des tests on retrouve des appels aux méthodes "checkSwitches" et "verifNewtonRaphson".
+// Les boucles for qui les précèdent dans les tests ieee et rte servent à remplir la liste des bornes en Q pour
+// la fonction check Switches. De même globalement pour tout ce qui concerne les listes listMinQ et listMaxQ.
+
+// La première appel le checker qu'on a inlassablement essayé de faire fonctionné et s'il fonctionne sur de petits réseaux
+// il n'est pas résilient à un grand nombre d'équipements etc... + la détection des switches n'est pas fiable
+// Ces deux appels mériteraient peut être d'être supprimés ou remplacés.
 public class ReactiveNoJacobienneTest {
     private static final double DEFAULT_TOLERANCE = 1e-2;
     private LoadFlow.Runner loadFlowRunner;
@@ -46,11 +54,13 @@ public class ReactiveNoJacobienneTest {
         knitroLoadFlowParameters.setMaxIterations(300);
         knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.REACTIVLIMITS);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
-        //parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
         OpenLoadFlowParameters.create(parameters).setAcSolverType(KnitroSolverFactory.NAME);
         OpenLoadFlowParameters.get(parameters).setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE);
     }
 
+    /**
+     * Perturbation of the network to urge a PV-PQ switch and set the new PQ bus to the lower bound on reactive power
+     */
     @Test
     void testReacLimEurostagQlow() {
         HashMap<String, Double> listMinQ = new HashMap<>();
@@ -123,6 +133,9 @@ public class ReactiveNoJacobienneTest {
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 0);
     }
 
+    /**
+     * Perturbation of the network to urge a PV-PQ switch and set the new PQ bus to the upper bound on reactive power
+     */
     @Test
     void testReacLimEurostagQup() {
         HashMap<String, Double> listMinQ = new HashMap<>();
@@ -188,14 +201,18 @@ public class ReactiveNoJacobienneTest {
 
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
-//        assertReactivePowerEquals(-164.315, gen.getTerminal());
-//        assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
-//        assertReactivePowerEquals(100, ngen2Nhv1.getTerminal1());
-//        assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
+        assertReactivePowerEquals(-164.316, gen.getTerminal());
+        assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
+        assertReactivePowerEquals(100, ngen2Nhv1.getTerminal1());
+        assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
         ReacLimitsTestsUtils.checkSwitches(network, listMinQ, listMaxQ);
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 0);
     }
 
+    /**
+     * Case of a bus containing a load and a generator.
+     * Make sure the load is taking into account in the reactive power balance.
+     */
     @Test
     void testReacLimEurostagQupWithLoad() {
         HashMap<String, Double> listMinQ = new HashMap<>();
@@ -276,6 +293,10 @@ public class ReactiveNoJacobienneTest {
         ReacLimitsTestsUtils.verifNewtonRaphson(network, parameters, loadFlowRunner, 0);
     }
 
+    /**
+     * Case of a bus containing two generators.
+     * Make sure the second generator is taking into account in the reactive power balance.
+     */
     @Test
     void testReacLimEurostagQupWithGen() {
         HashMap<String, Double> listMinQ = new HashMap<>();
