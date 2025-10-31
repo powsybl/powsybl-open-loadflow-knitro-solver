@@ -7,6 +7,7 @@
  */
 package com.powsybl.openloadflow.knitro.solver.utils;
 
+import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroSolverParameters;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
+ * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 class KnitroSolverParametersTest {
 
@@ -59,7 +61,7 @@ class KnitroSolverParametersTest {
         KnitroSolverParameters parametersKnitro = new KnitroSolverParameters();
         // default value
         assertEquals(0.5, parametersKnitro.getLowerVoltageBound());
-        assertEquals(1.5, parametersKnitro.getUpperVoltageBound());
+        assertEquals(2.0, parametersKnitro.getUpperVoltageBound());
         // set other value
         parametersKnitro.setLowerVoltageBound(0.95);
         parametersKnitro.setUpperVoltageBound(1.05);
@@ -86,20 +88,40 @@ class KnitroSolverParametersTest {
 
         // wrong values
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setConvEps(-1.0));
-        assertEquals("Convergence stopping criteria must be greater than 0", e.getMessage());
+        assertEquals("Feasibility stopping criteria must be greater than 0", e.getMessage());
         IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setConvEps(0));
-        assertEquals("Convergence stopping criteria must be greater than 0", e2.getMessage());
+        assertEquals("Feasibility stopping criteria must be greater than 0", e2.getMessage());
     }
 
     @Test
     void testToString() {
         KnitroSolverParameters parameters = new KnitroSolverParameters();
         assertEquals("KnitroSolverParameters(gradientComputationMode=1, " +
-                "stoppingCriteria=1.0E-6, " +
+                "FeasibilityStoppingCriteria=1.0E-6, " +
+                "OptimalityStoppingCriteria=1.0E-6, " +
                 "minRealisticVoltage=0.5, " +
-                "maxRealisticVoltage=1.5, " +
+                "maxRealisticVoltage=2.0, " +
                 "alwaysUpdateNetwork=false, " +
-                "maxIterations=200" +
+                "maxIterations=400" +
+                ", knitroSolverType=STANDARD" +
                 ")", parameters.toString());
     }
+
+    @Test
+    void testSetAndGetHessianComputationMode(){
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
+        // check default value
+        assertEquals(6, knitroLoadFlowParameters.getHessianComputationMode());
+
+        // set other value
+        knitroLoadFlowParameters.setConvEps(2);
+        assertEquals(2, knitroLoadFlowParameters.getConvEps());
+
+        // wrong values
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setHessianComputationMode(-1));
+        assertEquals("Hessian computation mode must be between 1 and 7", e.getMessage());
+        IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setHessianComputationMode(8));
+        assertEquals("Hessian computation mode must be between 1 and 7", e2.getMessage());
+    }
+
 }
