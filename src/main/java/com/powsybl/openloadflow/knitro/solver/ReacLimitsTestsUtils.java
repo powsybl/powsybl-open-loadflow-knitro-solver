@@ -37,6 +37,13 @@ public final class ReacLimitsTestsUtils {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * Récupère le réseau après optimisation et vérifie les switchs PV - PQ effectués. On parcourt les générateurs du
+     * réseau et on vérifie si la target de l'un d'entre eux n'est pas respecté.
+     * Si c'est le cas, c'est qu'un switch a dû avoir lieu, on vérifie alors la puissance réactive du bus controlé
+     * Dans les calculs il faut surement prendre en compte les slacks (à vérifier lesquels)
+     *
+     */
     public static ArrayList<Integer> countAndSwitch(Network network, HashMap<String, Double> listMinQ, HashMap<String, Double> listMaxQ,
                                                     HashMap<String, Double> slacksP, HashMap<String, Double> slacksQ, HashMap<String, Double> slacksV) throws Exception {
         int nmbSwitchQmin = 0;
@@ -152,6 +159,9 @@ public final class ReacLimitsTestsUtils {
         return switches;
     }
 
+    /**
+     * Apply slacks used to the values of the network to make an accurate checker (doesn't work better)
+     */
     private static void applicationStacks(Network network, HashMap<String, Double> slacksP, HashMap<String,
             Double> slacksQ, HashMap<String, Double> slacksV, List<String> listBusSwitched) {
         for (Generator g : network.getGenerators()) {
@@ -186,6 +196,13 @@ public final class ReacLimitsTestsUtils {
         }
     }
 
+    /**
+     * Verification of the voltage values of the network post optimization with NR
+     * @param network       network post optimisation
+     * @param parameters    parameters
+     * @param loadFlowRunner
+     * @param nbreIter      max iteration of the NR methode, usually set at 0 (if so, need a personal olf's version)
+     */
     public static void verifNewtonRaphson(Network network, LoadFlowParameters parameters, LoadFlow.Runner loadFlowRunner, int nbreIter) {
         OpenLoadFlowParameters.get(parameters).setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.NONE);
         parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
@@ -196,6 +213,12 @@ public final class ReacLimitsTestsUtils {
         assertTrue(result.isFullyConverged());
     }
 
+    /**
+     * Reading of slacks variable used. Then check the switches made in the network
+     * @param network   network post optimization
+     * @param listMinQ  list of all the lower bound on Q on each generator
+     * @param listMaxQ  liste of all the upper bound on Q on each generator
+     */
     public static void checkSwitches(Network network, HashMap<String, Double> listMinQ, HashMap<String, Double> listMaxQ) {
         HashMap<String, Double> slacksP = new HashMap<String, Double>();
         HashMap<String, Double> slacksQ = new HashMap<String, Double>();
