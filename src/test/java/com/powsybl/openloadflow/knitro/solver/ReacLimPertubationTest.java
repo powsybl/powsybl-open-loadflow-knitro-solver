@@ -31,6 +31,13 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Yoann Anezin {@literal <yoann.anezin at artelys.com>}
  */
+// A la fin de chacun des tests on retrouve des appels aux méthodes "checkSwitches" et "verifNewtonRaphson".
+// Les boucles for qui les précèdent dans les tests ieee et rte servent à remplir la liste des bornes en Q pour
+// la fonction check Switches. De même globalement pour tout ce qui concerne les listes listMinQ et listMaxQ.
+
+// La première appel le checker qu'on a inlassablement essayé de faire fonctionné et s'il fonctionne sur de petits réseaux
+// il n'est pas résilient à un grand nombre d'équipements etc... + la détection des switches n'est pas fiable
+// Ces deux appels mériteraient peut être d'être supprimés ou remplacés.
 public class ReacLimPertubationTest {
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
