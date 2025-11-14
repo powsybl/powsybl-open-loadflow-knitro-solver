@@ -24,7 +24,6 @@ import com.powsybl.openloadflow.network.LfNetwork;
 import com.powsybl.openloadflow.network.util.VoltageInitializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.commons.lang3.Range;
 
 import java.util.*;
 
@@ -56,62 +55,6 @@ public class KnitroSolver extends AbstractAcSolver {
     @Override
     public String getName() {
         return "Knitro Solver";
-    }
-
-    /**
-     * Enum representing all possible Knitro status values.
-     */
-    public enum KnitroStatus {
-        CONVERGED_TO_LOCAL_OPTIMUM(0, 0, AcSolverStatus.CONVERGED),
-        CONVERGED_TO_FEASIBLE_APPROXIMATE_SOLUTION(-199, -100, AcSolverStatus.CONVERGED),
-        TERMINATED_AT_INFEASIBLE_POINT(-299, -200, AcSolverStatus.SOLVER_FAILED),
-        PROBLEM_UNBOUNDED(-399, -300, AcSolverStatus.SOLVER_FAILED),
-        TERMINATED_DUE_TO_PRE_DEFINED_LIMIT(-499, -400, AcSolverStatus.MAX_ITERATION_REACHED),
-        INPUT_OR_NON_STANDARD_ERROR(-599, -500, AcSolverStatus.SOLVER_FAILED);
-
-        private final Range<Integer> statusRange;
-        private final AcSolverStatus acSolverStatus;
-
-        /**
-         * Constructor initializing the range and corresponding AcSolverStatus.
-         *
-         * @param min           The minimum status code.
-         * @param max           The maximum status code.
-         * @param acSolverStatus The corresponding AcSolverStatus.
-         */
-        KnitroStatus(int min, int max, AcSolverStatus acSolverStatus) {
-            this.statusRange = Range.of(min, max);
-            this.acSolverStatus = acSolverStatus;
-        }
-
-        /**
-         * Finds the KnitroStatus from a given integer status code.
-         *
-         * @param statusCode The Knitro status code.
-         * @return The corresponding KnitroStatus.
-         * @throws IllegalArgumentException if the status code is unknown.
-         */
-        public static KnitroStatus fromStatusCode(int statusCode) {
-            for (KnitroStatus status : KnitroStatus.values()) {
-                if (status.statusRange.contains(statusCode)) {
-                    return status;
-                }
-            }
-            throw new IllegalArgumentException("Unknown Knitro Status");
-        }
-
-        /**
-         * Converts the KnitroStatus to its corresponding AcSolverStatus.
-         *
-         * @return The corresponding AcSolverStatus.
-         */
-        public AcSolverStatus toAcSolverStatus() {
-            return this.acSolverStatus;
-        }
-    }
-
-    private void logKnitroStatus(KnitroStatus status) {
-        LOGGER.info("Knitro Status: {}", status);
     }
 
     /**
@@ -175,23 +118,6 @@ public class KnitroSolver extends AbstractAcSolver {
 
         public List<Double> getInitialState() {
             return initialState;
-        }
-    }
-
-    public void buildDenseJacobianMatrix(int numVar, List<Integer> listNonLinearConsts, List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense) {
-        for (Integer idCt : listNonLinearConsts) {
-            for (int i = 0; i < numVar; i++) {
-                // there are numVar*numNonLinearConstraints derivates to evaluate because every non-linear constraint is derived with respect to every variable
-                listNonZerosCtsDense.add(idCt);
-            }
-        }
-
-        List<Integer> listVars = new ArrayList<>();
-        for (int i = 0; i < numVar; i++) {
-            listVars.add(i);
-        }
-        for (int i = 0; i < listNonLinearConsts.size(); i++) {
-            listNonZerosVarsDense.addAll(listVars);
         }
     }
 
@@ -506,7 +432,7 @@ public class KnitroSolver extends AbstractAcSolver {
             if (knitroParameters.getGradientComputationMode() == 1) { // User routine to compute the Jacobian
                 if (knitroParameters.getGradientUserRoutine() == 1) {
                     // Dense method: all non-linear constraints are considered as a function of all variables.
-                    buildDenseJacobianMatrix(numVar, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense);
+                    KnitroSolverUtils.buildDenseJacobianMatrix(numVar, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense);
                     this.setJacNnzPattern(listNonZerosCtsDense, listNonZerosVarsDense);
                 } else if (knitroParameters.getGradientUserRoutine() == 2) {
                     // Sparse method: compute Jacobian only for variables the constraints depend on.
@@ -560,7 +486,7 @@ public class KnitroSolver extends AbstractAcSolver {
             KNSolution solution = solver.getSolution();
             List<Double> constraintValues = solver.getConstraintValues();
             acStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
-            logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
+            KnitroSolverUtils.logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
             nbIter = solver.getNumberIters();
 
             // Log solution
