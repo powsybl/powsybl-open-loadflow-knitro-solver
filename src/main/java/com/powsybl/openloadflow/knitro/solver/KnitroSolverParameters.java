@@ -35,7 +35,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final double DEFAULT_SLACK_THRESHOLD = Math.pow(10, -6);
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
-    public static final boolean CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE = false; // If the solver converges, launches a load flow taking into account slack variable results to check if the solution is a real load flow solution
     public static final KnitroSolverType DEFAULT_KNITRO_SOLVER_TYPE = KnitroSolverType.STANDARD;
     public KnitroSolverType knitroSolverType = DEFAULT_KNITRO_SOLVER_TYPE;
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
@@ -48,7 +47,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
     private double lowerVoltageBound = DEFAULT_LOWER_VOLTAGE_BOUND;
     private double upperVoltageBound = DEFAULT_UPPER_VOLTAGE_BOUND;
     private boolean alwaysUpdateNetwork = ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
-    private boolean checkLoadFlowSolution = CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE;
     private int maxIterations = DEFAULT_MAX_ITERATIONS;
     private double convEps = DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA;
     private double absConvEps = DEFAULT_ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA;
@@ -136,15 +134,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     public KnitroSolverParameters setAlwaysUpdateNetwork(boolean alwaysUpdateNetwork) {
         this.alwaysUpdateNetwork = alwaysUpdateNetwork;
-        return this;
-    }
-
-    public boolean isCheckLoadFlowSolution() {
-        return checkLoadFlowSolution;
-    }
-
-    public KnitroSolverParameters setCheckLoadFlowSolution(boolean checkLoadFlowSolution) {
-        this.checkLoadFlowSolution = checkLoadFlowSolution;
         return this;
     }
 

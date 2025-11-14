@@ -7,7 +7,6 @@
  */
 package com.powsybl.openloadflow.knitro.solver.utils;
 
-import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroSolverParameters;
 import org.junit.jupiter.api.Test;
@@ -108,7 +107,7 @@ class KnitroSolverParametersTest {
     }
 
     @Test
-    void testSetAndGetHessianComputationMode(){
+    void testSetAndGetHessianComputationMode() {
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
         // check default value
         assertEquals(6, knitroLoadFlowParameters.getHessianComputationMode());

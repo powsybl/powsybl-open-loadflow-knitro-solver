@@ -61,7 +61,6 @@ public class KnitroSolverFactory implements AcSolverFactory {
                     .setAbsOptEps(parameters.getExtension(KnitroLoadFlowParameters.class).getAbsOptEps())
                     .setSlackThreshold(parameters.getExtension(KnitroLoadFlowParameters.class).getSlackThreshold())
                     .setAlwaysUpdateNetwork(parameters.getExtension(KnitroLoadFlowParameters.class).isAlwaysUpdateNetwork())
-                    .setCheckLoadFlowSolution(parameters.getExtension(KnitroLoadFlowParameters.class).isCheckLoadFlowSolution())
                     .setKnitroSolverType(parameters.getExtension(KnitroLoadFlowParameters.class).getKnitroSolverType());
 
         }
@@ -75,10 +74,8 @@ public class KnitroSolverFactory implements AcSolverFactory {
         KnitroSolverParameters knitroSolverParameters = (KnitroSolverParameters) parameters.getAcSolverParameters();
         KnitroSolverParameters.KnitroSolverType knitroSolverType = knitroSolverParameters.getKnitroSolverType();
         return switch (knitroSolverType) {
-            case STANDARD ->
-                    new KnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
-            case RESILIENT ->
-                    new ResilientKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
+            case STANDARD -> new KnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
+            case RESILIENT -> new ResilientKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
         };
     }
 

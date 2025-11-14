@@ -29,7 +29,6 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private double absOptEps = KnitroSolverParameters.DEFAULT_ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA;
     private double slackThreshold = KnitroSolverParameters.DEFAULT_SLACK_THRESHOLD;
     private boolean alwaysUpdateNetwork = KnitroSolverParameters.ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
-    private boolean checkLoadFlowSolution = KnitroSolverParameters.CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE;
     private KnitroSolverParameters.KnitroSolverType knitroSolverType = KnitroSolverParameters.DEFAULT_KNITRO_SOLVER_TYPE;
 
     public int getGradientComputationMode() {
@@ -50,15 +49,6 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
 
     public KnitroLoadFlowParameters setAlwaysUpdateNetwork(boolean alwaysUpdateNetwork) {
         this.alwaysUpdateNetwork = alwaysUpdateNetwork;
-        return this;
-    }
-
-    public boolean isCheckLoadFlowSolution() {
-        return checkLoadFlowSolution;
-    }
-
-    public KnitroLoadFlowParameters setCheckLoadFlowSolution(boolean checkLoadFlowSolution) {
-        this.checkLoadFlowSolution = checkLoadFlowSolution;
         return this;
     }
 
