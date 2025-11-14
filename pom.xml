@@ -45,6 +45,12 @@
             <organization>Artelys</organization>
             <organizationUrl>http://www.artelys.com</organizationUrl>
         </developer>
+        <developer>
+            <name>Amine Makhen</name>
+            <email>amine.makhen@artelys.com</email>
+            <organization>Artelys</organization>
+            <organizationUrl>http://www.artelys.com</organizationUrl>
+        </developer>
     </developers>
 
     <properties>
@@ -90,16 +96,6 @@
                 <version>${powsybl-core.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>com.powsybl</groupId>
-                <artifactId>powsybl-iidm-impl</artifactId>
-                <version>6.6.0</version>
-            </dependency>
-            <dependency>
-                <groupId>com.powsybl</groupId>
-                <artifactId>powsybl-ieee-cdf-converter</artifactId>
-                <version>6.6.0</version>
             </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>
