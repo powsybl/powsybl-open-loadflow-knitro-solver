@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static com.google.common.primitives.Doubles.toArray;
 
@@ -70,7 +69,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     private final Map<Integer, Integer> vEquationLocalIds;
 
     // Mapping of slacked bus
-    private final ArrayList<SlackKey> slackContributions = new ArrayList<>();
     protected KnitroSolverParameters knitroParameters;
 
     public ResilientKnitroSolver(
@@ -128,44 +126,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     @Override
     public String getName() {
         return "Knitro Resilient Solver";
-    }
-
-    /**
-     * Logs the Knitro status and its corresponding AcSolverStatus.
-     *
-     * @param status the KnitroStatus to log
-     */
-    private void logKnitroStatus(KnitroStatus status) {
-        LOGGER.info("Knitro Status: {}", status);
-    }
-
-    /**
-     * Builds the row and column index lists corresponding to the dense Jacobian structure,
-     * assuming each non-linear constraint is derived with respect to every variable.
-     *
-     * @param numVars               Total number of variables.
-     * @param listNonLinearConsts   List of non-linear constraint indices.
-     * @param listNonZerosCtsDense  Output list to receive constraint indices for non-zero Jacobian entries.
-     * @param listNonZerosVarsDense Output list to receive variable indices for non-zero Jacobian entries.
-     */
-    public void buildDenseJacobianMatrix(
-            int numVars,
-            List<Integer> listNonLinearConsts,
-            List<Integer> listNonZerosCtsDense,
-            List<Integer> listNonZerosVarsDense) {
-
-        // Each non-linear constraint will have a partial derivative with respect to every variable
-        for (Integer constraintId : listNonLinearConsts) {
-            for (int varIndex = 0; varIndex < numVars; varIndex++) {
-                listNonZerosCtsDense.add(constraintId);
-            }
-        }
-
-        // We repeat the full list of variables for each non-linear constraint
-        List<Integer> variableIndices = IntStream.range(0, numVars).boxed().toList();
-        for (int i = 0; i < listNonLinearConsts.size(); i++) {
-            listNonZerosVarsDense.addAll(variableIndices);
-        }
     }
 
     /**
@@ -267,7 +227,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             List<Double> x = solution.getX();
 
             solverStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
-            logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
+            KnitroSolverUtils.logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
             nbIterations = solver.getNumberIters();
 
             LOGGER.info("==== Solution Summary ====");
@@ -347,7 +307,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
                 default -> interpretation = "Unknown slack type";
             }
 
-            slackContributions.add(new SlackKey(type, name, epsilon));
             String msg = String.format("Slack %s[ %s ] → Sm = %.4f, Sp = %.4f → %s", type, name, sm, sp, interpretation);
             LOGGER.debug(msg);
         }
@@ -439,9 +398,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         }
 
         return new AbstractMap.SimpleEntry<>(hessRows, hessCols);
-    }
-
-    record SlackKey(String type, String busId, double contribution) {
     }
 
     private final class ResilientKnitroProblem extends KNProblem {
@@ -691,7 +647,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             if (knitroParameters.getGradientComputationMode() == 1) { // User routine to compute the Jacobian
                 if (knitroParameters.getGradientUserRoutine() == 1) {
                     // Dense method: all non-linear constraints are considered as a function of all variables.
-                    buildDenseJacobianMatrix(numVar, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense);
+                    KnitroSolverUtils.buildDenseJacobianMatrix(numVar, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense);
                     this.setJacNnzPattern(listNonZerosCtsDense, listNonZerosVarsDense);
                 } else if (knitroParameters.getGradientUserRoutine() == 2) {
                     // Sparse method: compute Jacobian only for variables the constraints depend on.
