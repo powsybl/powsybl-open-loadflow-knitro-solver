@@ -29,7 +29,7 @@ By participating, you are expected to uphold this code. Please report unacceptab
 PowSyBl Open Load Flow Knitro Solver is an extension to [PowSyBl Open Load Flow](https://github.com/powsybl/powsybl-open-loadflow) allowing to solve
 the load flow equations with the **non-linear solver Knitro** instead of the default **Newton-Raphson** method.
 
-The Knitro solver extension models the load flow problem as a **constraint satisfaction problem** (without an objective function).
+The Knitro solver extension offers two different ways to model the load flow problem: either as a **constraint satisfaction problem** (without an objective function) or as an **optimisation problem** with relaxed constraints (and an objective function). 
 
 ## Getting Started
 
@@ -168,13 +168,20 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
 
 ### Knitro Parameters
 
-1. **Voltage Bounds**:
+1. **Knitro Solver Type**:
+    - Specifies the way to model the load flow problem : 
+    - **Knitro Solver Types**:
+      - `STANDARD (default)` : the constraint satisfaction problem formulation and a direct substitute to the Newton-Raphson solver.
+      - `RESILIENT` : the optimisation problem formulation to detect unfeasibilities in networks.
+    - Use `setKnitroSolverType` in the `KnitroLoadFlowParameters` extension.
+
+2. **Voltage Bounds**:
     - Default range: **0.5 p.u. to 1.5 p.u.** : they define lower and upper bounds of voltages.
     - Modify using:
         - `setLowerVoltageBound`
         - `setUpperVoltageBound`
 
-2. **Jacobian Matrix Usage**:
+3. **Jacobian Matrix Usage**:
     - The solver utilizes the **Jacobian matrix** for solving successive linear approximations of the problem.
     - **Gradient Computation Modes**:
         - `1 (exact)`: Gradients computed in PowSyBl are provided to Knitro.
@@ -182,7 +189,7 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
         - `3 (central)`: Knitro computes gradients via central finite differences.
     - Use `setGradientComputationMode` in the `KnitroLoadFlowParameters` extension.
 
-3. **Jacobian Sparsity**:
+4. **Jacobian Sparsity**:
     - Default: **Sparse form** (highly recommended, improves calculation as load flow problems are highly sparse problems).
     - To specify dense form:
         - Use `setGradientUserRoutineKnitro` in the `KnitroLoadFlowParameters` extension.
@@ -190,8 +197,8 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
         - `1 (dense)`: All constraints are considered as dependent of all variables.
         - `2 (sparse)`: Derivatives are computed only for variables involved in the constraints (recommended).
 
-4. **Maximum Iterations**:
-    - Default: **200**
+5. **Maximum Iterations**:
+    - Default: **400**
     - Modify using `setMaxIterations`.
 
 ### Constraint Handling
