@@ -14,6 +14,7 @@ import com.powsybl.openloadflow.network.SlackBusSelectionMode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static com.powsybl.openloadflow.knitro.solver.ResilientKnitroSolverTestUtils.applyActivePowerPerturbation;
 import static com.powsybl.openloadflow.knitro.solver.ResilientKnitroSolverTestUtils.applyVoltagePerturbation;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -51,6 +52,20 @@ public class ResilientKnitroSolverConvergenceTest {
         }
     }
 
+    private void verifyConvergence(Network rknNetwork, Network nrNetwork) {
+        // Verify Newton-Raphson solver diverges
+        configureSolver(NR);
+        LoadFlowResult resultNR = loadFlowRunner.run(nrNetwork, parameters);
+        boolean isConvergedNR = resultNR.isFullyConverged();
+        assertFalse(isConvergedNR, "NR should not converge");
+
+        // Verify resilient Knitro solver converges
+        configureSolver(RKN);
+        LoadFlowResult resultRKN = loadFlowRunner.run(rknNetwork, parameters);
+        boolean isConvergedRKN = resultRKN.isFullyConverged();
+        assertTrue(isConvergedRKN, "RKN should converge");
+    }
+
     @Test
     void testConvergenceAfterVoltagePerturbationOnI3E14() {
         // Create network objects
@@ -70,24 +85,60 @@ public class ResilientKnitroSolverConvergenceTest {
                 lineId
         );
 
-        double r = 0.001742;
+        double x = 0.001742;
         double targetV = 131.0429;
 
         // Apply perturbation to both networks
-        applyVoltagePerturbation(nrNetwork, voltagePerturbation, r, targetV);
-        applyVoltagePerturbation(rknNetwork, voltagePerturbation, r, targetV);
+        applyVoltagePerturbation(nrNetwork, voltagePerturbation, x, targetV);
+        applyVoltagePerturbation(rknNetwork, voltagePerturbation, x, targetV);
 
-        // Verify Newton-Raphson solver diverges
-        configureSolver(NR);
-        LoadFlowResult resultNR = loadFlowRunner.run(nrNetwork, parameters);
-        boolean isConvergedNR = resultNR.isFullyConverged();
-        assertFalse(isConvergedNR, "NR should not converge");
+        verifyConvergence(rknNetwork, nrNetwork);
+    }
 
-        // Verify resilient Knitro solver converges
-        configureSolver(RKN);
-        LoadFlowResult resultRKN = loadFlowRunner.run(nrNetwork, parameters);
-        boolean isConvergedRKN = resultRKN.isFullyConverged();
-        assertTrue(isConvergedRKN, "RKN should converge");
+    @Test
+    void testConvergenceAfterVoltagePerturbationOnI3E300() {
+        // Create network objects
+        Network rknNetwork = IeeeCdfNetworkFactory.create300();
+        Network nrNetwork = IeeeCdfNetworkFactory.create300();
 
+        // Define perturbation
+        String bus1Id = "B123";
+        String bus2Id = "B125";
+        String generatorId = "B124-G";
+        String lineId = "L123-124-1";
+
+        VoltagePerturbation voltagePerturbation = new VoltagePerturbation(
+                bus1Id,
+                bus2Id,
+                generatorId,
+                lineId
+        );
+
+        double x = 0.0013225;
+        double targetV = 111.795525;
+
+        // Apply perturbation to both networks
+        applyVoltagePerturbation(nrNetwork, voltagePerturbation, x, targetV);
+        applyVoltagePerturbation(rknNetwork, voltagePerturbation, x, targetV);
+
+        verifyConvergence(rknNetwork, nrNetwork);
+    }
+
+    @Test
+    void testConvergenceAfterActivePowerPerturbationOnI3E300() {
+        // Create network objects
+        Network rknNetwork = IeeeCdfNetworkFactory.create300();
+        Network nrNetwork = IeeeCdfNetworkFactory.create300();
+
+        // Define perturbation
+        String loadId = "B1-L";
+
+        double targetP = 2356.866;
+
+        // Apply perturbation to both networks
+        applyActivePowerPerturbation(nrNetwork, loadId, targetP);
+        applyActivePowerPerturbation(rknNetwork, loadId, targetP);
+
+        verifyConvergence(rknNetwork, nrNetwork);
     }
 }

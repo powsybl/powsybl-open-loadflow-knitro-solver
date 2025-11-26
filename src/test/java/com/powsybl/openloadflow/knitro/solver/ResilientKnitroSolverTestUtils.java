@@ -68,6 +68,18 @@ public final class ResilientKnitroSolverTestUtils {
                 .setB2(0.0);
     }
 
+    /**
+     * Creates an active power perturbation of a given network.
+     *
+     * @param network      The network to perturb.
+     * @param targetLoadID The ID of the load to perturb.
+     * @param targetP      The active power load target value
+     */
+    public static void applyActivePowerPerturbation(Network network, String targetLoadID, double targetP) {
+        Load targetLoad = network.getLoad(targetLoadID);
+        targetLoad.setP0(targetP);
+    }
+
     public record VoltagePerturbation(String noGeneratorBusID,
                                       String regulatingBusID,
                                       String generatorID,
