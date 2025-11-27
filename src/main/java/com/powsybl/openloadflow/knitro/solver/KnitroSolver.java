@@ -432,7 +432,7 @@ public class KnitroSolver extends AbstractAcSolver {
             if (knitroParameters.getGradientComputationMode() == 1) { // User routine to compute the Jacobian
                 if (knitroParameters.getGradientUserRoutine() == 1) {
                     // Dense method: all non-linear constraints are considered as a function of all variables.
-                    KnitroSolverUtils.buildDenseJacobianMatrix(numVar, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense);
+                    NonLinearExternalSolverUtils.buildDenseJacobianMatrix(numVar, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense);
                     this.setJacNnzPattern(listNonZerosCtsDense, listNonZerosVarsDense);
                 } else if (knitroParameters.getGradientUserRoutine() == 2) {
                     // Sparse method: compute Jacobian only for variables the constraints depend on.
@@ -486,7 +486,7 @@ public class KnitroSolver extends AbstractAcSolver {
             KNSolution solution = solver.getSolution();
             List<Double> constraintValues = solver.getConstraintValues();
             acStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
-            KnitroSolverUtils.logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
+            NonLinearExternalSolverUtils.logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
             nbIter = solver.getNumberIters();
 
             // Log solution

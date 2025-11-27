@@ -172,7 +172,7 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
     - Specifies the way to model the load flow problem : 
     - **Knitro Solver Types**:
       - `STANDARD (default)` : the constraint satisfaction problem formulation and a direct substitute to the Newton-Raphson solver.
-      - `RESILIENT` : the optimisation problem formulation to detect unfeasibilities in networks.
+      - `RELAXED` : the optimisation problem formulation relaxing satisfaction problem.
     - Use `setKnitroSolverType` in the `KnitroLoadFlowParameters` extension.
 
 2. **Voltage Bounds**:

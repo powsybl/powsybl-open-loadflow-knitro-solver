@@ -47,7 +47,7 @@ public class ResilientKnitroSolverConvergenceTest {
         if (RKN.equals(solver)) {
             KnitroLoadFlowParameters knitroParams = new KnitroLoadFlowParameters();
             // Set the Knitro solver type to RESILIENT
-            knitroParams.setKnitroSolverType(KnitroSolverParameters.SolverType.RESILIENT);
+            knitroParams.setKnitroSolverType(KnitroSolverParameters.SolverType.RELAXED);
             parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
         }
     }

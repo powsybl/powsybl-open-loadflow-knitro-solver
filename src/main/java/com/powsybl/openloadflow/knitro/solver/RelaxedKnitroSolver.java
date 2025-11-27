@@ -34,9 +34,9 @@ import static com.google.common.primitives.Doubles.toArray;
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
-public class ResilientKnitroSolver extends AbstractAcSolver {
+public class RelaxedKnitroSolver extends AbstractAcSolver {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ResilientKnitroSolver.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(RelaxedKnitroSolver.class);
 
     // Penalty weights in the objective function
     private final double wP = 1.0;
@@ -71,7 +71,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     // Mapping of slacked bus
     protected KnitroSolverParameters knitroParameters;
 
-    public ResilientKnitroSolver(
+    public RelaxedKnitroSolver(
             LfNetwork network,
             KnitroSolverParameters knitroParameters,
             EquationSystem<AcVariableType, AcEquationType> equationSystem,
@@ -125,7 +125,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
      */
     @Override
     public String getName() {
-        return "Knitro Resilient Solver";
+        return "Relaxed Knitro Solver";
     }
 
     /**
@@ -195,7 +195,6 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
         solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
-        solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_BOTH);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, OPTTOL={}, MAXIT={}",
@@ -210,10 +209,10 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
     public AcSolverResult run(VoltageInitializer voltageInitializer, ReportNode reportNode) {
         int nbIterations;
         AcSolverStatus solverStatus;
-        ResilientKnitroProblem problemInstance;
+        RelaxedKnitroProblem problemInstance;
 
         try {
-            problemInstance = new ResilientKnitroProblem(network, equationSystem, targetVector, j, voltageInitializer);
+            problemInstance = new RelaxedKnitroProblem(network, equationSystem, targetVector, j, voltageInitializer);
         } catch (KNException e) {
             throw new PowsyblException("Exception while building Knitro problem", e);
         }
@@ -227,7 +226,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             List<Double> x = solution.getX();
 
             solverStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
-            KnitroSolverUtils.logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
+            NonLinearExternalSolverUtils.logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
             nbIterations = solver.getNumberIters();
 
             LOGGER.info("==== Solution Summary ====");
@@ -400,7 +399,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
         return new AbstractMap.SimpleEntry<>(hessRows, hessCols);
     }
 
-    private final class ResilientKnitroProblem extends KNProblem {
+    private final class RelaxedKnitroProblem extends KNProblem {
 
         /**
          * Knitro problem definition including:
@@ -409,7 +408,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
          * - Objective function setup
          * - Jacobian matrix setup for Knitro
          */
-        private ResilientKnitroProblem(
+        private RelaxedKnitroProblem(
                 LfNetwork network,
                 EquationSystem<AcVariableType, AcEquationType> equationSystem,
                 TargetVector<AcVariableType, AcEquationType> targetVector,
@@ -647,7 +646,7 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
             if (knitroParameters.getGradientComputationMode() == 1) { // User routine to compute the Jacobian
                 if (knitroParameters.getGradientUserRoutine() == 1) {
                     // Dense method: all non-linear constraints are considered as a function of all variables.
-                    KnitroSolverUtils.buildDenseJacobianMatrix(numVar, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense);
+                    NonLinearExternalSolverUtils.buildDenseJacobianMatrix(numVar, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense);
                     this.setJacNnzPattern(listNonZerosCtsDense, listNonZerosVarsDense);
                 } else if (knitroParameters.getGradientUserRoutine() == 2) {
                     // Sparse method: compute Jacobian only for variables the constraints depend on.
@@ -675,9 +674,9 @@ public class ResilientKnitroSolver extends AbstractAcSolver {
 
             private final List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve;
             private final List<Integer> nonLinearConstraintIds;
-            private final ResilientKnitroProblem problemInstance;
+            private final RelaxedKnitroProblem problemInstance;
 
-            private CallbackEvalFC(ResilientKnitroProblem problemInstance, List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> nonLinearConstraintIds) {
+            private CallbackEvalFC(RelaxedKnitroProblem problemInstance, List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> nonLinearConstraintIds) {
                 this.problemInstance = problemInstance;
                 this.sortedEquationsToSolve = sortedEquationsToSolve;
                 this.nonLinearConstraintIds = nonLinearConstraintIds;
