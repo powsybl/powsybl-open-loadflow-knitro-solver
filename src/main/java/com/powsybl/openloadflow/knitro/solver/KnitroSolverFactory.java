@@ -49,8 +49,8 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 .setAlwaysUpdateNetwork(parametersExt.isAlwaysUpdateNetwork());
         if (parameters.getExtension(KnitroLoadFlowParameters.class) != null) {
             KnitroLoadFlowParameters knitroLoadFlowParameters = parameters.getExtension(KnitroLoadFlowParameters.class);
-            knitroSolverParameters.
-                setGradientComputationMode(knitroLoadFlowParameters.getGradientComputationMode())
+            knitroSolverParameters
+                .setGradientComputationMode(knitroLoadFlowParameters.getGradientComputationMode())
                 .setGradientUserRoutine(knitroLoadFlowParameters.getGradientUserRoutine())
                 .setHessianComputationMode(knitroLoadFlowParameters.getHessianComputationMode())
                 .setLowerVoltageBound(knitroLoadFlowParameters.getLowerVoltageBound())

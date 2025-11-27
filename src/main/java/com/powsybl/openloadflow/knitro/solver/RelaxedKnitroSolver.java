@@ -8,19 +8,12 @@
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.artelys.knitro.api.*;
-import com.artelys.knitro.api.callbacks.KNEvalFCCallback;
 import com.artelys.knitro.api.callbacks.KNEvalGACallback;
-import com.powsybl.commons.PowsyblException;
-import com.powsybl.commons.report.ReportNode;
-import com.powsybl.math.matrix.SparseMatrix;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.ac.equations.AcVariableType;
-import com.powsybl.openloadflow.ac.solver.AbstractAcSolver;
-import com.powsybl.openloadflow.ac.solver.AcSolverResult;
-import com.powsybl.openloadflow.ac.solver.AcSolverStatus;
-import com.powsybl.openloadflow.ac.solver.AcSolverUtil;
 import com.powsybl.openloadflow.equations.*;
-import com.powsybl.openloadflow.network.*;
+import com.powsybl.openloadflow.network.LfBus;
+import com.powsybl.openloadflow.network.LfNetwork;
 import com.powsybl.openloadflow.network.util.VoltageInitializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,13 +21,11 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.google.common.primitives.Doubles.toArray;
-
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
-public class RelaxedKnitroSolver extends AbstractAcSolver {
+public class RelaxedKnitroSolver extends AbstractKnitroSolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RelaxedKnitroSolver.class);
 
@@ -68,9 +59,6 @@ public class RelaxedKnitroSolver extends AbstractAcSolver {
     private final Map<Integer, Integer> qEquationLocalIds;
     private final Map<Integer, Integer> vEquationLocalIds;
 
-    // Mapping of slacked bus
-    protected KnitroSolverParameters knitroParameters;
-
     public RelaxedKnitroSolver(
             LfNetwork network,
             KnitroSolverParameters knitroParameters,
@@ -80,8 +68,7 @@ public class RelaxedKnitroSolver extends AbstractAcSolver {
             EquationVector<AcVariableType, AcEquationType> equationVector,
             boolean detailedReport) {
 
-        super(network, equationSystem, j, targetVector, equationVector, detailedReport);
-        this.knitroParameters = knitroParameters;
+        super(network, knitroParameters, equationSystem, j, targetVector, equationVector, detailedReport);
 
         this.numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
 
@@ -125,150 +112,42 @@ public class RelaxedKnitroSolver extends AbstractAcSolver {
         return "Relaxed Knitro Solver";
     }
 
-    /**
-     * Builds the sparse Jacobian matrix by identifying non-zero entries
-     * for each non-linear constraint, including contributions from slack variables.
-     *
-     * @param sortedEquationsToSolve Ordered list of equations to solve.
-     * @param nonLinearConstraintIds Indices of non-linear constraints within the sorted equation list.
-     * @param jacobianRowIndices     Output: row indices (constraints) of non-zero Jacobian entries.
-     * @param jacobianColumnIndices  Output: column indices (variables) of non-zero Jacobian entries.
-     */
-    public void buildSparseJacobianMatrix(
-            List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
-            List<Integer> nonLinearConstraintIds,
-            List<Integer> jacobianRowIndices,
-            List<Integer> jacobianColumnIndices) {
-
-        for (Integer constraintIndex : nonLinearConstraintIds) {
-            Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(constraintIndex);
-            AcEquationType equationType = equation.getType();
-
-            // Collect all variable indices involved in the current equation
-            Set<Integer> involvedVariables = equation.getTerms().stream()
-                    .flatMap(term -> term.getVariables().stream())
-                    .map(Variable::getRow)
-                    .collect(Collectors.toCollection(TreeSet::new));
-
-            // Add slack variables if the constraint type has them
-            int slackStart = switch (equationType) {
-                case BUS_TARGET_P -> pEquationLocalIds.getOrDefault(constraintIndex, -1);
-                case BUS_TARGET_Q -> qEquationLocalIds.getOrDefault(constraintIndex, -1);
-                case BUS_TARGET_V -> vEquationLocalIds.getOrDefault(constraintIndex, -1);
-                default -> -1;
-            };
-
-            if (slackStart >= 0) {
-                int slackBaseIndex = switch (equationType) {
-                    case BUS_TARGET_P -> slackPStartIndex;
-                    case BUS_TARGET_Q -> slackQStartIndex;
-                    case BUS_TARGET_V -> slackVStartIndex;
-                    default -> throw new IllegalStateException("Unexpected constraint type: " + equationType);
-                };
-                involvedVariables.add(slackBaseIndex + 2 * slackStart);     // Sm
-                involvedVariables.add(slackBaseIndex + 2 * slackStart + 1); // Sp
-            }
-
-            // Add one entry for each non-zero (constraintIndex, variableIndex)
-            jacobianColumnIndices.addAll(involvedVariables);
-            jacobianRowIndices.addAll(Collections.nCopies(involvedVariables.size(), constraintIndex));
+    @Override
+    protected KNProblem createKnitroProblem(VoltageInitializer voltageInitializer) {
+        try {
+            return new RelaxedKnitroProblem(network, equationSystem, targetVector, j, voltageInitializer, knitroParameters);
+        } catch (KNException e) {
+            throw new RuntimeException("Failed to create RelaxedKnitro problem", e);
         }
-    }
-
-    /**
-     * Sets Knitro solver parameters based on the provided KnitroSolverParameters object.
-     *
-     * @param solver The Knitro solver instance to configure.
-     * @throws KNException if Knitro fails to accept a parameter.
-     */
-    private void setSolverParameters(KNSolver solver) throws KNException {
-        LOGGER.info("Configuring Knitro solver parameters...");
-
-        solver.setParam(KNConstants.KN_PARAM_GRADOPT, knitroParameters.getGradientComputationMode());
-        solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getRelConvEps());
-        solver.setParam(KNConstants.KN_PARAM_FEASTOLABS, knitroParameters.getAbsConvEps());
-        solver.setParam(KNConstants.KN_PARAM_OPTTOL, knitroParameters.getRelOptEps());
-        solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, knitroParameters.getAbsOptEps());
-        solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
-        solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
-        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
-        solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
-
-        LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, OPTTOL={}, MAXIT={}",
-                knitroParameters.getGradientComputationMode(),
-                knitroParameters.getHessianComputationMode(),
-                knitroParameters.getRelConvEps(),
-                knitroParameters.getRelOptEps(),
-                knitroParameters.getMaxIterations());
     }
 
     @Override
-    public AcSolverResult run(VoltageInitializer voltageInitializer, ReportNode reportNode) {
-        int nbIterations;
-        AcSolverStatus solverStatus;
-        RelaxedKnitroProblem problemInstance;
+    protected KNSolution getSolution(KNSolver solver) {
+        return solver.getBestFeasibleIterate();
+    }
 
-        try {
-            problemInstance = new RelaxedKnitroProblem(network, equationSystem, targetVector, j, voltageInitializer);
-        } catch (KNException e) {
-            throw new PowsyblException("Exception while building Knitro problem", e);
-        }
+    @Override
+    protected void processSolution(KNSolver solver, KNSolution solution, KNProblem problemInstance) {
+        super.processSolution(solver, solution, problemInstance);
 
-        try (KNSolver solver = new KNSolver(problemInstance)) {
-            solver.initProblem();
-            setSolverParameters(solver);
-            solver.solve();
+        List<Double> x = solution.getX();
 
-            KNSolution solution = solver.getBestFeasibleIterate();
-            List<Double> x = solution.getX();
+        // ========== Slack Logging ==========
+        logSlackValues("P", slackPStartIndex, numPEquations, x);
+        logSlackValues("Q", slackQStartIndex, numQEquations, x);
+        logSlackValues("V", slackVStartIndex, numVEquations, x);
 
-            solverStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
-            NonLinearExternalSolverUtils.logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
-            nbIterations = solver.getNumberIters();
+        // ========== Penalty Computation ==========
+        double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wP, lambda);
+        double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wQ, lambda);
+        double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV, lambda);
+        double totalPenalty = penaltyP + penaltyQ + penaltyV;
 
-            LOGGER.info("==== Solution Summary ====");
-            LOGGER.info("Objective value            = {}", solution.getObjValue());
-            LOGGER.info("Feasibility violation      = {}", solver.getAbsFeasError());
-            LOGGER.info("Optimality violation       = {}", solver.getAbsOptError());
-
-            // ========== Slack Logging ==========
-            logSlackValues("P", slackPStartIndex, numPEquations, x);
-            logSlackValues("Q", slackQStartIndex, numQEquations, x);
-            logSlackValues("V", slackVStartIndex, numVEquations, x);
-
-            // ========== Penalty Computation ==========
-            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wP, lambda);
-            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wQ, lambda);
-            double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV, lambda);
-            double totalPenalty = penaltyP + penaltyQ + penaltyV;
-
-            LOGGER.info("==== Slack penalty details ====");
-            LOGGER.info("Penalty P = {}", penaltyP);
-            LOGGER.info("Penalty Q = {}", penaltyQ);
-            LOGGER.info("Penalty V = {}", penaltyV);
-            LOGGER.info("Total penalty = {}", totalPenalty);
-
-            // ========== Network Update ==========
-            // Update the network values if the solver converged or if the network should always be updated
-            if (solverStatus == AcSolverStatus.CONVERGED || knitroParameters.isAlwaysUpdateNetwork()) {
-                //Update the state vector with the solution
-                equationSystem.getStateVector().set(toArray(x));
-                for (Equation<AcVariableType, AcEquationType> equation : equationSystem.getEquations()) {
-                    for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                        term.setStateVector(equationSystem.getStateVector());
-                    }
-                }
-                AcSolverUtil.updateNetwork(network, equationSystem);
-            }
-        } catch (KNException e) {
-            throw new PowsyblException("Exception while solving with Knitro", e);
-        }
-
-        double slackBusMismatch = network.getSlackBuses().stream()
-                .mapToDouble(LfBus::getMismatchP)
-                .sum();
-
-        return new AcSolverResult(solverStatus, nbIterations, slackBusMismatch);
+        LOGGER.info("==== Slack penalty details ====");
+        LOGGER.info("Penalty P = {}", penaltyP);
+        LOGGER.info("Penalty Q = {}", penaltyQ);
+        LOGGER.info("Penalty V = {}", penaltyV);
+        LOGGER.info("Total penalty = {}", totalPenalty);
     }
 
     private void logSlackValues(String type, int startIndex, int count, List<Double> x) {
@@ -396,7 +275,7 @@ public class RelaxedKnitroSolver extends AbstractAcSolver {
         return new AbstractMap.SimpleEntry<>(hessRows, hessCols);
     }
 
-    private final class RelaxedKnitroProblem extends KNProblem {
+    private final class RelaxedKnitroProblem extends AbstractKnitroProblem {
 
         /**
          * Knitro problem definition including:
@@ -410,59 +289,26 @@ public class RelaxedKnitroSolver extends AbstractAcSolver {
                 EquationSystem<AcVariableType, AcEquationType> equationSystem,
                 TargetVector<AcVariableType, AcEquationType> targetVector,
                 JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                VoltageInitializer voltageInitializer) throws KNException {
+                VoltageInitializer voltageInitializer,
+                KnitroSolverParameters parameters) throws KNException {
 
-            // =============== Variable Initialization ===============
-            super(numTotalVariables, equationSystem.getIndex().getSortedEquationsToSolve().size());
+            super(network, equationSystem, targetVector, jacobianMatrix, parameters, numTotalVariables);
             LOGGER.info("Defining {} variables", numTotalVariables);
 
-            // Variable types (all continuous), bounds, and initial values
-            List<Integer> variableTypes = new ArrayList<>(Collections.nCopies(numTotalVariables, KNConstants.KN_VARTYPE_CONTINUOUS));
-            List<Double> lowerBounds = new ArrayList<>(Collections.nCopies(numTotalVariables, -KNConstants.KN_INFINITY));
-            List<Double> upperBounds = new ArrayList<>(Collections.nCopies(numTotalVariables, KNConstants.KN_INFINITY));
-            List<Double> initialValues = new ArrayList<>(Collections.nCopies(numTotalVariables, 0.0));
-
-            setVarTypes(variableTypes);
-
-            // Compute initial state (V, Theta) using the given initializer
-            AcSolverUtil.initStateVector(network, equationSystem, voltageInitializer);
-            for (int i = 0; i < numLFVariables; i++) {
-                initialValues.set(i, equationSystem.getStateVector().get(i));
-            }
-
-            // Initialize slack variables (≥ 0, initial value = 0)
-            for (int i = slackStartIndex; i < numTotalVariables; i++) {
-                lowerBounds.set(i, 0.0);
-            }
-
-            // Set bounds for voltage variables based on Knitro parameters
-            for (int i = 0; i < numLFVariables; i++) {
-                if (equationSystem.getIndex().getSortedVariablesToFind().get(i).getType() == AcVariableType.BUS_V) {
-                    lowerBounds.set(i, knitroParameters.getLowerVoltageBound());
-                    upperBounds.set(i, knitroParameters.getUpperVoltageBound());
-                }
-            }
-
+            // Initialize variables (base class handles LF variables, we customize for slack)
+            initializeVariables(voltageInitializer, numTotalVariables);
             LOGGER.info("Voltage initialization strategy: {}", voltageInitializer);
 
-            // Set bounds and initial state
-            setVarLoBnds(lowerBounds);
-            setVarUpBnds(upperBounds);
-            setXInitial(initialValues);
-            LOGGER.info("Variables initialization complete!");
-
             // =============== Constraint Setup ===============
+            setupConstraints();
             List<Equation<AcVariableType, AcEquationType>> activeConstraints = equationSystem.getIndex().getSortedEquationsToSolve();
-            int numConstraints = activeConstraints.size();
             List<Integer> nonlinearConstraintIndexes = new ArrayList<>();
-
-            LOGGER.info("Defining {} active constraints", numConstraints);
-
-            // Linear and nonlinear constraints (the latter are deferred to callback)
-            NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
-            addLinearConstraints(activeConstraints, solverUtils, nonlinearConstraintIndexes);
-            setMainCallbackCstIndexes(nonlinearConstraintIndexes);
-            setConEqBnds(Arrays.stream(targetVector.getArray()).boxed().toList());
+            for (int i = 0; i < activeConstraints.size(); i++) {
+                Equation<AcVariableType, AcEquationType> eq = activeConstraints.get(i);
+                if (!NonLinearExternalSolverUtils.isLinear(eq.getType(), eq.getTerms())) {
+                    nonlinearConstraintIndexes.add(i);
+                }
+            }
 
             // =============== Objective Function ===============
             List<Integer> quadRows = new ArrayList<>();
@@ -481,17 +327,15 @@ public class RelaxedKnitroSolver extends AbstractAcSolver {
             setObjectiveLinearPart(linIndexes, linCoefs);
 
             // =============== Callbacks and Jacobian ===============
-            setObjEvalCallback(new CallbackEvalFC(this, activeConstraints, nonlinearConstraintIndexes));
+            setObjEvalCallback(new RelaxedCallbackEvalFC(this, activeConstraints, nonlinearConstraintIndexes));
 
             List<Integer> jacCstDense = new ArrayList<>();
             List<Integer> jacVarDense = new ArrayList<>();
             List<Integer> jacCstSparse = new ArrayList<>();
             List<Integer> jacVarSparse = new ArrayList<>();
 
-            setJacobianMatrix(
-                    network, jacobianMatrix, activeConstraints, nonlinearConstraintIndexes,
-                    jacCstDense, jacVarDense, jacCstSparse, jacVarSparse
-            );
+            setJacobianMatrix(activeConstraints, nonlinearConstraintIndexes,
+                    jacCstDense, jacVarDense, jacCstSparse, jacVarSparse);
 
             AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes);
             setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
@@ -537,68 +381,49 @@ public class RelaxedKnitroSolver extends AbstractAcSolver {
             }
         }
 
-        /**
-         * Adds all active constraints to the Knitro problem, classifying each as linear or non-linear.
-         *
-         * @param sortedEquationsToSolve Sorted list of equations to solve.
-         * @param solverUtils            Utilities to extract linear constraints.
-         * @param nonLinearConstraintIds Output list of indices of non-linear constraints.
-         */
-        private void addLinearConstraints(
-                List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
-                NonLinearExternalSolverUtils solverUtils,
-                List<Integer> nonLinearConstraintIds) {
-
-            for (int equationId = 0; equationId < sortedEquationsToSolve.size(); equationId++) {
-                addConstraint(equationId, sortedEquationsToSolve, solverUtils, nonLinearConstraintIds);
+        @Override
+        protected void customizeVariableBounds(List<Double> lowerBounds, List<Double> upperBounds,
+                                              List<Double> initialValues, int numTotalVariables) {
+            // Initialize slack variables (≥ 0, initial value = 0)
+            for (int i = slackStartIndex; i < numTotalVariables; i++) {
+                lowerBounds.set(i, 0.0);
             }
         }
 
-        /**
-         * Adds a single constraint to the Knitro problem.
-         * Linear constraints are directly encoded; non-linear ones are delegated to the callback.
-         *
-         * @param equationId             Index of the equation in the list.
-         * @param sortedEquationsToSolve List of all equations to solve.
-         * @param solverUtils            Utilities to extract linear constraint components.
-         * @param nonLinearConstraintIds Output list of non-linear constraint indices.
-         */
-        private void addConstraint(
-                int equationId,
-                List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
-                NonLinearExternalSolverUtils solverUtils,
-                List<Integer> nonLinearConstraintIds) {
+        @Override
+        protected void addAdditionalConstraintVariables(int equationId, AcEquationType equationType,
+                                                        List<Integer> varIndices, List<Double> coefficients) {
+            // Add slack variables if applicable
+            int slackBase = getSlackIndexBase(equationType, equationId);
+            if (slackBase >= 0) {
+                varIndices.add(slackBase);       // Sm
+                varIndices.add(slackBase + 1);   // Sp
+                coefficients.add(1.0);
+                coefficients.add(-1.0);
+            }
+        }
 
-            Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
+        @Override
+        protected void addAdditionalJacobianVariables(int constraintIndex,
+                                                      Equation<AcVariableType, AcEquationType> equation,
+                                                      List<Integer> variableIndices) {
             AcEquationType equationType = equation.getType();
-            List<EquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
+            int slackStart = switch (equationType) {
+                case BUS_TARGET_P -> pEquationLocalIds.getOrDefault(constraintIndex, -1);
+                case BUS_TARGET_Q -> qEquationLocalIds.getOrDefault(constraintIndex, -1);
+                case BUS_TARGET_V -> vEquationLocalIds.getOrDefault(constraintIndex, -1);
+                default -> -1;
+            };
 
-            if (NonLinearExternalSolverUtils.isLinear(equationType, terms)) {
-                try {
-                    // Extract linear constraint components
-                    var linearConstraint = solverUtils.getLinearConstraint(equationType, terms);
-                    List<Integer> varIndices = new ArrayList<>(linearConstraint.listIdVar());
-                    List<Double> coefficients = new ArrayList<>(linearConstraint.listCoef());
-
-                    // Add slack variables if applicable
-                    int slackBase = getSlackIndexBase(equationType, equationId);
-                    if (slackBase >= 0) {
-                        varIndices.add(slackBase);       // Sm
-                        varIndices.add(slackBase + 1);   // Sp
-                        coefficients.add(1.0);
-                        coefficients.add(-1.0);
-                    }
-
-                    for (int i = 0; i < varIndices.size(); i++) {
-                        this.addConstraintLinearPart(equationId, varIndices.get(i), coefficients.get(i));
-                    }
-
-                    LOGGER.trace("Added linear constraint #{} of type {}", equationId, equationType);
-                } catch (UnsupportedOperationException e) {
-                    throw new PowsyblException("Failed to process linear constraint for equation #" + equationId, e);
-                }
-            } else {
-                nonLinearConstraintIds.add(equationId);
+            if (slackStart >= 0) {
+                int slackBaseIndex = switch (equationType) {
+                    case BUS_TARGET_P -> slackPStartIndex;
+                    case BUS_TARGET_Q -> slackQStartIndex;
+                    case BUS_TARGET_V -> slackVStartIndex;
+                    default -> throw new IllegalStateException("Unexpected constraint type: " + equationType);
+                };
+                variableIndices.add(slackBaseIndex + 2 * slackStart);     // Sm
+                variableIndices.add(slackBaseIndex + 2 * slackStart + 1); // Sp
             }
         }
 
@@ -621,116 +446,40 @@ public class RelaxedKnitroSolver extends AbstractAcSolver {
             };
         }
 
-        /**
-         * Configures the Jacobian matrix for the Knitro problem, using either a dense or sparse representation.
-         *
-         * @param lfNetwork              The PowSyBl network.
-         * @param jacobianMatrix         The PowSyBl Jacobian matrix.
-         * @param sortedEquationsToSolve The list of equations to solve.
-         * @param listNonLinearConsts    The list of non-linear constraint ids.
-         * @param listNonZerosCtsDense   Dense non-zero constraints.
-         * @param listNonZerosVarsDense  Dense non-zero variables.
-         * @param listNonZerosCtsSparse  Sparse non-zero constraints.
-         * @param listNonZerosVarsSparse Sparse non-zero variables.
-         * @throws KNException If an error occurs in Knitro operations.
-         */
-        private void setJacobianMatrix(LfNetwork lfNetwork, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                       List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> listNonLinearConsts,
-                                       List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
-                                       List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) throws KNException {
+        @Override
+        protected KNEvalGACallback createGradientCallback(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
+                                                          List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
+                                                          List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) {
 
-            int numVar = equationSystem.getIndex().getSortedVariablesToFind().size();
-            if (knitroParameters.getGradientComputationMode() == 1) { // User routine to compute the Jacobian
-                if (knitroParameters.getGradientUserRoutine() == 1) {
-                    // Dense method: all non-linear constraints are considered as a function of all variables.
-                    NonLinearExternalSolverUtils.buildDenseJacobianMatrix(numVar, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense);
-                    this.setJacNnzPattern(listNonZerosCtsDense, listNonZerosVarsDense);
-                } else if (knitroParameters.getGradientUserRoutine() == 2) {
-                    // Sparse method: compute Jacobian only for variables the constraints depend on.
-                    buildSparseJacobianMatrix(sortedEquationsToSolve, listNonLinearConsts, listNonZerosCtsSparse, listNonZerosVarsSparse);
-                    this.setJacNnzPattern(listNonZerosCtsSparse, listNonZerosVarsSparse);
-                }
-                // Set the callback for gradient evaluations if the user directly passes the Jacobian to the solver.
-                this.setGradEvalCallback(new CallbackEvalG(
-                        jacobianMatrix,
-                        listNonZerosCtsDense,
-                        listNonZerosVarsDense,
-                        listNonZerosCtsSparse,
-                        listNonZerosVarsSparse,
-                        lfNetwork,
-                        equationSystem,
-                        knitroParameters
-                ));
-            }
+            return new RelaxedCallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
+                    listNonZerosCtsSparse, listNonZerosVarsSparse, network,
+                    equationSystem, knitroParameters, numLFVariables);
         }
 
         /**
          * Callback used by Knitro to evaluate the non-linear parts of the objective and constraint functions.
          */
-        private static final class CallbackEvalFC extends KNEvalFCCallback {
+        private static final class RelaxedCallbackEvalFC extends KnitroCallbacks.BaseCallbackEvalFC {
 
-            private final List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve;
-            private final List<Integer> nonLinearConstraintIds;
             private final RelaxedKnitroProblem problemInstance;
 
-            private CallbackEvalFC(RelaxedKnitroProblem problemInstance, List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> nonLinearConstraintIds) {
+            private RelaxedCallbackEvalFC(RelaxedKnitroProblem problemInstance,
+                                          List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+                                          List<Integer> nonLinearConstraintIds) {
+                super(sortedEquationsToSolve, nonLinearConstraintIds);
                 this.problemInstance = problemInstance;
-                this.sortedEquationsToSolve = sortedEquationsToSolve;
-                this.nonLinearConstraintIds = nonLinearConstraintIds;
             }
 
-            /**
-             * Knitro callback function that evaluates the non-linear constraints at the current point.
-             *
-             * @param x   Current point (primal variables).
-             * @param obj Output objective value (unused here).
-             * @param c   Output constraint values.
-             */
             @Override
-            public void evaluateFC(final List<Double> x, final List<Double> obj, final List<Double> c) {
-                LOGGER.trace("============ Knitro evaluating callback function ============");
-
-                StateVector currentState = new StateVector(toArray(x));
-                LOGGER.trace("Current state vector: {}", currentState.get());
-                LOGGER.trace("Evaluating {} non-linear constraints", nonLinearConstraintIds.size());
-
-                int callbackConstraintIndex = 0;
-
-                for (int equationId : nonLinearConstraintIds) {
-                    Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
-                    AcEquationType type = equation.getType();
-
-                    // Ensure the constraint is non-linear
-                    if (NonLinearExternalSolverUtils.isLinear(type, equation.getTerms())) {
-                        throw new IllegalArgumentException(
-                                "Equation of type " + type + " is linear but passed to the non-linear callback");
-                    }
-
-                    // Evaluate equation using the current state
-                    double constraintValue = 0.0;
-                    for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                        term.setStateVector(currentState);
-                        if (term.isActive()) {
-                            constraintValue += term.eval();
-                        }
-                    }
-
-                    int slackIndexBase = problemInstance.getSlackIndexBase(type, equationId);
-                    if (slackIndexBase >= 0) {
-                        double sm = x.get(slackIndexBase);        // negative slack
-                        double sp = x.get(slackIndexBase + 1);    // positive slack
-                        constraintValue += -sm + sp;              // add slack contribution
-                    }
-
-                    try {
-                        c.set(callbackConstraintIndex, constraintValue);
-                        LOGGER.trace("Added non-linear constraint #{} (type: {}) = {}", equationId, type, constraintValue);
-                    } catch (Exception e) {
-                        throw new PowsyblException("Error while adding non-linear constraint #" + equationId, e);
-                    }
-
-                    callbackConstraintIndex++;
+            protected double addModificationOfNonLinearConstraints(int equationId, AcEquationType equationType,
+                                                                   List<Double> x) {
+                int slackIndexBase = problemInstance.getSlackIndexBase(equationType, equationId);
+                if (slackIndexBase >= 0) {
+                    double sm = x.get(slackIndexBase);        // negative slack
+                    double sp = x.get(slackIndexBase + 1);    // positive slack
+                    return sp - sm;              // add slack contribution
                 }
+                return 0;
             }
         }
 
@@ -738,117 +487,26 @@ public class RelaxedKnitroSolver extends AbstractAcSolver {
          * Callback used by Knitro to evaluate the gradient (Jacobian matrix) of the constraints.
          * Only constraints (no objective) are handled here.
          */
-        private static final class CallbackEvalG extends KNEvalGACallback {
+        private static final class RelaxedCallbackEvalG extends KnitroCallbacks.BaseCallbackEvalG {
 
-            private final JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix;
-            private final List<Integer> denseConstraintIndices;
-            private final List<Integer> denseVariableIndices;
-            private final List<Integer> sparseConstraintIndices;
-            private final List<Integer> sparseVariableIndices;
+            private RelaxedCallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
+                                         List<Integer> denseConstraintIndices, List<Integer> denseVariableIndices,
+                                         List<Integer> sparseConstraintIndices, List<Integer> sparseVariableIndices,
+                                         LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                                         KnitroSolverParameters knitroParameters, int numLFVariables) {
 
-            private final LfNetwork network;
-            private final EquationSystem<AcVariableType, AcEquationType> equationSystem;
-            private final KnitroSolverParameters knitroParameters;
-
-            private CallbackEvalG(
-                    JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                    List<Integer> denseConstraintIndices,
-                    List<Integer> denseVariableIndices,
-                    List<Integer> sparseConstraintIndices,
-                    List<Integer> sparseVariableIndices,
-                    LfNetwork network,
-                    EquationSystem<AcVariableType, AcEquationType> equationSystem,
-                    KnitroSolverParameters knitroParameters) {
-
-                this.jacobianMatrix = jacobianMatrix;
-                this.denseConstraintIndices = denseConstraintIndices;
-                this.denseVariableIndices = denseVariableIndices;
-                this.sparseConstraintIndices = sparseConstraintIndices;
-                this.sparseVariableIndices = sparseVariableIndices;
-                this.network = network;
-                this.equationSystem = equationSystem;
-                this.knitroParameters = knitroParameters;
+                super(jacobianMatrix, denseConstraintIndices, denseVariableIndices, sparseConstraintIndices, sparseVariableIndices,
+                        network, equationSystem, knitroParameters, numLFVariables);
             }
 
             @Override
-            public void evaluateGA(final List<Double> x, final List<Double> objGrad, final List<Double> jac) {
-                // Update internal state and Jacobian
-                equationSystem.getStateVector().set(toArray(x));
-                AcSolverUtil.updateNetwork(network, equationSystem);
-                jacobianMatrix.forceUpdate();
-
-                // Get sparse matrix representation
-                SparseMatrix sparseMatrix = jacobianMatrix.getMatrix().toSparse();
-                int[] columnStart = sparseMatrix.getColumnStart();
-                int[] rowIndices = sparseMatrix.getRowIndices();
-                double[] values = sparseMatrix.getValues();
-
-                // Determine which list to use based on Knitro settings
-                List<Integer> constraintIndices;
-                List<Integer> variableIndices;
-
-                int routineType = knitroParameters.getGradientUserRoutine();
-                if (routineType == 1) {
-                    constraintIndices = denseConstraintIndices;
-                    variableIndices = denseVariableIndices;
-                } else if (routineType == 2) {
-                    constraintIndices = sparseConstraintIndices;
-                    variableIndices = sparseVariableIndices;
+            protected double computeModifiedJacobianValue(int var, int ct) {
+                if (((var - numLFVariables) & 1) == 0) {
+                    // set Jacobian entry to -1.0 if slack variable is Sm
+                    return -1.0;
                 } else {
-                    throw new IllegalArgumentException("Unsupported gradientUserRoutine value: " + routineType);
-                }
-
-                // Fill Jacobian values
-                boolean firstIteration = true;
-                int iRowIndices = 0;
-                int currentConstraint = -1;
-                int numVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
-                for (int index = 0; index < constraintIndices.size(); index++) {
-                    try {
-                        if (firstIteration) {
-                            currentConstraint = constraintIndices.get(index);
-                        }
-
-                        int ct = constraintIndices.get(index);
-                        int var = variableIndices.get(index);
-
-                        double value;
-
-                        // Find matching (var, ct) entry in sparse column
-                        int colStart = columnStart[ct];
-
-                        if (!firstIteration) {
-                            if (currentConstraint != ct) {
-                                iRowIndices = 0;
-                                currentConstraint = ct;
-                            }
-                        }
-
-                        if (var >= numVariables) {
-                            if (((var - numVariables) & 1) == 0) {
-                                // set Jacobian entry to -1.0 if slack variable is Sm
-                                value = -1.0;
-                            } else {
-                                // set Jacobian entry to +1.0 if slack variable is Sp
-                                value = 1.0;
-                            }
-                        } else if (rowIndices[colStart + iRowIndices] != var) {
-                            value = 0.0;
-                        } else {
-                            value = values[colStart + iRowIndices++];
-                        }
-
-                        jac.set(index, value);
-
-                        if (firstIteration) {
-                            firstIteration = false;
-                        }
-
-                    } catch (Exception e) {
-                        int varId = variableIndices.get(index);
-                        int ctId = constraintIndices.get(index);
-                        LOGGER.error("Error while filling Jacobian term at var {} and constraint {}", varId, ctId, e);
-                    }
+                    // set Jacobian entry to +1.0 if slack variable is Sp
+                    return 1.0;
                 }
             }
         }
