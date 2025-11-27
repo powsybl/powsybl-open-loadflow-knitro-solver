@@ -51,6 +51,12 @@
             <organization>Artelys</organization>
             <organizationUrl>http://www.artelys.com</organizationUrl>
         </developer>
+        <developer>
+            <name>Pierre Arvy</name>
+            <email>pierre.arvy@artelys.com</email>
+            <organization>Artelys</organization>
+            <organizationUrl>http://www.artelys.com</organizationUrl>
+        </developer>
     </developers>
 
     <properties>

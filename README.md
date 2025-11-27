@@ -198,7 +198,7 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
         - `2 (sparse)`: Derivatives are computed only for variables involved in the constraints (recommended).
 
 5. **Maximum Iterations**:
-    - Default: **400**
+    - Default: **200**
     - Modify using `setMaxIterations`.
 
 ### Constraint Handling

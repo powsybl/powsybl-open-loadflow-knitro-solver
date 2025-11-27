@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2025, Artelys (http://www.artelys.com/)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
+ */
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.openloadflow.ac.solver.AcSolverStatus;
@@ -6,10 +13,10 @@ import org.apache.commons.lang3.Range;
 import java.util.Arrays;
 
 /**
- * Enum representing specific status codes returned by the Knitro solver,
- * grouped either individually or by ranges, and mapped to corresponding {@link AcSolverStatus} values.
- * This mapping allows a more fine-grained interpretation of solver termination reasons,
- * distinguishing between convergence, infeasibility, modeling errors, evaluation issues, etc...
+ * Enum representing all possible status returned by Knitro optimization solver.
+ * These are grouped either individually or by ranges, and mapped to corresponding {@link AcSolverStatus} values.
+ *
+ * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
  */
 public enum KnitroStatus {
 
