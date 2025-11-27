@@ -29,7 +29,7 @@ By participating, you are expected to uphold this code. Please report unacceptab
 PowSyBl Open Load Flow Knitro Solver is an extension to [PowSyBl Open Load Flow](https://github.com/powsybl/powsybl-open-loadflow) allowing to solve
 the load flow equations with the **non-linear solver Knitro** instead of the default **Newton-Raphson** method.
 
-The Knitro solver extension offers two different ways to model the load flow problem: either as a **constraint satisfaction problem** (without an objective function) or as an **optimisation problem** with relaxed constraints (and an objective function). 
+The Knitro solver extension offers two different ways to model the load flow problem: either as a **constraint satisfaction problem** (without an objective function) or as an **optimisation problem** with relaxed constraints (and an objective function minimizing the violations). 
 
 ## Getting Started
 

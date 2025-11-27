@@ -39,7 +39,7 @@ class KnitroSolverParametersTest {
     }
 
     @Test
-    void testGradientUserRoutine() {
+    void testGradientUserRoutineIntegrity() {
         KnitroSolverParameters parametersKnitro = new KnitroSolverParameters();
         // default value
         assertEquals(2, parametersKnitro.getGradientUserRoutine());
@@ -56,16 +56,18 @@ class KnitroSolverParametersTest {
     }
 
     @Test
-    void getAndSetVoltageBounds() {
+    void testVoltageBoundsIntegrity() {
         KnitroSolverParameters parametersKnitro = new KnitroSolverParameters();
-        // default value
+        // default values
         assertEquals(0.5, parametersKnitro.getLowerVoltageBound());
-        assertEquals(2.0, parametersKnitro.getUpperVoltageBound());
-        // set other value
+        assertEquals(1.5, parametersKnitro.getUpperVoltageBound());
+
+        // check other values
         parametersKnitro.setLowerVoltageBound(0.95);
         parametersKnitro.setUpperVoltageBound(1.05);
         assertEquals(0.95, parametersKnitro.getLowerVoltageBound());
         assertEquals(1.05, parametersKnitro.getUpperVoltageBound());
+
         // wrong values
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parametersKnitro.setLowerVoltageBound(-1.0));
         assertEquals("Realistic voltage bounds must strictly greater than 0", e.getMessage());
@@ -76,35 +78,38 @@ class KnitroSolverParametersTest {
     }
 
     @Test
-    void testMaxIterations() {
+    void testMaxIterationsIntegrity() {
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
         // check default max iterations value
-        assertEquals(400, knitroLoadFlowParameters.getMaxIterations());
-
-        // check setter and getter
-        knitroLoadFlowParameters.setMaxIterations(200);
         assertEquals(200, knitroLoadFlowParameters.getMaxIterations());
-    }
-
-    @Test
-    void testSetAndGetConvEpsPerEq() {
-        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        // check default conv value
-        assertEquals(Math.pow(10, -6), knitroLoadFlowParameters.getConvEps());
 
         // set other value
-        knitroLoadFlowParameters.setConvEps(Math.pow(10, -2));
-        assertEquals(Math.pow(10, -2), knitroLoadFlowParameters.getConvEps());
+        knitroLoadFlowParameters.setMaxIterations(400);
+        assertEquals(400, knitroLoadFlowParameters.getMaxIterations());
 
-        // wrong values
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setConvEps(-1.0));
-        assertEquals("Feasibility stopping criteria must be greater than 0", e.getMessage());
-        IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setConvEps(0));
-        assertEquals("Feasibility stopping criteria must be greater than 0", e2.getMessage());
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setMaxIterations(-1));
+        assertEquals("Max iterations parameter must be greater than 0", e.getMessage());
     }
 
     @Test
-    void testSetAndGetAbsConvEps() {
+    void testRelConvEpsIntegrity() {
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
+        // check default conv value
+        assertEquals(Math.pow(10, -6), knitroLoadFlowParameters.getRelConvEps());
+
+        // set other value
+        knitroLoadFlowParameters.setRelConvEps(Math.pow(10, -2));
+        assertEquals(Math.pow(10, -2), knitroLoadFlowParameters.getRelConvEps());
+
+        // wrong values
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setRelConvEps(-1.0));
+        assertEquals("Relative feasibility stopping criteria must be strictly greater than 0", e.getMessage());
+        IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setRelConvEps(0));
+        assertEquals("Relative feasibility stopping criteria must be strictly greater than 0", e2.getMessage());
+    }
+
+    @Test
+    void testAbsConvEpsIntegrity() {
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
         // check default absConvEps value
         assertEquals(Math.pow(10, -3), knitroLoadFlowParameters.getAbsConvEps());
@@ -115,52 +120,53 @@ class KnitroSolverParametersTest {
 
         // check out-of-bounds values
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setAbsConvEps(-1.0));
-        assertEquals("Absolute feasibility stopping criteria must be greater than 0", e.getMessage());
+        assertEquals("Absolute feasibility stopping criteria must be strictly greater than 0", e.getMessage());
         IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setAbsConvEps(0));
-        assertEquals("Absolute feasibility stopping criteria must be greater than 0", e2.getMessage());
+        assertEquals("Absolute feasibility stopping criteria must be strictly greater than 0", e2.getMessage());
     }
 
     @Test
-    void testSetAndGetOptEps() {
+    void testRelOptEpsIntegrity() {
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
         // check default conv value
-        assertEquals(Math.pow(10, -6), knitroLoadFlowParameters.getOptEps());
+        assertEquals(Math.pow(10, -6), knitroLoadFlowParameters.getRelOptEps());
 
-        // check setter and getter
-        knitroLoadFlowParameters.setOptEps(Math.pow(10, -2));
-        assertEquals(Math.pow(10, -2), knitroLoadFlowParameters.getOptEps());
+        // check other value
+        knitroLoadFlowParameters.setRelOptEps(Math.pow(10, -2));
+        assertEquals(Math.pow(10, -2), knitroLoadFlowParameters.getRelOptEps());
 
         // check out-of-bounds values
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setOptEps(-1.0));
-        assertEquals("Relative optimality stopping criteria must be greater than 0", e.getMessage());
-        IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setOptEps(0));
-        assertEquals("Relative optimality stopping criteria must be greater than 0", e2.getMessage());
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setRelOptEps(-1.0));
+        assertEquals("Relative optimality stopping criteria must be strictly greater than 0", e.getMessage());
+        IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setRelOptEps(0));
+        assertEquals("Relative optimality stopping criteria must be strictly greater than 0", e2.getMessage());
     }
 
     @Test
-    void testSetAndGetAbsOptEps() {
+    void testAbsOptEpsIntegrity() {
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        // check default conv value
+        // check default value
         assertEquals(Math.pow(10, -3), knitroLoadFlowParameters.getAbsOptEps());
 
-        // check setter and getter
+        // check other value
         knitroLoadFlowParameters.setAbsOptEps(Math.pow(10, -2));
         assertEquals(Math.pow(10, -2), knitroLoadFlowParameters.getAbsOptEps());
 
         // check out-of-bounds values
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setAbsOptEps(-1.0));
-        assertEquals("Absolute optimality stopping criteria must be greater than 0", e.getMessage());
+        assertEquals("Absolute optimality stopping criteria must be strictly greater than 0", e.getMessage());
         IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setAbsOptEps(0));
-        assertEquals("Absolute optimality stopping criteria must be greater than 0", e2.getMessage());
+        assertEquals("Absolute optimality stopping criteria must be strictly greater than 0", e2.getMessage());
     }
 
     @Test
-    void testSetAndGetSlackThreshold() {
-        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
+    void testSlackThresholdIntegrity() {
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
+
         // check default conv value
         assertEquals(Math.pow(10, -6), knitroLoadFlowParameters.getSlackThreshold());
 
-        // check setter and getter
+        // check other value
         knitroLoadFlowParameters.setSlackThreshold(Math.pow(10, -2));
         assertEquals(Math.pow(10, -2), knitroLoadFlowParameters.getSlackThreshold());
 
@@ -172,34 +178,28 @@ class KnitroSolverParametersTest {
     }
 
     @Test
-    void testToString() {
-        KnitroSolverParameters parameters = new KnitroSolverParameters();
-        assertEquals("KnitroSolverParameters(gradientComputationMode=1, " +
-                "FeasibilityStoppingCriteria=1.0E-6, " +
-                "OptimalityStoppingCriteria=1.0E-6, " +
-                "minRealisticVoltage=0.5, " +
-                "maxRealisticVoltage=2.0, " +
-                "alwaysUpdateNetwork=false, " +
-                "maxIterations=400" +
-                ", knitroSolverType=STANDARD" +
-                ")", parameters.toString());
-    }
-
-    @Test
-    void testSetAndGetHessianComputationMode() {
+    void testHessianComputationModeIntegrity() {
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
+
         // check default value
         assertEquals(6, knitroLoadFlowParameters.getHessianComputationMode());
 
-        // set other value
-        knitroLoadFlowParameters.setConvEps(2);
-        assertEquals(2, knitroLoadFlowParameters.getConvEps());
+        // check other value
+        knitroLoadFlowParameters.setHessianComputationMode(2);
+        assertEquals(2, knitroLoadFlowParameters.getHessianComputationMode());
 
         // wrong values
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setHessianComputationMode(-1));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setHessianComputationMode(0));
         assertEquals("Hessian computation mode must be between 1 and 7", e.getMessage());
         IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setHessianComputationMode(8));
         assertEquals("Hessian computation mode must be between 1 and 7", e2.getMessage());
+    }
+
+    @Test
+    void testToString() {
+        KnitroSolverParameters parameters = new KnitroSolverParameters();
+        assertEquals("KnitroSolverParameters(solverType=STANDARD, gradientComputationMode=1, gradientUserRoutine=2, hessianComputationMode=6, relativeFeasibilityStoppingCriteria=1.0E-6, absoluteFeasibilityStoppingCriteria=0.001, relativeOptimalityStoppingCriteria=1.0E-6, absoluteOptimalityStoppingCriteria=0.001, optimalityStoppingCriteria=1.0E-6, slackThreshold=1.0E-6, minRealisticVoltage=0.5, maxRealisticVoltage=1.5, alwaysUpdateNetwork=false, maxIterations=200)",
+                parameters.toString());
     }
 
 }

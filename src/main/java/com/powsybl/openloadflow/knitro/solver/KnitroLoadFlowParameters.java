@@ -23,13 +23,12 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private double lowerVoltageBound = KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND;
     private double upperVoltageBound = KnitroSolverParameters.DEFAULT_UPPER_VOLTAGE_BOUND;
     private int maxIterations = KnitroSolverParameters.DEFAULT_MAX_ITERATIONS;
-    private double convEps = KnitroSolverParameters.DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA;
+    private double relConvEps = KnitroSolverParameters.DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA;
     private double absConvEps = KnitroSolverParameters.DEFAULT_ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA;
-    private double optEps = KnitroSolverParameters.DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA;
+    private double relOptEps = KnitroSolverParameters.DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA;
     private double absOptEps = KnitroSolverParameters.DEFAULT_ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA;
     private double slackThreshold = KnitroSolverParameters.DEFAULT_SLACK_THRESHOLD;
-    private boolean alwaysUpdateNetwork = KnitroSolverParameters.ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
-    private KnitroSolverParameters.KnitroSolverType knitroSolverType = KnitroSolverParameters.DEFAULT_KNITRO_SOLVER_TYPE;
+    private KnitroSolverParameters.SolverType knitroSolverType = KnitroSolverParameters.DEFAULT_SOLVER_TYPE;
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -40,15 +39,6 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
             throw new IllegalArgumentException("Gradient mode must be between 1 and 3");
         }
         this.gradientComputationMode = gradientComputationMode;
-        return this;
-    }
-
-    public boolean isAlwaysUpdateNetwork() {
-        return alwaysUpdateNetwork;
-    }
-
-    public KnitroLoadFlowParameters setAlwaysUpdateNetwork(boolean alwaysUpdateNetwork) {
-        this.alwaysUpdateNetwork = alwaysUpdateNetwork;
         return this;
     }
 
@@ -115,15 +105,15 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
         return this;
     }
 
-    public double getConvEps() {
-        return convEps;
+    public double getRelConvEps() {
+        return relConvEps;
     }
 
-    public KnitroLoadFlowParameters setConvEps(double convEps) {
-        if (convEps <= 0) {
-            throw new IllegalArgumentException("Feasibility stopping criteria must be greater than 0");
+    public KnitroLoadFlowParameters setRelConvEps(double relConvEps) {
+        if (relConvEps <= 0) {
+            throw new IllegalArgumentException("Relative feasibility stopping criteria must be strictly greater than 0");
         }
-        this.convEps = convEps;
+        this.relConvEps = relConvEps;
         return this;
     }
 
@@ -133,21 +123,21 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
 
     public KnitroLoadFlowParameters setAbsConvEps(double absConvEps) {
         if (absConvEps <= 0) {
-            throw new IllegalArgumentException("Absolute feasibility stopping criteria must be greater than 0");
+            throw new IllegalArgumentException("Absolute feasibility stopping criteria must be strictly greater than 0");
         }
         this.absConvEps = absConvEps;
         return this;
     }
 
-    public double getOptEps() {
-        return optEps;
+    public double getRelOptEps() {
+        return relOptEps;
     }
 
-    public KnitroLoadFlowParameters setOptEps(double optEps) {
-        if (optEps <= 0) {
-            throw new IllegalArgumentException("Relative optimality stopping criteria must be greater than 0");
+    public KnitroLoadFlowParameters setRelOptEps(double relOptEps) {
+        if (relOptEps <= 0) {
+            throw new IllegalArgumentException("Relative optimality stopping criteria must be strictly greater than 0");
         }
-        this.optEps = optEps;
+        this.relOptEps = relOptEps;
         return this;
     }
 
@@ -157,7 +147,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
 
     public KnitroLoadFlowParameters setAbsOptEps(double absOptEps) {
         if (absOptEps <= 0) {
-            throw new IllegalArgumentException("Absolute optimality stopping criteria must be greater than 0");
+            throw new IllegalArgumentException("Absolute optimality stopping criteria must be strictly greater than 0");
         }
         this.absOptEps = absOptEps;
         return this;
@@ -175,11 +165,11 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
         return this;
     }
 
-    public KnitroSolverParameters.KnitroSolverType getKnitroSolverType() {
+    public KnitroSolverParameters.SolverType getKnitroSolverType() {
         return knitroSolverType;
     }
 
-    public KnitroLoadFlowParameters setKnitroSolverType(KnitroSolverParameters.KnitroSolverType knitroSolverType) {
+    public KnitroLoadFlowParameters setKnitroSolverType(KnitroSolverParameters.SolverType knitroSolverType) {
         this.knitroSolverType = knitroSolverType;
         return this;
     }

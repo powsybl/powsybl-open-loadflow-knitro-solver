@@ -48,20 +48,20 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 .setMaxVoltageChangeStateVectorScalingMaxDphi(parametersExt.getMaxVoltageChangeStateVectorScalingMaxDphi())
                 .setAlwaysUpdateNetwork(parametersExt.isAlwaysUpdateNetwork());
         if (parameters.getExtension(KnitroLoadFlowParameters.class) != null) {
-            knitroSolverParameters
-                    .setGradientComputationMode(parameters.getExtension(KnitroLoadFlowParameters.class).getGradientComputationMode())
-                    .setGradientUserRoutine(parameters.getExtension(KnitroLoadFlowParameters.class).getGradientUserRoutine())
-                    .setHessianComputationMode(parameters.getExtension(KnitroLoadFlowParameters.class).getHessianComputationMode())
-                    .setLowerVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getLowerVoltageBound())
-                    .setUpperVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getUpperVoltageBound())
-                    .setMaxIterations(parameters.getExtension(KnitroLoadFlowParameters.class).getMaxIterations())
-                    .setConvEps(parameters.getExtension(KnitroLoadFlowParameters.class).getConvEps())
-                    .setAbsConvEps(parameters.getExtension(KnitroLoadFlowParameters.class).getAbsConvEps())
-                    .setOptEps(parameters.getExtension(KnitroLoadFlowParameters.class).getOptEps())
-                    .setAbsOptEps(parameters.getExtension(KnitroLoadFlowParameters.class).getAbsOptEps())
-                    .setSlackThreshold(parameters.getExtension(KnitroLoadFlowParameters.class).getSlackThreshold())
-                    .setAlwaysUpdateNetwork(parameters.getExtension(KnitroLoadFlowParameters.class).isAlwaysUpdateNetwork())
-                    .setKnitroSolverType(parameters.getExtension(KnitroLoadFlowParameters.class).getKnitroSolverType());
+            KnitroLoadFlowParameters knitroLoadFlowParameters = parameters.getExtension(KnitroLoadFlowParameters.class);
+            knitroSolverParameters.
+                setGradientComputationMode(knitroLoadFlowParameters.getGradientComputationMode())
+                .setGradientUserRoutine(knitroLoadFlowParameters.getGradientUserRoutine())
+                .setHessianComputationMode(knitroLoadFlowParameters.getHessianComputationMode())
+                .setLowerVoltageBound(knitroLoadFlowParameters.getLowerVoltageBound())
+                .setUpperVoltageBound(knitroLoadFlowParameters.getUpperVoltageBound())
+                .setMaxIterations(knitroLoadFlowParameters.getMaxIterations())
+                .setRelConvEps(knitroLoadFlowParameters.getRelConvEps())
+                .setAbsConvEps(knitroLoadFlowParameters.getAbsConvEps())
+                .setRelOptEps(knitroLoadFlowParameters.getRelOptEps())
+                .setAbsOptEps(knitroLoadFlowParameters.getAbsOptEps())
+                .setSlackThreshold(knitroLoadFlowParameters.getSlackThreshold())
+                .setSolverType(knitroLoadFlowParameters.getKnitroSolverType());
 
         }
         return knitroSolverParameters;
@@ -72,7 +72,7 @@ public class KnitroSolverFactory implements AcSolverFactory {
                            JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
                            EquationVector<AcVariableType, AcEquationType> equationVector) {
         KnitroSolverParameters knitroSolverParameters = (KnitroSolverParameters) parameters.getAcSolverParameters();
-        KnitroSolverParameters.KnitroSolverType knitroSolverType = knitroSolverParameters.getKnitroSolverType();
+        KnitroSolverParameters.SolverType knitroSolverType = knitroSolverParameters.getSolverType();
         return switch (knitroSolverType) {
             case STANDARD -> new KnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
             case RESILIENT -> new ResilientKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());

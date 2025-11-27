@@ -457,7 +457,7 @@ public class KnitroSolver extends AbstractAcSolver {
     private void setSolverParameters(KNSolver solver) throws KNException {
 
         solver.setParam(KNConstants.KN_PARAM_GRADOPT, knitroParameters.getGradientComputationMode());
-        solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getConvEps());
+        solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getRelConvEps());
         solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
     }
 
