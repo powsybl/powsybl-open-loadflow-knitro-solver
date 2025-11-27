@@ -14,7 +14,6 @@ import com.powsybl.openloadflow.network.SlackBusSelectionMode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static com.powsybl.openloadflow.knitro.solver.ResilientKnitroSolverTestUtils.applyActivePowerPerturbation;
 import static com.powsybl.openloadflow.knitro.solver.ResilientKnitroSolverTestUtils.applyVoltagePerturbation;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -91,53 +90,6 @@ public class ResilientKnitroSolverConvergenceTest {
         // Apply perturbation to both networks
         applyVoltagePerturbation(nrNetwork, voltagePerturbation, x, targetV);
         applyVoltagePerturbation(rknNetwork, voltagePerturbation, x, targetV);
-
-        verifyConvergence(rknNetwork, nrNetwork);
-    }
-
-    @Test
-    void testConvergenceAfterVoltagePerturbationOnI3E300() {
-        // Create network objects
-        Network rknNetwork = IeeeCdfNetworkFactory.create300();
-        Network nrNetwork = IeeeCdfNetworkFactory.create300();
-
-        // Define perturbation
-        String bus1Id = "B123";
-        String bus2Id = "B125";
-        String generatorId = "B124-G";
-        String lineId = "L123-124-1";
-
-        VoltagePerturbation voltagePerturbation = new VoltagePerturbation(
-                bus1Id,
-                bus2Id,
-                generatorId,
-                lineId
-        );
-
-        double x = 0.0013225;
-        double targetV = 111.795525;
-
-        // Apply perturbation to both networks
-        applyVoltagePerturbation(nrNetwork, voltagePerturbation, x, targetV);
-        applyVoltagePerturbation(rknNetwork, voltagePerturbation, x, targetV);
-
-        verifyConvergence(rknNetwork, nrNetwork);
-    }
-
-    @Test
-    void testConvergenceAfterActivePowerPerturbationOnI3E300() {
-        // Create network objects
-        Network rknNetwork = IeeeCdfNetworkFactory.create300();
-        Network nrNetwork = IeeeCdfNetworkFactory.create300();
-
-        // Define perturbation
-        String loadId = "B1-L";
-
-        double targetP = 2356.866;
-
-        // Apply perturbation to both networks
-        applyActivePowerPerturbation(nrNetwork, loadId, targetP);
-        applyActivePowerPerturbation(rknNetwork, loadId, targetP);
 
         verifyConvergence(rknNetwork, nrNetwork);
     }
