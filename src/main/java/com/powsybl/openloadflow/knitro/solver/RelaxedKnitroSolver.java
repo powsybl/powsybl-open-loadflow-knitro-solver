@@ -75,12 +75,12 @@ public class RelaxedKnitroSolver extends AbstractAcSolver {
             LfNetwork network,
             KnitroSolverParameters knitroParameters,
             EquationSystem<AcVariableType, AcEquationType> equationSystem,
-            JacobianMatrix<AcVariableType, AcEquationType> jacobian,
+            JacobianMatrix<AcVariableType, AcEquationType> j,
             TargetVector<AcVariableType, AcEquationType> targetVector,
             EquationVector<AcVariableType, AcEquationType> equationVector,
             boolean detailedReport) {
 
-        super(network, equationSystem, jacobian, targetVector, equationVector, detailedReport);
+        super(network, equationSystem, j, targetVector, equationVector, detailedReport);
         this.knitroParameters = knitroParameters;
 
         this.numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
@@ -120,9 +120,6 @@ public class RelaxedKnitroSolver extends AbstractAcSolver {
         }
     }
 
-    /**
-     * Returns the name of the solver.
-     */
     @Override
     public String getName() {
         return "Relaxed Knitro Solver";
