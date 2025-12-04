@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Standard Knitro solver without slack variables.
+ * Standard Knitro solver, solving load flow equation system as a feasibility problem.
  *
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
@@ -48,10 +48,14 @@ public class KnitroSolver extends AbstractKnitroSolver {
         }
     }
 
-    private final class KnitroProblem extends AbstractKnitroProblem {
+    private static final class KnitroProblem extends AbstractKnitroProblem {
 
         /**
-         * Knitro Problem definition for standard solver (no slack variables).
+         * Knitro optimization problem definition with :
+         * - initialization of variables (types, bounds, initial state)
+         * - definition of linear constraints
+         * - definition of non-linear constraints, evaluated in the callback function
+         * - definition of the Jacobian matrix passed to Knitro to solve the problem
          */
         private KnitroProblem(LfNetwork lfNetwork, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                               TargetVector<AcVariableType, AcEquationType> targetVector,
@@ -71,7 +75,7 @@ public class KnitroSolver extends AbstractKnitroSolver {
             // Setup constraints
             setupConstraints();
 
-            // Objective (constant = 0)
+            // Constant objective (= 0), for feasibility problem
             setObjConstPart(0.0);
 
             // Callbacks

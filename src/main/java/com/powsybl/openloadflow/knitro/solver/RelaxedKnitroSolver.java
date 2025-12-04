@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2024, Artelys (http://www.artelys.com/)
+ * Copyright (c) 2025, Artelys (http://www.artelys.com/)
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -31,15 +31,12 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(RelaxedKnitroSolver.class);
 
     // Penalty weights in the objective function
-    private final double wP = 1.0;
-    private final double wQ = 1.0;
-    private final double wV = 1.0;
+    private static final double WEIGHT_P_PENAL = 1.0;
+    private static final double WEIGHT_Q_PENAL = 1.0;
+    private static final double WEIGHT_V_PENAL = 1.0;
 
     // Weights of the linear in the objective function
-    private final double lambda = 3.0;
-
-    // Number of Load Flows (LF) variables in the system
-    private final int numLFVariables;
+    private static final double WEIGHT_ABSOLUTE_PENAL = 3.0;
 
     // Total number of variables including slack variables
     private final int numTotalVariables;
@@ -71,7 +68,8 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
 
         super(network, knitroParameters, equationSystem, j, targetVector, equationVector, detailedReport);
 
-        this.numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
+        // Number of variables in the equations system of open load flow
+        int numberOfPowerFlowVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
 
         List<Equation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedEquationsToSolve();
 
@@ -81,9 +79,9 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
         this.numVEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count();
 
         int numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations);
-        this.numTotalVariables = numLFVariables + numSlackVariables;
+        this.numTotalVariables = numberOfPowerFlowVariables + numSlackVariables;
 
-        this.slackStartIndex = numLFVariables;
+        this.slackStartIndex = numberOfPowerFlowVariables;
         this.slackPStartIndex = slackStartIndex;
         this.slackQStartIndex = slackPStartIndex + 2 * numPEquations;
         this.slackVStartIndex = slackQStartIndex + 2 * numQEquations;
@@ -104,7 +102,7 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
                 case BUS_TARGET_P -> pEquationLocalIds.put(i, pCounter++);
                 case BUS_TARGET_Q -> qEquationLocalIds.put(i, qCounter++);
                 case BUS_TARGET_V -> vEquationLocalIds.put(i, vCounter++);
-                default -> throw new IllegalStateException("Unexpected equation type: " + type);
+                default -> {} // no slack to add
             }
         }
     }
@@ -140,9 +138,9 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
         logSlackValues("V", slackVStartIndex, numVEquations, x);
 
         // ========== Penalty Computation ==========
-        double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wP, lambda);
-        double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wQ, lambda);
-        double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV, lambda);
+        double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, WEIGHT_P_PENAL, WEIGHT_ABSOLUTE_PENAL);
+        double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, WEIGHT_Q_PENAL, WEIGHT_ABSOLUTE_PENAL);
+        double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, WEIGHT_V_PENAL, WEIGHT_ABSOLUTE_PENAL);
         double totalPenalty = penaltyP + penaltyQ + penaltyV;
 
         LOGGER.info("==== Slack penalty details ====");
@@ -229,7 +227,7 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
     private final class RelaxedKnitroProblem extends AbstractKnitroProblem {
 
         /**
-         * Knitro problem definition including:
+         * Relaxed Knitro problem definition including:
          * - Initialization of variables (types, bounds, initial state)
          * - Definition of linear and non-linear constraints
          * - Objective function setup
@@ -270,9 +268,9 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
             List<Double> linCoefs = new ArrayList<>();
 
             // Slack penalty terms: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
-            addSlackObjectiveTerms(numPEquations, slackPStartIndex, wP, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numQEquations, slackQStartIndex, wQ, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numVEquations, slackVStartIndex, wV, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numPEquations, slackPStartIndex, WEIGHT_P_PENAL, WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numQEquations, slackQStartIndex, WEIGHT_Q_PENAL, WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numVEquations, slackVStartIndex, WEIGHT_V_PENAL, WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
 
             setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
             setObjectiveLinearPart(linIndexes, linCoefs);
@@ -346,16 +344,9 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
         /**
          * Adds quadratic and linear terms related to slack variables to the objective function.
          */
-        private void addSlackObjectiveTerms(
-                int numEquations,
-                int slackStartIdx,
-                double weight,
-                double lambda,
-                List<Integer> quadRows,
-                List<Integer> quadCols,
-                List<Double> quadCoefs,
-                List<Integer> linIndexes,
-                List<Double> linCoefs) {
+        private void addSlackObjectiveTerms(int numEquations, int slackStartIdx, double weight, double lambda,
+                                            List<Integer> quadRows, List<Integer> quadCols, List<Double> quadCoefs,
+                                            List<Integer> linIndexes, List<Double> linCoefs) {
 
             for (int i = 0; i < numEquations; i++) {
                 int idxSm = slackStartIdx + 2 * i;
