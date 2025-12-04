@@ -41,7 +41,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
 
     protected KnitroSolverParameters knitroParameters;
 
-    public AbstractKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters,
+    protected AbstractKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters,
                                 EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                 JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
                                 EquationVector<AcVariableType, AcEquationType> equationVector,

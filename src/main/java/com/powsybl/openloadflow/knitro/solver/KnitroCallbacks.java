@@ -210,10 +210,10 @@ public final class KnitroCallbacks {
                         currentConstraint = constraintIndices.get(index);
                     }
 
-                    int ct = constraintIndices.get(index);
-                    int var = variableIndices.get(index);
+                    int constraintIndex = constraintIndices.get(index);
+                    int variableIndex = variableIndices.get(index);
 
-                    double value = computeJacobianValue(var, ct, columnStart, rowIndices, values, iRowIndices, currentConstraint);
+                    double value = computeJacobianValue(variableIndex, constraintIndex, columnStart, rowIndices, values, iRowIndices, currentConstraint);
 
                     jac.set(index, value);
 
@@ -222,10 +222,10 @@ public final class KnitroCallbacks {
                     }
 
                     // Update row index if constraint changed
-                    if (!firstIteration && currentConstraint != ct) {
+                    if (!firstIteration && currentConstraint != constraintIndex) {
                         iRowIndices = 0;
-                        currentConstraint = ct;
-                    } else if (var < numLFVariables && rowIndices[columnStart[ct] + iRowIndices] == var) {
+                        currentConstraint = constraintIndex;
+                    } else if (variableIndex < numLFVariables && rowIndices[columnStart[constraintIndex] + iRowIndices] == variableIndex) {
                         iRowIndices++;
                     }
 
@@ -241,8 +241,8 @@ public final class KnitroCallbacks {
          * Computes a single Jacobian value.
          * This can be extended to handle specific modification of the Jacobian (e.g., adding slacks).
          *
-         * @param var Variable index.
-         * @param ct Constraint index.
+         * @param variableIndex Variable index.
+         * @param constraintIndex Constraint index.
          * @param columnStart Column start array.
          * @param rowIndices Row indices array.
          * @param values Values array.
@@ -250,29 +250,29 @@ public final class KnitroCallbacks {
          * @param currentConstraint Current constraint index.
          * @return The Jacobian value.
          */
-        protected double computeJacobianValue(int var, int ct, int[] columnStart, int[] rowIndices,
+        protected double computeJacobianValue(int variableIndex, int constraintIndex, int[] columnStart, int[] rowIndices,
                                               double[] values, int iRowIndices, int currentConstraint) {
             // if the var is not in LF variables, then it corresponds to an added variable in the system (e.g., a slack variable)
             // if so, the Jacobian value must be computed accordingly
-            if (var >= numLFVariables) {
-                return computeModifiedJacobianValue(var, ct);
+            if (variableIndex >= numLFVariables) {
+                return computeModifiedJacobianValue(variableIndex, constraintIndex);
             }
 
             // Regular variable: find in sparse matrix
-            int colStart = columnStart[ct];
-            int colEnd = columnStart[ct + 1];
+            int colStart = columnStart[constraintIndex];
+            int colEnd = columnStart[constraintIndex + 1];
             double value = 0.0;
 
             // check if we can use the cached row index position
             // FIXME : this should be checked
-            if (ct == currentConstraint && iRowIndices < (colEnd - colStart) && rowIndices[colStart + iRowIndices] == var) {
+            if (constraintIndex == currentConstraint && iRowIndices < (colEnd - colStart) && rowIndices[colStart + iRowIndices] == variableIndex) {
                 value = values[colStart + iRowIndices];
             } else {
                 // FIXME : fallback
                 // FIXME : remove me, after fixing other thing
                 // if not, search through the column
                 for (int i = colStart; i < colEnd; i++) {
-                    if (rowIndices[i] == var) {
+                    if (rowIndices[i] == variableIndex) {
                         value = values[i];
                         break;
                     }
@@ -286,7 +286,7 @@ public final class KnitroCallbacks {
          * Default implementation returns 0.
          * Should be overridden by subclasses that modify the Jacobian matrix.
          */
-        protected double computeModifiedJacobianValue(int var, int ct) {
+        protected double computeModifiedJacobianValue(int variableIndex, int constraintIndex) {
             return 0.0;
         }
     }

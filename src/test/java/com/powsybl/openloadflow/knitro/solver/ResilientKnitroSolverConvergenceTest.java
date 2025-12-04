@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
-public class ResilientKnitroSolverConvergenceTest {
+class ResilientKnitroSolverConvergenceTest {
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
     private LoadFlow.Runner loadFlowRunner;

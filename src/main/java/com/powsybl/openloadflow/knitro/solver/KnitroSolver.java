@@ -9,6 +9,7 @@ package com.powsybl.openloadflow.knitro.solver;
 
 import com.artelys.knitro.api.*;
 import com.artelys.knitro.api.callbacks.KNEvalGACallback;
+import com.powsybl.commons.PowsyblException;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.ac.equations.AcVariableType;
 import com.powsybl.openloadflow.equations.*;
@@ -43,7 +44,7 @@ public class KnitroSolver extends AbstractKnitroSolver {
         try {
             return new KnitroProblem(network, equationSystem, targetVector, j, voltageInitializer, knitroParameters);
         } catch (KNException e) {
-            throw new RuntimeException("Failed to create Knitro problem", e);
+            throw new PowsyblException("Failed to create Knitro problem", e);
         }
     }
 

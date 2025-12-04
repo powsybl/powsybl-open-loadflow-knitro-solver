@@ -220,7 +220,7 @@ public abstract class AbstractKnitroProblem extends KNProblem {
                     this.setJacNnzPattern(listNonZerosCtsSparse, listNonZerosVarsSparse);
                 }
             } catch (KNException e) {
-                throw new RuntimeException("Failed to set Jacobian pattern", e);
+                throw new PowsyblException("Failed to set Jacobian pattern in Knitro problem", e);
             }
             // Set the callback for gradient evaluations if the user directly passes the Jacobian to the solver.
             this.setGradEvalCallback(createGradientCallback(

@@ -71,7 +71,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     private double slackThreshold = DEFAULT_SLACK_THRESHOLD; // threshold indicating if a slack is active or not after optimization
 
-    public SolverType solverType = DEFAULT_SOLVER_TYPE;
+    private SolverType solverType = DEFAULT_SOLVER_TYPE;
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
