@@ -121,6 +121,10 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         }
     }
 
+    public static void logKnitroStatus(KnitroStatus status) {
+        LOGGER.info("Knitro Status: {}", status);
+    }
+
     /**
      * Gets the solution from the solver. Can be overridden by subclasses.
      *
@@ -168,7 +172,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
 
             KNSolution solution = getSolution(solver);
             acStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
-            NonLinearExternalSolverUtils.logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
+            logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
             nbIter = solver.getNumberIters();
 
             processSolution(solver, solution, instance);
