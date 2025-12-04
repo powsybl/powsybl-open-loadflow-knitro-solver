@@ -38,8 +38,8 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
     // Weights of the linear in the objective function
     private static final double WEIGHT_ABSOLUTE_PENAL = 3.0;
 
-    // Total number of variables including slack variables
-    private final int numTotalVariables;
+    // Total number of variables (including power flow and slack variables)
+    private final int numberOfVariables;
 
     // Number of equations for active power (P), reactive power (Q), and voltage magnitude (V)
     private final int numPEquations;
@@ -47,7 +47,6 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
     private final int numVEquations;
 
     // Starting indices for slack variables in the variable vector
-    private final int slackStartIndex;
     private final int slackPStartIndex;
     private final int slackQStartIndex;
     private final int slackVStartIndex;
@@ -79,10 +78,9 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
         this.numVEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count();
 
         int numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations);
-        this.numTotalVariables = numberOfPowerFlowVariables + numSlackVariables;
+        this.numberOfVariables = numberOfPowerFlowVariables + numSlackVariables;
 
-        this.slackStartIndex = numberOfPowerFlowVariables;
-        this.slackPStartIndex = slackStartIndex;
+        this.slackPStartIndex = numberOfPowerFlowVariables;
         this.slackQStartIndex = slackPStartIndex + 2 * numPEquations;
         this.slackVStartIndex = slackQStartIndex + 2 * numQEquations;
 
@@ -102,7 +100,7 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
                 case BUS_TARGET_P -> pEquationLocalIds.put(i, pCounter++);
                 case BUS_TARGET_Q -> qEquationLocalIds.put(i, qCounter++);
                 case BUS_TARGET_V -> vEquationLocalIds.put(i, vCounter++);
-                default -> {} // no slack to add
+                default -> { } // no slack to add
             }
         }
     }
@@ -241,11 +239,11 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
                 VoltageInitializer voltageInitializer,
                 KnitroSolverParameters parameters) throws KNException {
 
-            super(network, equationSystem, targetVector, jacobianMatrix, parameters, numTotalVariables);
-            LOGGER.info("Defining {} variables", numTotalVariables);
+            super(network, equationSystem, targetVector, jacobianMatrix, parameters, numberOfVariables);
+            LOGGER.info("Defining {} variables", numberOfVariables);
 
             // Initialize variables (base class handles LF variables, we customize for slack)
-            initializeVariables(voltageInitializer, numTotalVariables);
+            initializeVariables(voltageInitializer, numberOfVariables);
             LOGGER.info("Voltage initialization strategy: {}", voltageInitializer);
 
             // =============== Constraint Setup ===============
@@ -319,9 +317,9 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
             }
 
             // Slacks variables contributions in the objective function
-            for (int iSlack = slackStartIndex; iSlack < numTotalVariables; iSlack++) {
+            for (int iSlack = numberOfPowerFlowVariables; iSlack < numberOfVariables; iSlack++) {
                 hessianEntries.add(new NnzCoordinates(iSlack, iSlack));
-                if (((iSlack - slackStartIndex) & 1) == 0) {
+                if (((iSlack - numberOfPowerFlowVariables) & 1) == 0) {
                     hessianEntries.add(new NnzCoordinates(iSlack, iSlack + 1));
                 }
             }
@@ -377,8 +375,8 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
         @Override
         protected void customizeVariableBounds(List<Double> lowerBounds, List<Double> upperBounds,
                                               List<Double> initialValues, int numTotalVariables) {
-            // Initialize slack variables (≥ 0, initial value = 0)
-            for (int i = slackStartIndex; i < numTotalVariables; i++) {
+            // set a lower bound to slack variables (>= 0, initial value = 0)
+            for (int i = numberOfPowerFlowVariables; i < numTotalVariables; i++) {
                 lowerBounds.set(i, 0.0);
             }
         }
@@ -446,7 +444,7 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
 
             return new RelaxedCallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
                     listNonZerosCtsSparse, listNonZerosVarsSparse, network,
-                    equationSystem, knitroParameters, numLFVariables);
+                    equationSystem, knitroParameters, numberOfPowerFlowVariables);
         }
 
         /**

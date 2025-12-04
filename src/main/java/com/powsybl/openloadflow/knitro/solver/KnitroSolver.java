@@ -66,10 +66,10 @@ public class KnitroSolver extends AbstractKnitroSolver {
             super(lfNetwork, equationSystem, targetVector, jacobianMatrix, parameters,
                     equationSystem.getIndex().getSortedVariablesToFind().size());
 
-            LOGGER.info("Defining {} variables", numLFVariables);
+            LOGGER.info("Defining {} variables", numberOfPowerFlowVariables);
 
             // Initialize variables
-            initializeVariables(voltageInitializer, numLFVariables);
+            initializeVariables(voltageInitializer, numberOfPowerFlowVariables);
             LOGGER.info("Initialization of variables : type of initialization {}", voltageInitializer);
 
             // Setup constraints
@@ -107,7 +107,7 @@ public class KnitroSolver extends AbstractKnitroSolver {
 
             return new KnitroCallbacks.BaseCallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
                     listNonZerosCtsSparse, listNonZerosVarsSparse, network, equationSystem,
-                    knitroParameters, numLFVariables);
+                    knitroParameters, numberOfPowerFlowVariables);
         }
     }
 

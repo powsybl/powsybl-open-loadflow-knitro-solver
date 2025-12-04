@@ -41,7 +41,7 @@ public abstract class AbstractKnitroProblem extends KNProblem {
     protected final TargetVector<AcVariableType, AcEquationType> targetVector;
     protected final JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix;
     protected final KnitroSolverParameters knitroParameters;
-    protected final int numLFVariables;
+    protected final int numberOfPowerFlowVariables;
 
     protected AbstractKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                     TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
@@ -52,7 +52,7 @@ public abstract class AbstractKnitroProblem extends KNProblem {
         this.targetVector = targetVector;
         this.jacobianMatrix = jacobianMatrix;
         this.knitroParameters = knitroParameters;
-        this.numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
+        this.numberOfPowerFlowVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
     }
 
     /**
@@ -72,13 +72,13 @@ public abstract class AbstractKnitroProblem extends KNProblem {
 
         // Compute initial state (V, Theta) using the given initializer
         AcSolverUtil.initStateVector(network, equationSystem, voltageInitializer);
-        for (int i = 0; i < numLFVariables; i++) {
+        for (int i = 0; i < numberOfPowerFlowVariables; i++) {
             initialValues.set(i, equationSystem.getStateVector().get(i));
         }
 
         // Set bounds for voltage variables based on Knitro parameters
         List<Variable<AcVariableType>> sortedVariables = equationSystem.getIndex().getSortedVariablesToFind();
-        for (int i = 0; i < numLFVariables; i++) {
+        for (int i = 0; i < numberOfPowerFlowVariables; i++) {
             if (sortedVariables.get(i).getType() == AcVariableType.BUS_V) {
                 lowerBounds.set(i, knitroParameters.getLowerVoltageBound());
                 upperBounds.set(i, knitroParameters.getUpperVoltageBound());
@@ -210,7 +210,7 @@ public abstract class AbstractKnitroProblem extends KNProblem {
             try {
                 if (knitroParameters.getGradientUserRoutine() == 1) {
                     // Dense method: all non-linear constraints are considered as a function of all variables.
-                    NonLinearExternalSolverUtils.buildDenseJacobianMatrix(numLFVariables, listNonLinearConsts,
+                    NonLinearExternalSolverUtils.buildDenseJacobianMatrix(numberOfPowerFlowVariables, listNonLinearConsts,
                             listNonZerosCtsDense, listNonZerosVarsDense);
                     this.setJacNnzPattern(listNonZerosCtsDense, listNonZerosVarsDense);
                 } else if (knitroParameters.getGradientUserRoutine() == 2) {
