@@ -19,7 +19,7 @@ import com.powsybl.openloadflow.network.util.VoltageInitializer;
 import java.util.List;
 
 /**
- * Standard Knitro solver, solving load flow equation system as a feasibility problem.
+ * Standard Knitro solver, solving open load flow equation system as a feasibility problem.
  *
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
@@ -52,10 +52,13 @@ public class KnitroSolver extends AbstractKnitroSolver {
         }
     }
 
+    /**
+     * Optimization problem modeling the open load-flow equation system as a feasibility problem.
+     */
     private static final class KnitroProblem extends AbstractKnitroProblem {
 
         /**
-         * Knitro Problem definition with :
+         * Knitro Problem definition with:
          * - initialization of variables (types, bounds, initial state)
          * - definition of linear constraints
          * - definition of non-linear constraints, evaluated in the callback function

@@ -23,6 +23,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
+ * Relaxed Knitro solver, solving the open load flow equation system by minimizing constraint violations through relaxation.
+ * This class additionally provides:
+ *  - Post-processing of the computed solutions, including the reporting of relaxation variables.
+ *  - An extended optimization problem formulation dedicated to solving the open load flow equation system.
+ *
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
@@ -222,14 +227,18 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
         return penalty;
     }
 
+    /**
+     * Optimization problem solving the open load flow equation system by minimizing constraint violations through relaxation.
+     */
     private final class RelaxedKnitroProblem extends AbstractKnitroProblem {
 
         /**
          * Relaxed Knitro problem definition including:
-         * - Initialization of variables (types, bounds, initial state)
-         * - Definition of linear and non-linear constraints
-         * - Objective function setup
-         * - Jacobian matrix setup for Knitro
+         * - initialization of variables (types, bounds, initial state)
+         * - definition of linear constraints
+         * - definition of non-linear constraints, evaluated in extended the callback function
+         * - definition of the extended Jacobian matrix passed to Knitro to solve the problem
+         * - definition of the objective function to be minimized (equation system violations)
          */
         private RelaxedKnitroProblem(
                 LfNetwork network,

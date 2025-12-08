@@ -28,12 +28,13 @@ import java.util.List;
 import static com.google.common.primitives.Doubles.toArray;
 
 /**
- * Abstract base class for Knitro solvers, providing common functionality, including:
+ * Abstract base class for Knitro solvers dedicated to solving the open load-flow equation system.
+ * It provides common functionality, including:
  *      - Configuration of the external Knitro solver.
  *      - Creation of the optimization problem (extending {@link AbstractKnitroProblem}).
  *      - Processing of the obtained solution.
- * This class can be extended to add custom behavior for any of these functionalities.
- * For example, if you modify the optimization problem, you might also need to update the solution processing.
+ * This class can be extended to add custom behavior to any of these features (e.g., in {@link RelaxedKnitroSolver}.
+ * For example, if you modify the optimization problem, you may also need to update the solution-processing logic.
  *
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}

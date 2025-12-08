@@ -24,7 +24,11 @@ import java.util.List;
 import static com.google.common.primitives.Doubles.toArray;
 
 /**
- * Common callback implementations for Knitro solvers.
+ * Common callback implementations for Knitro optimization problems, including:
+ *  - {@link BaseCallbackEvalFC} to evaluate the constraints associated with the open load-flow equations.
+ *  - {@link BaseCallbackEvalG} to evaluate the gradient (Jacobian matrix) of these constraints.
+ * These callbacks are included as part of the definition of a Knitro optimization problem.
+ * They can be extended to enrich the evaluation depending on the problem being solved.
  *
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
@@ -40,8 +44,8 @@ public final class KnitroCallbacks {
     }
 
     /**
-     * Base callback for evaluating non-linear constraints.
-     * Can be extended to add modification of the non-linear constraints.
+     * Base callback for evaluating non-linear constraints of a Knitro optimization problem.
+     * This can be extended to handle specific modification of the constraints (e.g., adding slacks).
      */
     public static class BaseCallbackEvalFC extends KNEvalFCCallback {
 
@@ -55,7 +59,6 @@ public final class KnitroCallbacks {
             this.nonLinearConstraintIds = nonLinearConstraintIds;
         }
 
-        // IS VALID
         /**
          * Knitro callback function that evaluates the non-linear constraints at the current point.
          *
@@ -121,13 +124,12 @@ public final class KnitroCallbacks {
     }
 
     /**
-     * Base callback for evaluating the gradient (Jacobian matrix) of the constraints.
+     * Base callback for evaluating the gradient (Jacobian matrix) non-linear constraints of a Knitro optimization problem.
      * Only constraints (no objective) are handled here.
      * This can be extended to handle specific modification of the constraints (e.g., adding slacks).
      */
     public static class BaseCallbackEvalG extends KNEvalGACallback {
 
-        // IS VALID
         protected final JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix;
         protected final List<Integer> denseConstraintIndices;
         protected final List<Integer> denseVariableIndices;
@@ -139,7 +141,6 @@ public final class KnitroCallbacks {
         protected final KnitroSolverParameters knitroParameters;
         protected final int numLFVariables;
 
-        // IS VALID
         public BaseCallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                                  List<Integer> denseConstraintIndices, List<Integer> denseVariableIndices,
                                  List<Integer> sparseConstraintIndices, List<Integer> sparseVariableIndices,
@@ -156,7 +157,6 @@ public final class KnitroCallbacks {
             this.numLFVariables = numLFVariables;
         }
 
-        // IS VALID
         @Override
         public void evaluateGA(final List<Double> x, final List<Double> objGrad, final List<Double> jac) {
             // Update internal state and Jacobian
@@ -284,7 +284,7 @@ public final class KnitroCallbacks {
         /**
          * Computes a modified Jacobian value (e.g., due to slack variables).
          * Default implementation returns 0.
-         * Should be overridden by subclasses that modify the Jacobian matrix.
+         * Should be overridden by subclasses that modify the callbacks of Jacobian matrix.
          */
         protected double computeModifiedJacobianValue(int variableIndex, int constraintIndex) {
             return 0.0;

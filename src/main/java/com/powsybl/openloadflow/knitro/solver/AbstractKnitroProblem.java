@@ -26,8 +26,13 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 /**
- * Abstract base class for Knitro optimization problem definitions, providing common functionality, including:
- *  - The initialization / bounds of the variables.
+ * Abstract base class for a Knitro optimization problem designed to solve the open load-flow equation system.
+ * It provides common functionality, including:
+ *  - Initialization and definition of variable bounds for the optimization problem.
+ *  - Definition of constraints (including those evaluated via callbacks in {@link KnitroCallbacks}).
+ *  - Representation of the constraint Jacobian for the problem.
+ * This class can be extended to customize any of these features (e.g., in {@link RelaxedKnitroSolver.RelaxedKnitroProblem}).
+ * For example, if you modify the optimization problem, you may also need to update the initialization of additional variables.
  *
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
