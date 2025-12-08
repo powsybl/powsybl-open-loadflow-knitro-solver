@@ -28,7 +28,12 @@ import java.util.List;
 import static com.google.common.primitives.Doubles.toArray;
 
 /**
- * Abstract base class for Knitro solvers, providing common functionality.
+ * Abstract base class for Knitro solvers, providing common functionality, including:
+ *      - Configuration of the external Knitro solver.
+ *      - Creation of the optimization problem (extending {@link AbstractKnitroProblem}).
+ *      - Processing of the obtained solution.
+ * This class can be extended to add custom behavior for any of these functionalities.
+ * For example, if you modify the optimization problem, you might also need to update the solution processing.
  *
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
@@ -80,28 +85,29 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
     }
 
     /**
-     * Creates the Knitro problem instance. Must be implemented by subclasses.
+     * Creates the Knitro problem instance.
+     * This must be implemented by subclasses.
      *
-     * @param voltageInitializer The voltage initializer to use.
+     * @param voltageInitializer The voltage initializer to use. This initializes the optimization.
      * @return The created Knitro problem instance.
-     * @throws KNException if an error occurs while creating the problem.
      */
     protected abstract KNProblem createKnitroProblem(VoltageInitializer voltageInitializer);
 
     /**
-     * Processes the solution after solving. Can be overridden by subclasses for additional processing.
+     * Processes the solution after solving.
+     * Can be overridden by subclasses for additional processing.
      *
      * @param solver The Knitro solver instance.
      * @param solution The solution obtained from Knitro.
      * @param problemInstance The problem instance.
      */
     protected void processSolution(KNSolver solver, KNSolution solution, KNProblem problemInstance) {
-        // Default implementation: log solution details
+        // log optimization solution details
         LOGGER.info("==== Solution Summary ====");
-        LOGGER.info("Objective value            = {}", solution.getObjValue());
+        LOGGER.info("Optimal objective value  = {}", solution.getObjValue());
         try {
-            LOGGER.info("Feasibility violation      = {}", solver.getAbsFeasError());
-            LOGGER.info("Optimality violation       = {}", solver.getAbsOptError());
+            LOGGER.info("Feasibility violation    = {}", solver.getAbsFeasError());
+            LOGGER.info("Optimality violation     = {}", solver.getAbsOptError());
 
             LOGGER.debug("Optimal x");
             for (int i = 0; i < solution.getX().size(); i++) {
@@ -126,7 +132,8 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
     }
 
     /**
-     * Gets the solution from the solver. Can be overridden by subclasses.
+     * Gets the solution from the solver.
+     * Can be overridden by subclasses.
      *
      * @param solver The Knitro solver instance.
      * @return The solution.

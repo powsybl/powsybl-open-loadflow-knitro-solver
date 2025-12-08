@@ -246,18 +246,21 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
             initializeVariables(voltageInitializer, numberOfVariables);
             LOGGER.info("Voltage initialization strategy: {}", voltageInitializer);
 
-            // =============== Constraint Setup ===============
+            // Set up the constraints of the relaxed optimization problem
             setupConstraints();
-            List<Equation<AcVariableType, AcEquationType>> activeConstraints = equationSystem.getIndex().getSortedEquationsToSolve();
-            List<Integer> nonlinearConstraintIndexes = new ArrayList<>();
-            for (int i = 0; i < activeConstraints.size(); i++) {
-                Equation<AcVariableType, AcEquationType> eq = activeConstraints.get(i);
-                if (!NonLinearExternalSolverUtils.isLinear(eq.getType(), eq.getTerms())) {
-                    nonlinearConstraintIndexes.add(i);
-                }
-            }
 
-            // =============== Objective Function ===============
+            // callbacks of the constraints
+            setObjEvalCallback(new RelaxedCallbackEvalFC(this, activeConstraints, nonlinearConstraintIndexes));
+
+            // set the representation of the Jacobian matrix (dense or sparse)
+            setJacobianMatrix(activeConstraints, nonlinearConstraintIndexes);
+
+            // set the representation of the Hessian matrix
+            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes);
+            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
+
+            // set the objective function of the optimization problem
+            // TODO Amine : add clear comments on what is done here
             List<Integer> quadRows = new ArrayList<>();
             List<Integer> quadCols = new ArrayList<>();
             List<Double> quadCoefs = new ArrayList<>();
@@ -272,20 +275,6 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
 
             setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
             setObjectiveLinearPart(linIndexes, linCoefs);
-
-            // =============== Callbacks and Jacobian ===============
-            setObjEvalCallback(new RelaxedCallbackEvalFC(this, activeConstraints, nonlinearConstraintIndexes));
-
-            List<Integer> jacCstDense = new ArrayList<>();
-            List<Integer> jacVarDense = new ArrayList<>();
-            List<Integer> jacCstSparse = new ArrayList<>();
-            List<Integer> jacVarSparse = new ArrayList<>();
-
-            setJacobianMatrix(activeConstraints, nonlinearConstraintIndexes,
-                    jacCstDense, jacVarDense, jacCstSparse, jacVarSparse);
-
-            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes);
-            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
         }
 
         /**
@@ -346,6 +335,7 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
                                             List<Integer> quadRows, List<Integer> quadCols, List<Double> quadCoefs,
                                             List<Integer> linIndexes, List<Double> linCoefs) {
 
+            // TODO Amine : add clear comments on what is done here
             for (int i = 0; i < numEquations; i++) {
                 int idxSm = slackStartIdx + 2 * i;
                 int idxSp = slackStartIdx + 2 * i + 1;
@@ -373,9 +363,10 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
         }
 
         @Override
-        protected void customizeVariableBounds(List<Double> lowerBounds, List<Double> upperBounds,
-                                              List<Double> initialValues, int numTotalVariables) {
-            // set a lower bound to slack variables (>= 0, initial value = 0)
+        protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds,
+                                                     List<Double> initialValues, int numTotalVariables) {
+            // set a lower bound to slack variables (>= 0)
+            // initial values have already been set to 0
             for (int i = numberOfPowerFlowVariables; i < numTotalVariables; i++) {
                 lowerBounds.set(i, 0.0);
             }

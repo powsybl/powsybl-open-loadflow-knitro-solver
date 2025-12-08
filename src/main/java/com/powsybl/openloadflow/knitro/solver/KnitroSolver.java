@@ -16,7 +16,6 @@ import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.network.LfNetwork;
 import com.powsybl.openloadflow.network.util.VoltageInitializer;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -27,9 +26,14 @@ import java.util.List;
  */
 public class KnitroSolver extends AbstractKnitroSolver {
 
-    public KnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
-                        JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
-                        EquationVector<AcVariableType, AcEquationType> equationVector, boolean detailedReport) {
+    public KnitroSolver(
+            LfNetwork network,
+            KnitroSolverParameters knitroParameters,
+            EquationSystem<AcVariableType, AcEquationType> equationSystem,
+            JacobianMatrix<AcVariableType, AcEquationType> j,
+            TargetVector<AcVariableType, AcEquationType> targetVector,
+            EquationVector<AcVariableType, AcEquationType> equationVector,
+            boolean detailedReport) {
 
         super(network, knitroParameters, equationSystem, j, targetVector, equationVector, detailedReport);
     }
@@ -51,7 +55,7 @@ public class KnitroSolver extends AbstractKnitroSolver {
     private static final class KnitroProblem extends AbstractKnitroProblem {
 
         /**
-         * Knitro optimization problem definition with :
+         * Knitro Problem definition with :
          * - initialization of variables (types, bounds, initial state)
          * - definition of linear constraints
          * - definition of non-linear constraints, evaluated in the callback function
@@ -72,30 +76,17 @@ public class KnitroSolver extends AbstractKnitroSolver {
             initializeVariables(voltageInitializer, numberOfPowerFlowVariables);
             LOGGER.info("Initialization of variables : type of initialization {}", voltageInitializer);
 
-            // Setup constraints
+            // Set up the constraints of the optimization problem
             setupConstraints();
 
             // Constant objective (= 0), for feasibility problem
             setObjConstPart(0.0);
 
-            // Callbacks
-            List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve = equationSystem.getIndex().getSortedEquationsToSolve();
-            List<Integer> listNonLinearConsts = new ArrayList<>();
-            for (int i = 0; i < sortedEquationsToSolve.size(); i++) {
-                Equation<AcVariableType, AcEquationType> eq = sortedEquationsToSolve.get(i);
-                if (!NonLinearExternalSolverUtils.isLinear(eq.getType(), eq.getTerms())) {
-                    listNonLinearConsts.add(i);
-                }
-            }
-            setObjEvalCallback(new KnitroCallbacks.BaseCallbackEvalFC(sortedEquationsToSolve, listNonLinearConsts));
+            // callbacks of the constraints
+            setObjEvalCallback(new KnitroCallbacks.BaseCallbackEvalFC(activeConstraints, nonlinearConstraintIndexes));
 
-            // Jacobian matrix
-            List<Integer> listNonZerosCtsDense = new ArrayList<>();
-            List<Integer> listNonZerosVarsDense = new ArrayList<>();
-            List<Integer> listNonZerosCtsSparse = new ArrayList<>();
-            List<Integer> listNonZerosVarsSparse = new ArrayList<>();
-            setJacobianMatrix(sortedEquationsToSolve, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense,
-                    listNonZerosCtsSparse, listNonZerosVarsSparse);
+            // set the representation of the jacobian matrix (dense or sparse)
+            setJacobianMatrix(activeConstraints, nonlinearConstraintIndexes);
         }
 
         @Override

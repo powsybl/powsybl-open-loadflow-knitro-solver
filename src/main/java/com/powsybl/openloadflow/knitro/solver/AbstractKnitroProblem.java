@@ -26,7 +26,8 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 /**
- * Abstract base class for Knitro problem definitions, providing common functionality.
+ * Abstract base class for Knitro optimization problem definitions, providing common functionality, including:
+ *  - The initialization / bounds of the variables.
  *
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
@@ -43,6 +44,8 @@ public abstract class AbstractKnitroProblem extends KNProblem {
     protected final JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix;
     protected final KnitroSolverParameters knitroParameters;
     protected final int numberOfPowerFlowVariables;
+    protected List<Equation<AcVariableType, AcEquationType>> activeConstraints = new ArrayList<>();
+    protected final List<Integer> nonlinearConstraintIndexes = new ArrayList<>();
 
     protected AbstractKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                     TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
@@ -87,7 +90,7 @@ public abstract class AbstractKnitroProblem extends KNProblem {
         }
 
         // Allow subclasses to modify bounds and initial values (e.g., for slack variables)
-        customizeVariableBounds(lowerBounds, upperBounds, initialValues, numTotalVariables);
+        initializeCustomizedVariables(lowerBounds, upperBounds, initialValues, numTotalVariables);
 
         setVarLoBnds(lowerBounds);
         setVarUpBnds(upperBounds);
@@ -96,7 +99,7 @@ public abstract class AbstractKnitroProblem extends KNProblem {
     }
 
     /**
-     * Allows subclasses to customize variable bounds and initial values.
+     * Allows subclasses to initialize additional variables (bounds, initial values).
      * Default implementation does nothing.
      *
      * @param lowerBounds Lower bounds list to modify.
@@ -104,24 +107,31 @@ public abstract class AbstractKnitroProblem extends KNProblem {
      * @param initialValues Initial values list to modify.
      * @param numTotalVariables Total number of variables.
      */
-    protected void customizeVariableBounds(List<Double> lowerBounds, List<Double> upperBounds,
-                                           List<Double> initialValues, int numTotalVariables) {
+    protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds,
+                                                 List<Double> initialValues, int numTotalVariables) {
         // no customization by default
     }
 
     /**
-     * Sets up constraints (linear and non-linear).
+     * Sets up constraints of the optimization problem.
+     * Separate linear and nonlinear constraints to determine which ones
+     * will be evaluated through callback functions.
      */
     protected void setupConstraints() throws KNException {
-        List<Equation<AcVariableType, AcEquationType>> activeConstraints = equationSystem.getIndex().getSortedEquationsToSolve();
+        activeConstraints = equationSystem.getIndex().getSortedEquationsToSolve();
         int numConstraints = activeConstraints.size();
-        List<Integer> nonlinearConstraintIndexes = new ArrayList<>();
 
         LOGGER.info("Defining {} active constraints", numConstraints);
 
         NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
+
+        // add linear constraints and fill the list of non-linear constraints
         addLinearConstraints(activeConstraints, solverUtils, nonlinearConstraintIndexes);
+
+        // pass to Knitro the indexes of non-linear constraints, that will be evaluated in the callback function
         setMainCallbackCstIndexes(nonlinearConstraintIndexes);
+
+        // right hand side (targets)
         setConEqBnds(Arrays.stream(targetVector.getArray()).boxed().toList());
     }
 
@@ -198,15 +208,13 @@ public abstract class AbstractKnitroProblem extends KNProblem {
      *
      * @param sortedEquationsToSolve The list of equations to solve.
      * @param listNonLinearConsts The list of non-linear constraint ids.
-     * @param listNonZerosCtsDense Dense non-zero constraints.
-     * @param listNonZerosVarsDense Dense non-zero variables.
-     * @param listNonZerosCtsSparse Sparse non-zero constraints.
-     * @param listNonZerosVarsSparse Sparse non-zero variables.
      */
-    protected void setJacobianMatrix(List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> listNonLinearConsts,
-                                     List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
-                                     List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) {
-
+    protected void setJacobianMatrix(List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> listNonLinearConsts) {
+        // Non-zero pattern : for each constraint, we detail the variables of which the constraint is a function of.
+        List<Integer> listNonZerosCtsDense = new ArrayList<>();
+        List<Integer> listNonZerosVarsDense = new ArrayList<>();
+        List<Integer> listNonZerosCtsSparse = new ArrayList<>();
+        List<Integer> listNonZerosVarsSparse = new ArrayList<>();
         if (knitroParameters.getGradientComputationMode() == 1) { // User routine to compute the Jacobian
             try {
                 if (knitroParameters.getGradientUserRoutine() == 1) {
@@ -228,7 +236,6 @@ public abstract class AbstractKnitroProblem extends KNProblem {
                     listNonZerosCtsSparse, listNonZerosVarsSparse));
         }
     }
-
 
     /**
      * Builds the row and column index lists corresponding to the dense Jacobian structure,
