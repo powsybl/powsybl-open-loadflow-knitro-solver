@@ -155,6 +155,14 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("Total penalty = {}", totalPenalty);
     }
 
+    /**
+     * Logs information like bus name and slack value for most significant slack variables.
+     *
+     * @param type The slack variable type.
+     * @param startIndex The start index of slack variables associated to the given type.
+     * @param count The maximum number of slack variables associated to the given type.
+     * @param x The variable values as returned by solver.
+     */
     private void logSlackValues(String type, int startIndex, int count, List<Double> x) {
         final double sbase = 100.0;     // Base power in MVA
 
@@ -165,7 +173,7 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
             double sp = x.get(startIndex + 2 * i + 1);
             double epsilon = sp - sm;
 
-            // Get significant slack values below threshold
+            // Get significant slack values above threshold
             boolean shouldSkip = Math.abs(epsilon) <= knitroParameters.getSlackThreshold();
             String name = null;
             String interpretation = null;
@@ -198,6 +206,13 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
         }
     }
 
+    /**
+     * Finds the bus associated to a slack variable.
+     *
+     * @param index The index of the slack variable
+     * @param type The slack variable type.
+     * @return The id of the bus associated to the slack variable.
+     */
     private String getSlackVariableBusName(Integer index, String type) {
         Set<Map.Entry<Integer, Integer>> equationSet = switch (type) {
             case "P" -> pEquationLocalIds.entrySet();
@@ -223,6 +238,16 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
         return bus.getId();
     }
 
+    /**
+     * Calculates the total loss associated to a slack variable type
+     *
+     * @param x The variable values as returned by solver.
+     * @param startIndex The start index of slack variables associated to the given type.
+     * @param count The maximum number of slack variables associated to the given type.
+     * @param weight The weight inf front of the given slack variables terms
+     * @param lambda The coefficient of the linear terms in the objective function.
+     * @return The total penalty associated to the slack variables type.
+     */
     private double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight, double lambda) {
         double penalty = 0.0;
         for (int i = 0; i < count; i++) {
@@ -277,15 +302,16 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
             setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
 
             // set the objective function of the optimization problem
-            // TODO Amine : add clear comments on what is done here
-            List<Integer> quadRows = new ArrayList<>();
-            List<Integer> quadCols = new ArrayList<>();
-            List<Double> quadCoefs = new ArrayList<>();
+            // initialise lists to track quadratic objective function terms of the form: a * x1 * x2
+            List<Integer> quadRows = new ArrayList<>(); // list of indexes of the first variable x1
+            List<Integer> quadCols = new ArrayList<>(); // list of indexes of the second variable x2
+            List<Double> quadCoefs = new ArrayList<>(); // list of indexes of the coefficient a
 
-            List<Integer> linIndexes = new ArrayList<>();
-            List<Double> linCoefs = new ArrayList<>();
+            // initialise lists to track linear objective function terms of the form: a * x
+            List<Integer> linIndexes = new ArrayList<>(); // list of indexes of the variable x
+            List<Double> linCoefs = new ArrayList<>(); // list of indexes of the coefficient a
 
-            // Slack penalty terms: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
+            // add slack penalty terms, for each slack type, of the form: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
             addSlackObjectiveTerms(numPEquations, slackPStartIndex, WEIGHT_P_PENAL, WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
             addSlackObjectiveTerms(numQEquations, slackQStartIndex, WEIGHT_Q_PENAL, WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
             addSlackObjectiveTerms(numVEquations, slackVStartIndex, WEIGHT_V_PENAL, WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
@@ -351,29 +377,34 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
         private void addSlackObjectiveTerms(int numEquations, int slackStartIdx, double weight, double lambda,
                                             List<Integer> quadRows, List<Integer> quadCols, List<Double> quadCoefs,
                                             List<Integer> linIndexes, List<Double> linCoefs) {
-
-            // TODO Amine : add clear comments on what is done here
             for (int i = 0; i < numEquations; i++) {
-                int idxSm = slackStartIdx + 2 * i;
-                int idxSp = slackStartIdx + 2 * i + 1;
+                int idxSm = slackStartIdx + 2 * i; // negative slack variable index
+                int idxSp = slackStartIdx + 2 * i + 1; // positive slack variable index
 
-                // Quadratic terms: weight * (sp^2 + sm^2 - 2 * sp * sm)
+                // Add quadratic terms: weight * (sp^2 + sm^2 - 2 * sp * sm)
+
+                // add first quadratic term : weight * sp^2
                 quadRows.add(idxSp);
                 quadCols.add(idxSp);
                 quadCoefs.add(weight);
 
+                // add second quadratic term : weight * sm^2
                 quadRows.add(idxSm);
                 quadCols.add(idxSm);
                 quadCoefs.add(weight);
 
+                // add third quadratic term : weight * (- 2 * sp * sm)
                 quadRows.add(idxSp);
                 quadCols.add(idxSm);
                 quadCoefs.add(-2 * weight);
 
-                // Linear terms: weight * lambda * (sp + sm)
+                // Add linear terms: weight * lambda * (sp + sm)
+
+                // add first linear term : weight * lambda * sp
                 linIndexes.add(idxSp);
                 linCoefs.add(lambda * weight);
 
+                // add second linear term : weight * lambda * sm
                 linIndexes.add(idxSm);
                 linCoefs.add(lambda * weight);
             }
@@ -407,6 +438,7 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
                                                       Equation<AcVariableType, AcEquationType> equation,
                                                       List<Integer> variableIndices) {
             AcEquationType equationType = equation.getType();
+            // get slack variable local index (within its equation type)
             int slackStart = switch (equationType) {
                 case BUS_TARGET_P -> pEquationLocalIds.getOrDefault(constraintIndex, -1);
                 case BUS_TARGET_Q -> qEquationLocalIds.getOrDefault(constraintIndex, -1);
@@ -415,12 +447,14 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
             };
 
             if (slackStart >= 0) {
+                // get slack variable type starting index (within total variables' indexes)
                 int slackBaseIndex = switch (equationType) {
                     case BUS_TARGET_P -> slackPStartIndex;
                     case BUS_TARGET_Q -> slackQStartIndex;
                     case BUS_TARGET_V -> slackVStartIndex;
                     default -> throw new IllegalStateException("Unexpected constraint type: " + equationType);
                 };
+                // get slack variables Sm and Sp indexes
                 variableIndices.add(slackBaseIndex + 2 * slackStart);     // Sm
                 variableIndices.add(slackBaseIndex + 2 * slackStart + 1); // Sp
             }

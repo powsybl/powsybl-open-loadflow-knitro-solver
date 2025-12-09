@@ -215,16 +215,23 @@ public final class KnitroCallbacks {
                     // Find matching (variableIndex, constraintIndex) entry in sparse column
                     int colStart = columnStart[constraintIndex];
 
+                    // Check if we moved to the next constraint
                     if (currentConstraint != constraintIndex) {
+                        // In this case, restart variable tracking slacks indices to 0 and change the currently handled constraint
                         iRowIndices = 0;
                         currentConstraint = constraintIndex;
                     }
 
+                    // Check if current variableIndex is a slack variable index
                     if (variableIndex >= numLFVariables) {
+                        // In this case, add corresponding value
                         value = computeModifiedJacobianValue(variableIndex, constraintIndex);
+                    // When in dense mode, the constructed index list and the index list from powsybl don't match
                     } else if (rowIndices[colStart + iRowIndices] != variableIndex) {
+                        // In this case, set corresponding value to zero
                         value = 0.0;
                     } else {
+                        // This is the case of a LF variable with a non-zero coefficient in the Jacobian
                         value = values[colStart + iRowIndices++];
                     }
 
