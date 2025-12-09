@@ -268,6 +268,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
         if (this.threadNumber < -1) {
             throw new IllegalArgumentException("Thread number must be greater than or equal to -1");
         }
+        this.threadNumber = threadNumber;
         return this;
     }
 
