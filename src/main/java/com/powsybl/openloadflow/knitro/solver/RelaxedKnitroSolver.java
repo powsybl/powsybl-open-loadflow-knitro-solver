@@ -164,25 +164,31 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
             double epsilon = sp - sm;
 
             // Get significant slack values below threshold
-            if (Math.abs(epsilon) <= knitroParameters.getSlackThreshold()) {
-                continue;
+            boolean shouldSkip = Math.abs(epsilon) <= knitroParameters.getSlackThreshold();
+            String name = null;
+            String interpretation = null;
+
+            if (!shouldSkip) {
+                name = getSlackVariableBusName(i, type);
+
+                switch (type) {
+                    case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * sbase);
+                    case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * sbase);
+                    case "V" -> {
+                        var bus = network.getBusById(name);
+                        if (bus == null) {
+                            LOGGER.warn("Bus {} not found while logging V slack.", name);
+                            shouldSkip = true;
+                        } else {
+                            interpretation = String.format("ΔV = %.4f p.u. (%.1f kV)", epsilon, epsilon * bus.getNominalV());
+                        }
+                    }
+                    default -> interpretation = "Unknown slack type";
+                }
             }
 
-            String name = getSlackVariableBusName(i, type);
-            String interpretation;
-
-            switch (type) {
-                case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * sbase);
-                case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * sbase);
-                case "V" -> {
-                    var bus = network.getBusById(name);
-                    if (bus == null) {
-                        LOGGER.warn("Bus {} not found while logging V slack.", name);
-                        continue;
-                    }
-                    interpretation = String.format("ΔV = %.4f p.u. (%.1f kV)", epsilon, epsilon * bus.getNominalV());
-                }
-                default -> interpretation = "Unknown slack type";
+            if (shouldSkip) {
+                continue;
             }
 
             String msg = String.format("Slack %s[ %s ] → Sm = %.4f, Sp = %.4f → %s", type, name, sm, sp, interpretation);
