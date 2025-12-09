@@ -196,9 +196,25 @@ class KnitroSolverParametersTest {
     }
 
     @Test
+    void testThreadNumberIntegrity() {
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
+        // check default thread number value
+        assertEquals(8, knitroLoadFlowParameters.getThreadNumber());
+
+        // set other value
+        knitroLoadFlowParameters.setThreadNumber(1);
+        assertEquals(1, knitroLoadFlowParameters.getThreadNumber());
+        knitroLoadFlowParameters.setThreadNumber(-1);
+        assertEquals(-1, knitroLoadFlowParameters.getThreadNumber());
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setThreadNumber(-2));
+        assertEquals("Thread number must be greater than or equal to -1", e.getMessage());
+    }
+
+    @Test
     void testToString() {
         KnitroSolverParameters parameters = new KnitroSolverParameters();
-        assertEquals("KnitroSolverParameters(solverType=STANDARD, gradientComputationMode=1, gradientUserRoutine=2, hessianComputationMode=6, relativeFeasibilityStoppingCriteria=1.0E-6, absoluteFeasibilityStoppingCriteria=0.001, relativeOptimalityStoppingCriteria=1.0E-6, absoluteOptimalityStoppingCriteria=0.001, optimalityStoppingCriteria=1.0E-6, slackThreshold=1.0E-6, minRealisticVoltage=0.5, maxRealisticVoltage=1.5, alwaysUpdateNetwork=false, maxIterations=200)",
+        assertEquals("KnitroSolverParameters(solverType=STANDARD, gradientComputationMode=1, gradientUserRoutine=2, hessianComputationMode=6, relativeFeasibilityStoppingCriteria=1.0E-6, absoluteFeasibilityStoppingCriteria=0.001, relativeOptimalityStoppingCriteria=1.0E-6, absoluteOptimalityStoppingCriteria=0.001, optimalityStoppingCriteria=1.0E-6, slackThreshold=1.0E-6, minRealisticVoltage=0.5, maxRealisticVoltage=1.5, alwaysUpdateNetwork=false, maxIterations=200, threadNumber=8)",
                 parameters.toString());
     }
 
