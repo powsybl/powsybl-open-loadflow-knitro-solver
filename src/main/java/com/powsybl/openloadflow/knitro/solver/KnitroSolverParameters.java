@@ -244,7 +244,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
     }
 
     public KnitroSolverParameters setSlackThreshold(double slackThreshold) {
-        if (slackThreshold < 0) {
+        if (slackThreshold <= 0) {
             throw new IllegalArgumentException("Slack value threshold must be strictly greater than 0");
         }
         this.slackThreshold = slackThreshold;
@@ -260,7 +260,9 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return this;
     }
 
-    public int getThreadNumber() { return threadNumber; }
+    public int getThreadNumber() {
+        return threadNumber;
+    }
 
     public KnitroSolverParameters setThreadNumber(int threadNumber) {
         if (this.threadNumber < -1) {
