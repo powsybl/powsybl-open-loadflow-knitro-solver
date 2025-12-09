@@ -557,6 +557,7 @@ class AcLoadFlowTransformerReactivePowerControlTest {
     void transformerReactivePowerControlT3wtTest() {
         selectNetwork(VoltageControlNetworkFactory.createNetworkWithT3wt());
 
+        parameters.getExtension(KnitroLoadFlowParameters.class).setUpperVoltageBound(2);
         parametersExt.setTransformerReactivePowerControl(true);
         t3wt.getLeg2().getRatioTapChanger()
                 .setTargetDeadband(0)
@@ -576,7 +577,7 @@ class AcLoadFlowTransformerReactivePowerControlTest {
         assertReactivePowerEquals(0.035, t3wt.getLeg1().getTerminal());
         assertReactivePowerEquals(8.076e-6, t3wt.getLeg2().getTerminal());
         assertReactivePowerEquals(6.698e-8, t3wt.getLeg3().getTerminal());
-//        assertEquals(2, t3wt.getLeg2().getRatioTapChanger().getSolvedTapPosition());
+        assertEquals(2, t3wt.getLeg2().getRatioTapChanger().getSolvedTapPosition());
         assertEquals(0, t3wt.getLeg2().getRatioTapChanger().getTapPosition());
     }
 
