@@ -180,7 +180,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     }
 
     public KnitroLoadFlowParameters setThreadNumber(int threadNumber) {
-        if (this.threadNumber < -1) {
+        if (threadNumber < -1) {
             throw new IllegalArgumentException("Thread number must be greater than or equal to -1");
         }
         this.threadNumber = threadNumber;
