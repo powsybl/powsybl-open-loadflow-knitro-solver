@@ -36,6 +36,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
     public static final SolverType DEFAULT_SOLVER_TYPE = SolverType.STANDARD;
+    public static final int DEFAULT_THREAD_NUMBER = 8;
 
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
 
@@ -72,6 +73,8 @@ public class KnitroSolverParameters implements AcSolverParameters {
     private double slackThreshold = DEFAULT_SLACK_THRESHOLD; // threshold indicating if a slack is active or not after optimization
 
     private SolverType solverType = DEFAULT_SOLVER_TYPE;
+
+    private int threadNumber = DEFAULT_THREAD_NUMBER; // Specifies the number of threads used by the solver. -1 lets the solver decide
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -257,6 +260,15 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return this;
     }
 
+    public int getThreadNumber() { return threadNumber; }
+
+    public KnitroSolverParameters setThreadNumber(int threadNumber) {
+        if (this.threadNumber < -1) {
+            throw new IllegalArgumentException("Thread number must be greater than or equal to -1");
+        }
+        return this;
+    }
+
     @Override
     public String toString() {
         return "KnitroSolverParameters(" +
@@ -274,6 +286,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
                 ", maxRealisticVoltage=" + upperVoltageBound +
                 ", alwaysUpdateNetwork=" + alwaysUpdateNetwork +
                 ", maxIterations=" + maxIterations +
+                ", threadNumber=" + threadNumber +
                 ')';
     }
 

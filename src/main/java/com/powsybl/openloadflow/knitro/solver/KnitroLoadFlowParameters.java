@@ -29,6 +29,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private double absOptEps = KnitroSolverParameters.DEFAULT_ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA;
     private double slackThreshold = KnitroSolverParameters.DEFAULT_SLACK_THRESHOLD;
     private KnitroSolverParameters.SolverType knitroSolverType = KnitroSolverParameters.DEFAULT_SOLVER_TYPE;
+    private int threadNumber = KnitroSolverParameters.DEFAULT_THREAD_NUMBER;
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -171,6 +172,18 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
 
     public KnitroLoadFlowParameters setKnitroSolverType(KnitroSolverParameters.SolverType knitroSolverType) {
         this.knitroSolverType = knitroSolverType;
+        return this;
+    }
+
+    public int getThreadNumber() {
+        return threadNumber;
+    }
+
+    public KnitroLoadFlowParameters setThreadNumber(int threadNumber) {
+        if (this.threadNumber < -1) {
+            throw new IllegalArgumentException("Thread number must be greater than or equal to -1");
+        }
+        this.threadNumber = threadNumber;
         return this;
     }
 
