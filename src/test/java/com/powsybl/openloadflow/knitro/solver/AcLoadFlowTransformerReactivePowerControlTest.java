@@ -557,6 +557,7 @@ class AcLoadFlowTransformerReactivePowerControlTest {
     void transformerReactivePowerControlT3wtTest() {
         selectNetwork(VoltageControlNetworkFactory.createNetworkWithT3wt());
 
+        parameters.getExtension(KnitroLoadFlowParameters.class).setLowerVoltageBound(1);
         parametersExt.setTransformerReactivePowerControl(true);
         t3wt.getLeg2().getRatioTapChanger()
                 .setTargetDeadband(0)
