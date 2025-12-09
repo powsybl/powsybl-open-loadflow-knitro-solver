@@ -112,6 +112,8 @@ public final class KnitroCallbacks {
         /**
          * Allows modification of the constraint value.
          * Default implementation returns no modification.
+         * Should be overridden by subclasses that modify the callbacks of Jacobian matrix
+         * (e.g., to add relaxation variables in {@link RelaxedKnitroSolver.RelaxedKnitroProblem}).
          *
          * @param equationId The equation ID.
          * @param equationType The equation type.
@@ -190,7 +192,8 @@ public final class KnitroCallbacks {
         }
 
         /**
-         * Fills the Jacobian values. Can be overridden to handle slack variables.
+         * Fills the Jacobian values.
+         * Can be overridden to handle slack variables.
          *
          * @param constraintIndices Constraint indices.
          * @param variableIndices Variable indices.
@@ -205,30 +208,38 @@ public final class KnitroCallbacks {
             int iRowIndices = 0;
             int currentConstraint = -1;
             for (int index = 0; index < constraintIndices.size(); index++) {
+                int constraintIndex = constraintIndices.get(index);
+                int variableIndex = variableIndices.get(index);
                 try {
                     if (firstIteration) {
                         currentConstraint = constraintIndices.get(index);
                     }
 
-                    int constraintIndex = constraintIndices.get(index);
-                    int variableIndex = variableIndices.get(index);
+                    double value;
 
-                    double value = computeJacobianValue(variableIndex, constraintIndex, columnStart, rowIndices, values, iRowIndices, currentConstraint);
+                    // Find matching (variableIndex, constraintIndex) entry in sparse column
+                    int colStart = columnStart[constraintIndex];
+
+                    if (!firstIteration) {
+                        if (currentConstraint != constraintIndex) {
+                            iRowIndices = 0;
+                            currentConstraint = constraintIndex;
+                        }
+                    }
+
+                    if (variableIndex >= numLFVariables) {
+                        value = computeModifiedJacobianValue(variableIndex, constraintIndex);
+                    } else if (rowIndices[colStart + iRowIndices] != variableIndex) {
+                        value = 0.0;
+                    } else {
+                        value = values[colStart + iRowIndices++];
+                    }
 
                     jac.set(index, value);
 
                     if (firstIteration) {
                         firstIteration = false;
                     }
-
-                    // Update row index if constraint changed
-                    if (!firstIteration && currentConstraint != constraintIndex) {
-                        iRowIndices = 0;
-                        currentConstraint = constraintIndex;
-                    } else if (variableIndex < numLFVariables && rowIndices[columnStart[constraintIndex] + iRowIndices] == variableIndex) {
-                        iRowIndices++;
-                    }
-
                 } catch (Exception e) {
                     int varId = variableIndices.get(index);
                     int ctId = constraintIndices.get(index);
@@ -238,53 +249,9 @@ public final class KnitroCallbacks {
         }
 
         /**
-         * Computes a single Jacobian value.
-         * This can be extended to handle specific modification of the Jacobian (e.g., adding slacks).
-         *
-         * @param variableIndex Variable index.
-         * @param constraintIndex Constraint index.
-         * @param columnStart Column start array.
-         * @param rowIndices Row indices array.
-         * @param values Values array.
-         * @param iRowIndices Current row index position.
-         * @param currentConstraint Current constraint index.
-         * @return The Jacobian value.
-         */
-        protected double computeJacobianValue(int variableIndex, int constraintIndex, int[] columnStart, int[] rowIndices,
-                                              double[] values, int iRowIndices, int currentConstraint) {
-            // if the var is not in LF variables, then it corresponds to an added variable in the system (e.g., a slack variable)
-            // if so, the Jacobian value must be computed accordingly
-            if (variableIndex >= numLFVariables) {
-                return computeModifiedJacobianValue(variableIndex, constraintIndex);
-            }
-
-            // Regular variable: find in sparse matrix
-            int colStart = columnStart[constraintIndex];
-            int colEnd = columnStart[constraintIndex + 1];
-            double value = 0.0;
-
-            // check if we can use the cached row index position
-            // FIXME : this should be checked
-            if (constraintIndex == currentConstraint && iRowIndices < (colEnd - colStart) && rowIndices[colStart + iRowIndices] == variableIndex) {
-                value = values[colStart + iRowIndices];
-            } else {
-                // FIXME : fallback
-                // FIXME : remove me, after fixing other thing
-                // if not, search through the column
-                for (int i = colStart; i < colEnd; i++) {
-                    if (rowIndices[i] == variableIndex) {
-                        value = values[i];
-                        break;
-                    }
-                }
-            }
-            return value;
-        }
-
-        /**
-         * Computes a modified Jacobian value (e.g., due to slack variables).
-         * Default implementation returns 0.
-         * Should be overridden by subclasses that modify the callbacks of Jacobian matrix.
+         * Computes a modified Jacobian value. Default implementation returns 0.
+         * Should be overridden by subclasses that modify the callbacks of Jacobian matrix
+         * (e.g., to add relaxation variables in {@link RelaxedKnitroSolver.RelaxedKnitroProblem}).
          */
         protected double computeModifiedJacobianValue(int variableIndex, int constraintIndex) {
             return 0.0;
