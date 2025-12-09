@@ -204,27 +204,20 @@ public final class KnitroCallbacks {
          */
         protected void fillJacobianValues(List<Integer> constraintIndices, List<Integer> variableIndices,
                                           int[] columnStart, int[] rowIndices, double[] values, List<Double> jac) {
-            boolean firstIteration = true;
             int iRowIndices = 0;
             int currentConstraint = -1;
             for (int index = 0; index < constraintIndices.size(); index++) {
                 int constraintIndex = constraintIndices.get(index);
                 int variableIndex = variableIndices.get(index);
                 try {
-                    if (firstIteration) {
-                        currentConstraint = constraintIndices.get(index);
-                    }
-
                     double value;
 
                     // Find matching (variableIndex, constraintIndex) entry in sparse column
                     int colStart = columnStart[constraintIndex];
 
-                    if (!firstIteration) {
-                        if (currentConstraint != constraintIndex) {
-                            iRowIndices = 0;
-                            currentConstraint = constraintIndex;
-                        }
+                    if (currentConstraint != constraintIndex) {
+                        iRowIndices = 0;
+                        currentConstraint = constraintIndex;
                     }
 
                     if (variableIndex >= numLFVariables) {
@@ -236,10 +229,6 @@ public final class KnitroCallbacks {
                     }
 
                     jac.set(index, value);
-
-                    if (firstIteration) {
-                        firstIteration = false;
-                    }
                 } catch (Exception e) {
                     int varId = variableIndices.get(index);
                     int ctId = constraintIndices.get(index);
