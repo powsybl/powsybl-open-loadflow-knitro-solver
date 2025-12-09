@@ -105,7 +105,9 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
                 case BUS_TARGET_P -> pEquationLocalIds.put(i, pCounter++);
                 case BUS_TARGET_Q -> qEquationLocalIds.put(i, qCounter++);
                 case BUS_TARGET_V -> vEquationLocalIds.put(i, vCounter++);
-                default -> { } // no slack to add
+                default -> {
+                    // Other equation types don't require slack variables
+                }
             }
         }
     }
