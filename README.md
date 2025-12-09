@@ -188,6 +188,7 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
         - `2 (forward)`: Knitro computes gradients via forward finite differences.
         - `3 (central)`: Knitro computes gradients via central finite differences.
     - Use `setGradientComputationMode` in the `KnitroLoadFlowParameters` extension.
+    - Warning: for options `2 (forward)` and `3 (central)` set the solver's number of threads to 1 using `setThreadNumber` in the `KnitroLoadFlowParameters` extension.
 
 4. **Jacobian Sparsity**:
     - Default: **Sparse form** (highly recommended, improves calculation as load flow problems are highly sparse problems).
