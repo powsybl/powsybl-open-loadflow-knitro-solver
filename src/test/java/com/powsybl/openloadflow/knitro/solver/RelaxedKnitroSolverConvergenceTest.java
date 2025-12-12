@@ -87,6 +87,7 @@ class RelaxedKnitroSolverConvergenceTest {
     }
 
     @Test
+    @Disabled("FIXME: windows crash on KN15 on GH")
     void testConvergenceOnI3E14() {
         network = IeeeCdfNetworkFactory.create14();
 
@@ -113,7 +114,6 @@ class RelaxedKnitroSolverConvergenceTest {
     }
 
     @Test
-    @Disabled("FIXME: windows crash on KN15 on GH")
     void testConvergenceAfterVoltagePerturbationOnI3E14() {
         LoadFlowResult resultRKN = loadFlowRunner.run(network, parameters);
         boolean isConvergedRKN = resultRKN.isFullyConverged();
