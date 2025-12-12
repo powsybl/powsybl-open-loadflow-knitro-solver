@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
-@Disabled("FIXME: windows crash on KN15 on GH")
 class RelaxedKnitroSolverConvergenceTest {
     private Network network;
 
@@ -114,6 +113,7 @@ class RelaxedKnitroSolverConvergenceTest {
     }
 
     @Test
+    @Disabled("FIXME: windows crash on KN15 on GH")
     void testConvergenceAfterVoltagePerturbationOnI3E14() {
         LoadFlowResult resultRKN = loadFlowRunner.run(network, parameters);
         boolean isConvergedRKN = resultRKN.isFullyConverged();
@@ -121,6 +121,7 @@ class RelaxedKnitroSolverConvergenceTest {
     }
 
     @Test
+    @Disabled("FIXME: windows crash on KN15 on GH")
     void testConvergenceWithOuterLoopsOnI3E14() {
         parameters.setUseReactiveLimits(true)
                 .setDistributedSlack(true);
