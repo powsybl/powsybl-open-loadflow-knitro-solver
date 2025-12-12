@@ -17,7 +17,6 @@ import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
 import com.powsybl.openloadflow.network.SlackBusSelectionMode;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -87,7 +86,6 @@ class RelaxedKnitroSolverConvergenceTest {
     }
 
     @Test
-    @Disabled("FIXME: windows crash on KN15 on GH")
     void testConvergenceOnI3E14() {
         network = IeeeCdfNetworkFactory.create14();
 
@@ -121,7 +119,6 @@ class RelaxedKnitroSolverConvergenceTest {
     }
 
     @Test
-    @Disabled("FIXME: windows crash on KN15 on GH")
     void testConvergenceWithOuterLoopsOnI3E14() {
         parameters.setUseReactiveLimits(true)
                 .setDistributedSlack(true);
