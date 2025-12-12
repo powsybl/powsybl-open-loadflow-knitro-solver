@@ -23,6 +23,7 @@ import com.powsybl.openloadflow.network.SlackBusSelectionMode;
 import com.powsybl.openloadflow.network.VoltageControlNetworkFactory;
 import com.powsybl.openloadflow.util.report.PowsyblOpenLoadFlowReportResourceBundle;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -554,6 +555,7 @@ class AcLoadFlowTransformerReactivePowerControlTest {
     }
 
     @Test
+    @Disabled("TODO: to be fixed with OLF 2.2.0 release see PR#1316")
     void transformerReactivePowerControlT3wtTest() {
         selectNetwork(VoltageControlNetworkFactory.createNetworkWithT3wt());
 

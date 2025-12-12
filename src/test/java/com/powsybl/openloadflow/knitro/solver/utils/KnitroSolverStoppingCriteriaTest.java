@@ -83,7 +83,7 @@ class KnitroSolverStoppingCriteriaTest {
 
         // ============= Model with smaller precision =============
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
-        knitroLoadFlowParameters.setConvEps(Math.pow(10, -2));
+        knitroLoadFlowParameters.setRelConvEps(Math.pow(10, -2));
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
 
         LoadFlowResult knitroResultLessPrecise = loadFlowRunner.run(network, parameters);
