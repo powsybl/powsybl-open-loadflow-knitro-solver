@@ -162,6 +162,31 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         }
     }
 
+    /**
+     * Temporary to workaround Knitro finalization issue - FIXME
+     */
+    @SuppressWarnings({"java:S1113", "java:S1874", "java:S5738"})
+    public static class FinalizeSafeSolver extends KNSolver implements AutoCloseable {
+
+        public FinalizeSafeSolver(KNBaseProblem problem) throws KNException {
+            super(problem);
+        }
+
+        @Override
+        protected void finalize() {
+            // no-op.
+        }
+
+        @Override
+        public void close() {
+            try {
+                this.KNFree();
+            } catch (KNException e) {
+                // ignored
+            }
+        }
+    }
+
     @Override
     public AcSolverResult run(VoltageInitializer voltageInitializer, ReportNode reportNode) {
         int nbIter;
@@ -174,7 +199,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
             throw new PowsyblException("Exception while trying to build Knitro Problem", e);
         }
 
-        try (KNSolver solver = new KNSolver(instance)) {
+        try (FinalizeSafeSolver solver = new FinalizeSafeSolver(instance)) {
             solver.initProblem();
             setSolverParameters(solver);
             solver.solve();
