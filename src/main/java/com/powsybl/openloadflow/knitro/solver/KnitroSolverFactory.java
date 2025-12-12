@@ -48,24 +48,22 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 .setMaxVoltageChangeStateVectorScalingMaxDphi(parametersExt.getMaxVoltageChangeStateVectorScalingMaxDphi())
                 .setAlwaysUpdateNetwork(parametersExt.isAlwaysUpdateNetwork());
         if (parameters.getExtension(KnitroLoadFlowParameters.class) != null) {
+            KnitroLoadFlowParameters knitroLoadFlowParameters = parameters.getExtension(KnitroLoadFlowParameters.class);
             knitroSolverParameters
-                    .setGradientComputationMode(parameters.getExtension(KnitroLoadFlowParameters.class).getGradientComputationMode())
-                    .setGradientUserRoutine(parameters.getExtension(KnitroLoadFlowParameters.class).getGradientUserRoutine())
-                    .setHessianComputationMode(parameters.getExtension(KnitroLoadFlowParameters.class).getHessianComputationMode())
-                    .setLowerVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getLowerVoltageBound())
-                    .setUpperVoltageBound(parameters.getExtension(KnitroLoadFlowParameters.class).getUpperVoltageBound())
-                    .setMaxIterations(parameters.getExtension(KnitroLoadFlowParameters.class).getMaxIterations())
-                    .setConvEps(parameters.getExtension(KnitroLoadFlowParameters.class).getConvEps())
-                    .setAlwaysUpdateNetwork(parameters.getExtension(KnitroLoadFlowParameters.class).isAlwaysUpdateNetwork())
-                    .setCheckLoadFlowSolution(parameters.getExtension(KnitroLoadFlowParameters.class).isCheckLoadFlowSolution())
-                    .setKnitroWritter(parameters.getExtension(KnitroLoadFlowParameters.class).getKnitroWritter())
-                    .setKnitroSolverType(parameters.getExtension(KnitroLoadFlowParameters.class).getKnitroSolverType())
-                    .setWeightSlackP(parameters.getExtension(KnitroLoadFlowParameters.class).getSlackPenalP())
-                    .setWeightSlackQ(parameters.getExtension(KnitroLoadFlowParameters.class).getSlackPenalQ())
-                    .setWeightSlackV(parameters.getExtension(KnitroLoadFlowParameters.class).getSlackPenalV())
-                    .setWithPQSlacks(parameters.getExtension(KnitroLoadFlowParameters.class).isWithPenalPQ())
-                    .setWithVSlacks(parameters.getExtension(KnitroLoadFlowParameters.class).isWithPenalV())
-            ;
+                .setGradientComputationMode(knitroLoadFlowParameters.getGradientComputationMode())
+                .setGradientUserRoutine(knitroLoadFlowParameters.getGradientUserRoutine())
+                .setHessianComputationMode(knitroLoadFlowParameters.getHessianComputationMode())
+                .setLowerVoltageBound(knitroLoadFlowParameters.getLowerVoltageBound())
+                .setUpperVoltageBound(knitroLoadFlowParameters.getUpperVoltageBound())
+                .setMaxIterations(knitroLoadFlowParameters.getMaxIterations())
+                .setRelConvEps(knitroLoadFlowParameters.getRelConvEps())
+                .setAbsConvEps(knitroLoadFlowParameters.getAbsConvEps())
+                .setRelOptEps(knitroLoadFlowParameters.getRelOptEps())
+                .setAbsOptEps(knitroLoadFlowParameters.getAbsOptEps())
+                .setSlackThreshold(knitroLoadFlowParameters.getSlackThreshold())
+                .setSolverType(knitroLoadFlowParameters.getKnitroSolverType())
+                .setThreadNumber(knitroLoadFlowParameters.getThreadNumber());
+
         }
         return knitroSolverParameters;
     }
@@ -75,14 +73,10 @@ public class KnitroSolverFactory implements AcSolverFactory {
                            JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
                            EquationVector<AcVariableType, AcEquationType> equationVector) {
         KnitroSolverParameters knitroSolverParameters = (KnitroSolverParameters) parameters.getAcSolverParameters();
-        KnitroSolverParameters.KnitroSolverType knitroSolverType = knitroSolverParameters.getKnitroSolverType();
+        KnitroSolverParameters.SolverType knitroSolverType = knitroSolverParameters.getSolverType();
         return switch (knitroSolverType) {
-            case STANDARD ->
-                    new KnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
-            case RESILIENT ->
-                    new ResilientKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
-            case REACTIVLIMITS ->
-                    new KnitroSolverReacLim(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
+            case STANDARD -> new KnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
+            case RELAXED -> new RelaxedKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
         };
     }
 

@@ -29,7 +29,7 @@ By participating, you are expected to uphold this code. Please report unacceptab
 PowSyBl Open Load Flow Knitro Solver is an extension to [PowSyBl Open Load Flow](https://github.com/powsybl/powsybl-open-loadflow) allowing to solve
 the load flow equations with the **non-linear solver Knitro** instead of the default **Newton-Raphson** method.
 
-The Knitro solver extension models the load flow problem as a **constraint satisfaction problem** (without an objective function).
+The Knitro solver extension offers two different ways to model the load flow problem: either as a **constraint satisfaction problem** (without an objective function) or as an **optimisation problem** with relaxed constraints (and an objective function minimizing the violations). 
 
 ## Getting Started
 
@@ -168,21 +168,29 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
 
 ### Knitro Parameters
 
-1. **Voltage Bounds**:
+1. **Knitro Solver Type**:
+    - Specifies the way to model the load flow problem : 
+    - **Knitro Solver Types**:
+      - `STANDARD (default)` : the constraint satisfaction problem formulation and a direct substitute to the Newton-Raphson solver.
+      - `RELAXED` : the optimisation problem formulation relaxing satisfaction problem.
+    - Use `setKnitroSolverType` in the `KnitroLoadFlowParameters` extension.
+
+2. **Voltage Bounds**:
     - Default range: **0.5 p.u. to 1.5 p.u.** : they define lower and upper bounds of voltages.
     - Modify using:
         - `setLowerVoltageBound`
         - `setUpperVoltageBound`
 
-2. **Jacobian Matrix Usage**:
+3. **Jacobian Matrix Usage**:
     - The solver utilizes the **Jacobian matrix** for solving successive linear approximations of the problem.
     - **Gradient Computation Modes**:
         - `1 (exact)`: Gradients computed in PowSyBl are provided to Knitro.
         - `2 (forward)`: Knitro computes gradients via forward finite differences.
         - `3 (central)`: Knitro computes gradients via central finite differences.
     - Use `setGradientComputationMode` in the `KnitroLoadFlowParameters` extension.
+    - Warning: for options `2 (forward)` and `3 (central)` set the solver's number of threads to 1 using `setThreadNumber` in the `KnitroLoadFlowParameters` extension.
 
-3. **Jacobian Sparsity**:
+4. **Jacobian Sparsity**:
     - Default: **Sparse form** (highly recommended, improves calculation as load flow problems are highly sparse problems).
     - To specify dense form:
         - Use `setGradientUserRoutineKnitro` in the `KnitroLoadFlowParameters` extension.
@@ -190,9 +198,44 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
         - `1 (dense)`: All constraints are considered as dependent of all variables.
         - `2 (sparse)`: Derivatives are computed only for variables involved in the constraints (recommended).
 
-4. **Maximum Iterations**:
-    - Default: **200**
-    - Modify using `setMaxIterations`.
+5. **Hessian Matrix Usage**:
+   - The solver utilizes the **Hessian matrix** of the problem's Lagrangian.
+   - **Hessian Computation Mode**:
+     - `1 (exact)`: Exact Hessian matrix is provided to Knitro. (not implemented yet)
+     - `2 (bfgs)`: Knitro computes a (dense) quasi-Newton BFGS Hessian.
+     - `3 (sr1)`: Knitro computes a (dense) quasi-Newton SR1 Hessian.
+     - `4 (product_findiff)`: Knitro computes Hessian-vector products using finite-differences.
+     - `5 (product)`: User provides a routine to compute the Hessian-vector products.
+     - `6 (lbfgs)`: Knitro computes a limited-memory quasi-Newton BFGS Hessian with size 10 limited memory pairs. (recommended for large network)
+     - `7 (gauss_newton)`: Knitro computes a Gauss-Newton approximation of the hessian.
+   - Use `setHessianComputationMode` in the `KnitroLoadFlowParameters` extension.
+
+6. **Feasibility Stopping Criteria**:
+    - Default values: $10^{-6}$ p.u for relative (to initial value) feasibility error and $10^{-3}$ p.u for absolute feasibility error. 
+    - Modify in the `KnitroLoadFlowParameters` extension using:
+        - `setRelConvEps`
+        - `setAbsConvEps`
+
+7. **Optimality Stopping Criteria**:
+   - Default values: $10^{-6}$ p.u for relative (to initial value) optimality error and $10^{-3}$ p.u for absolute optimality error.
+   - Specify the final stopping tolerances for the KKT (optimality) error.
+   - Modify in the `KnitroLoadFlowParameters` extension using:
+       - `setRelOptEps`
+       - `setAbsOptEps`
+
+8. **Maximum Iterations**:
+   - Default: **200**
+   - Modify using `setMaxIterations`.
+
+9. **Slack Threshold**:
+    - Default value: $10^{-6}$ p.u : defines a slack values threshold below which we ignore insignificant activated slack variables.
+    - Use `setSlackThreshold` in the `KnitroLoadFlowParameters` extension.
+
+10. **Number of Threads**:
+     - Default value: -1 (Knitro will automatically determine the number of threads to use and how to distribute them)
+     - Specify the number of threads to be used when solving the problem.
+     - Use `setThreadNumber` in the `KnitroLoadFlowParameters` extension.
+     - Warning: for options `2 (forward)` and `3 (central)` set the solver's number of threads to 1.
 
 ### Constraint Handling
 
