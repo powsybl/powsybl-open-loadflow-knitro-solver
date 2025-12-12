@@ -127,8 +127,14 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
     }
 
     @Override
-    protected KNSolution getSolution(KNSolver solver) {
-        return solver.getBestFeasibleIterate();
+    protected KNSolution getSolution(KNSolver solver) throws KNException {
+        KNBestFeasibleIterate bestFeasibleIterate = solver.getBestFeasibleIterate();
+        KNSolution solution = new KNSolution();
+        solution.setStatus(0);
+        solution.setX(bestFeasibleIterate.getX());
+        solution.setLambda(bestFeasibleIterate.getLambda());
+        solution.setObj(bestFeasibleIterate.getObjValue());
+        return solution;
     }
 
     @Override
