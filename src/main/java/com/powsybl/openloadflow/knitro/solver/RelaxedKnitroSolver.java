@@ -163,7 +163,7 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param count The maximum number of slack variables associated to the given type.
      * @param x The variable values as returned by solver.
      */
-    private void logSlackValues(String type, int startIndex, int count, List<Double> x) {
+    protected void logSlackValues(String type, int startIndex, int count, List<Double> x) {
         final double sbase = 100.0;     // Base power in MVA
 
         LOGGER.debug("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
