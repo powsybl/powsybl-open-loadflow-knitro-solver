@@ -51,11 +51,13 @@ public abstract class AbstractKnitroProblem extends KNProblem {
     protected final int numberOfPowerFlowVariables;
     protected List<Equation<AcVariableType, AcEquationType>> activeConstraints = new ArrayList<>();
     protected final List<Integer> nonlinearConstraintIndexes = new ArrayList<>();
+    protected final int numTotalVariables;
 
     protected AbstractKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                     TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                    KnitroSolverParameters knitroParameters, int numTotalVariables) {
-        super(numTotalVariables, equationSystem.getIndex().getSortedEquationsToSolve().size());
+                                    KnitroSolverParameters knitroParameters, int numTotalVariables, int numTotalConstraints) {
+        super(numTotalVariables, numTotalConstraints);
+        this.numTotalVariables = numTotalVariables;
         this.network = network;
         this.equationSystem = equationSystem;
         this.targetVector = targetVector;
