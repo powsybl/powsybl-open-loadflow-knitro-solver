@@ -23,24 +23,13 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private double lowerVoltageBound = KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND;
     private double upperVoltageBound = KnitroSolverParameters.DEFAULT_UPPER_VOLTAGE_BOUND;
     private int maxIterations = KnitroSolverParameters.DEFAULT_MAX_ITERATIONS;
-    private double convEps = KnitroSolverParameters.DEFAULT_STOPPING_CRITERIA;
-    private boolean alwaysUpdateNetwork = KnitroSolverParameters.ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
-    private boolean checkLoadFlowSolution = KnitroSolverParameters.CHECK_LOAD_FLOW_SOLUTION_DEFAULT_VALUE;
-    private KnitroSolverParameters.KnitroSolverType knitroSolverType = KnitroSolverParameters.DEFAULT_KNITRO_SOLVER_TYPE;
-    private KnitroWritter knitroWritter;
-    private double slackPenalV = KnitroSolverParameters.DEFAULT_WEIGHT_SLACK_V;
-    private double slackPenalP = KnitroSolverParameters.DEFAULT_WEIGHT_SLACK_P;
-    private double slackPenalQ = KnitroSolverParameters.DEFAULT_WEIGHT_SLACK_Q;
-    private boolean withPenalV = true;
-    private boolean withPenalPQ = true;
-
-    public KnitroLoadFlowParameters(KnitroWritter knitroWritter) {
-        this.knitroWritter = knitroWritter;
-    }
-
-    public KnitroLoadFlowParameters() {
-        this.knitroWritter = new KnitroWritter("Logs.txt");
-    }
+    private double relConvEps = KnitroSolverParameters.DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA;
+    private double absConvEps = KnitroSolverParameters.DEFAULT_ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA;
+    private double relOptEps = KnitroSolverParameters.DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA;
+    private double absOptEps = KnitroSolverParameters.DEFAULT_ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA;
+    private double slackThreshold = KnitroSolverParameters.DEFAULT_SLACK_THRESHOLD;
+    private KnitroSolverParameters.SolverType knitroSolverType = KnitroSolverParameters.DEFAULT_SOLVER_TYPE;
+    private int threadNumber = KnitroSolverParameters.DEFAULT_THREAD_NUMBER;
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -51,24 +40,6 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
             throw new IllegalArgumentException("Gradient mode must be between 1 and 3");
         }
         this.gradientComputationMode = gradientComputationMode;
-        return this;
-    }
-
-    public boolean isAlwaysUpdateNetwork() {
-        return alwaysUpdateNetwork;
-    }
-
-    public KnitroLoadFlowParameters setAlwaysUpdateNetwork(boolean alwaysUpdateNetwork) {
-        this.alwaysUpdateNetwork = alwaysUpdateNetwork;
-        return this;
-    }
-
-    public boolean isCheckLoadFlowSolution() {
-        return checkLoadFlowSolution;
-    }
-
-    public KnitroLoadFlowParameters setCheckLoadFlowSolution(boolean checkLoadFlowSolution) {
-        this.checkLoadFlowSolution = checkLoadFlowSolution;
         return this;
     }
 
@@ -135,81 +106,90 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
         return this;
     }
 
-    public double getConvEps() {
-        return convEps;
+    public double getRelConvEps() {
+        return relConvEps;
     }
 
-    public KnitroLoadFlowParameters setConvEps(double convEps) {
-        if (convEps <= 0) {
-            throw new IllegalArgumentException("Convergence stopping criteria must be greater than 0");
+    public KnitroLoadFlowParameters setRelConvEps(double relConvEps) {
+        if (relConvEps <= 0) {
+            throw new IllegalArgumentException("Relative feasibility stopping criteria must be strictly greater than 0");
         }
-        this.convEps = convEps;
+        this.relConvEps = relConvEps;
         return this;
     }
 
-    public KnitroSolverParameters.KnitroSolverType getKnitroSolverType() {
+    public double getAbsConvEps() {
+        return absConvEps;
+    }
+
+    public KnitroLoadFlowParameters setAbsConvEps(double absConvEps) {
+        if (absConvEps <= 0) {
+            throw new IllegalArgumentException("Absolute feasibility stopping criteria must be strictly greater than 0");
+        }
+        this.absConvEps = absConvEps;
+        return this;
+    }
+
+    public double getRelOptEps() {
+        return relOptEps;
+    }
+
+    public KnitroLoadFlowParameters setRelOptEps(double relOptEps) {
+        if (relOptEps <= 0) {
+            throw new IllegalArgumentException("Relative optimality stopping criteria must be strictly greater than 0");
+        }
+        this.relOptEps = relOptEps;
+        return this;
+    }
+
+    public double getAbsOptEps() {
+        return absOptEps;
+    }
+
+    public KnitroLoadFlowParameters setAbsOptEps(double absOptEps) {
+        if (absOptEps <= 0) {
+            throw new IllegalArgumentException("Absolute optimality stopping criteria must be strictly greater than 0");
+        }
+        this.absOptEps = absOptEps;
+        return this;
+    }
+
+    public double getSlackThreshold() {
+        return slackThreshold;
+    }
+
+    public KnitroLoadFlowParameters setSlackThreshold(double slackThreshold) {
+        if (slackThreshold <= 0) {
+            throw new IllegalArgumentException("Slack value threshold must be strictly greater than 0");
+        }
+        this.slackThreshold = slackThreshold;
+        return this;
+    }
+
+    public KnitroSolverParameters.SolverType getKnitroSolverType() {
         return knitroSolverType;
     }
 
-    public KnitroLoadFlowParameters setKnitroSolverType(KnitroSolverParameters.KnitroSolverType knitroSolverType) {
+    public KnitroLoadFlowParameters setKnitroSolverType(KnitroSolverParameters.SolverType knitroSolverType) {
         this.knitroSolverType = knitroSolverType;
         return this;
     }
 
-    public KnitroWritter getKnitroWritter() {
-        return knitroWritter;
+    public int getThreadNumber() {
+        return threadNumber;
     }
 
-    public KnitroLoadFlowParameters setKnitroWritter(KnitroWritter knitroWritter) {
-        this.knitroWritter = knitroWritter;
+    public KnitroLoadFlowParameters setThreadNumber(int threadNumber) {
+        if (threadNumber < -1) {
+            throw new IllegalArgumentException("Thread number must be greater than or equal to -1");
+        }
+        this.threadNumber = threadNumber;
         return this;
-    }
-
-    public double getSlackPenalV() {
-        return slackPenalV;
-    }
-
-    public KnitroLoadFlowParameters setSlackPenalV(double slackPenalV) {
-        this.slackPenalV = slackPenalV;
-        return this;
-    }
-
-    public double getSlackPenalP() {
-        return slackPenalP;
-    }
-
-    public KnitroLoadFlowParameters setSlackPenalP(double slackPenalP) {
-        this.slackPenalP = slackPenalP;
-        return this;
-    }
-
-    public double getSlackPenalQ() {
-        return slackPenalQ;
-    }
-
-    public KnitroLoadFlowParameters setSlackPenalQ(double slackPenalQ) {
-        this.slackPenalQ = slackPenalQ;
-        return this;
-    }
-
-    public boolean isWithPenalV() {
-        return withPenalV;
-    }
-
-    public void setWithPenalV(boolean withPenalV) {
-        this.withPenalV = withPenalV;
-    }
-
-    public boolean isWithPenalPQ() {
-        return withPenalPQ;
-    }
-
-    public void setWithPenalPQ(boolean withPenalPQ) {
-        this.withPenalPQ = withPenalPQ;
     }
 
     @Override
     public String getName() {
         return "knitro-load-flow-parameters";
     }
+
 }

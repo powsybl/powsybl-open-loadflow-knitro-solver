@@ -144,12 +144,12 @@ class AcLoadFlowVscTest {
         assertTrue(result.isFullyConverged());
 
         VscConverterStation cs2 = network.getVscConverterStation("cs2");
-        assertActivePowerEquals(-4.9634, cs2.getTerminal());
-        assertReactivePowerEquals(360.034, cs2.getTerminal());
+        assertActivePowerEquals(-5.019, cs2.getTerminal());
+        assertReactivePowerEquals(359.953, cs2.getTerminal());
 
         VscConverterStation cs3 = network.getVscConverterStation("cs3");
-        assertActivePowerEquals(5.0286, cs3.getTerminal());
-        assertReactivePowerEquals(226.984, cs3.getTerminal());
+        assertActivePowerEquals(5.085, cs3.getTerminal());
+        assertReactivePowerEquals(227.065, cs3.getTerminal());
     }
 
     @Test
@@ -535,7 +535,7 @@ class AcLoadFlowVscTest {
 
     @Test
     void testDcLoadFlowWithHvdcAcEmulation2() {
-        Network network = HvdcNetworkFactory.createVsc();
+        Network network = HvdcNetworkFactory.createVsc(false);
         network.newLine() // in order to have only one synchronous component for the moment.
                 .setId("l23")
                 .setVoltageLevel1("vl2")
