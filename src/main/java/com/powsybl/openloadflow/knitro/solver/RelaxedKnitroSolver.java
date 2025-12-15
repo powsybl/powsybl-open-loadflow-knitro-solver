@@ -242,7 +242,7 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param lambda The coefficient of the linear terms in the objective function.
      * @return The total penalty associated to the slack variables type.
      */
-    private double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight, double lambda) {
+    double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight, double lambda) {
         double penalty = 0.0;
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
