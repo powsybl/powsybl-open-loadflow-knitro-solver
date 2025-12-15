@@ -275,7 +275,8 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
                 VoltageInitializer voltageInitializer,
                 KnitroSolverParameters parameters) throws KNException {
 
-            super(network, equationSystem, targetVector, jacobianMatrix, parameters, numberOfVariables);
+            super(network, equationSystem, targetVector, jacobianMatrix, parameters, numberOfVariables,
+                    equationSystem.getIndex().getSortedEquationsToSolve().size());
             LOGGER.info("Defining {} variables", numberOfVariables);
 
             // Initialize variables (base class handles LF variables, we customize for slack)

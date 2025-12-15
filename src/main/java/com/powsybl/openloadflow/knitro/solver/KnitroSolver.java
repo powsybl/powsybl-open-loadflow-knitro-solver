@@ -71,7 +71,8 @@ public class KnitroSolver extends AbstractKnitroSolver {
                               KnitroSolverParameters parameters) throws KNException {
 
             super(lfNetwork, equationSystem, targetVector, jacobianMatrix, parameters,
-                    equationSystem.getIndex().getSortedVariablesToFind().size());
+                    equationSystem.getIndex().getSortedVariablesToFind().size(),
+                    equationSystem.getIndex().getSortedEquationsToSolve().size());
 
             LOGGER.info("Defining {} variables", numberOfPowerFlowVariables);
 
