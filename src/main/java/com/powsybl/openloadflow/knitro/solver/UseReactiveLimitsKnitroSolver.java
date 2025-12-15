@@ -328,38 +328,16 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
             setCompConstraintsTypes(listTypeVar);
             setCompConstraintsParts(bVarList, vInfSuppList); // b_low compl with V_sup  and  b_up compl with V_inf
 
-            // =============== Objective Function ===============
-            List<Integer> quadRows = new ArrayList<>();
-            List<Integer> quadCols = new ArrayList<>();
-            List<Double> quadCoefs = new ArrayList<>();
-
-            List<Integer> linIndexes = new ArrayList<>();
-            List<Double> linCoefs = new ArrayList<>();
-
-            // Slack penalty terms: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
-            addSlackObjectiveTerms(numPEquations, slackPStartIndex, WEIGHT_P_PENAL, WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numQEquations, slackQStartIndex, WEIGHT_Q_PENAL, WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numVEquations, slackVStartIndex, WEIGHT_V_PENAL, WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-
-            setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
-            setObjectiveLinearPart(linIndexes, linCoefs);
-
             // =============== Callbacks and Jacobian ===============
             setObjEvalCallback(new CallbackEvalFC(this, completeEquationsToSolve, nonlinearConstraintIndexes));
 
-            List<Integer> jacCstDense = new ArrayList<>();
-            List<Integer> jacVarDense = new ArrayList<>();
-            List<Integer> jacCstSparse = new ArrayList<>();
-            List<Integer> jacVarSparse = new ArrayList<>();
-
-            setJacobianMatrix(
-                    network, jacobianMatrix, completeEquationsToSolve, nonlinearConstraintIndexes,
-                    jacCstDense, jacVarDense, jacCstSparse, jacVarSparse
-            );
-
+            setJacobianMatrix(completeEquationsToSolve, nonlinearConstraintIndexes);
             // TODO : uncomment me
-//            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes, completeEquationsToSolve);
+//            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes);
 //            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
+
+            // set the objective function of the optimization problem
+            addObjectiveFunction(numPEquations, slackPStartIndex, numQEquations, slackQStartIndex, numVEquations, slackVStartIndex);
         }
 
         /**
