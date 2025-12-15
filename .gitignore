@@ -18,6 +18,3 @@ org.eclipse.jdt.groovy.core.prefs
 
 # Generated readthedocs pages
 build-docs/
-
-# Testing
-outputs
