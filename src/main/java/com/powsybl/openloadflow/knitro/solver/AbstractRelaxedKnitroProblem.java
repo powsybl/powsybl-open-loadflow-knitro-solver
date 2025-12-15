@@ -27,7 +27,7 @@ public abstract class AbstractRelaxedKnitroProblem extends AbstractKnitroProblem
      * @param nonlinearConstraintIndexes A list of the indexes of non-linear equations.
      * @return row and column coordinates of non-zero entries in the hessian matrix.
      */
-    private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols(List<Integer> nonlinearConstraintIndexes) {
+    AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols(List<Integer> nonlinearConstraintIndexes) {
         record NnzCoordinates(int iRow, int iCol) {
         }
 
@@ -50,7 +50,7 @@ public abstract class AbstractRelaxedKnitroProblem extends AbstractKnitroProblem
         }
 
         // Slacks variables contributions in the objective function
-        for (int iSlack = numberOfPowerFlowVariables; iSlack < this.numLfAndSlackVariables; iSlack++) {
+        for (int iSlack = numberOfPowerFlowVariables; iSlack < numLfAndSlackVariables; iSlack++) {
             hessianEntries.add(new NnzCoordinates(iSlack, iSlack));
             if (((iSlack - numberOfPowerFlowVariables) & 1) == 0) {
                 hessianEntries.add(new NnzCoordinates(iSlack, iSlack + 1));
@@ -70,6 +70,27 @@ public abstract class AbstractRelaxedKnitroProblem extends AbstractKnitroProblem
         }
 
         return new AbstractMap.SimpleEntry<>(hessRows, hessCols);
+    }
+
+    // TODO : to be refactored with an AbstractRelaxedKnitroSolverClass
+    void addObjectiveFunction(int numPEquations, int slackPStartIndex, int numQEquations, int slackQStartIndex,
+                              int numVEquations, int slackVStartIndex) throws KNException {
+        // initialise lists to track quadratic objective function terms of the form: a * x1 * x2
+        List<Integer> quadRows = new ArrayList<>(); // list of indexes of the first variable x1
+        List<Integer> quadCols = new ArrayList<>(); // list of indexes of the second variable x2
+        List<Double> quadCoefs = new ArrayList<>(); // list of indexes of the coefficient a
+
+        // initialise lists to track linear objective function terms of the form: a * x
+        List<Integer> linIndexes = new ArrayList<>(); // list of indexes of the variable x
+        List<Double> linCoefs = new ArrayList<>(); // list of indexes of the coefficient a
+
+        // add slack penalty terms, for each slack type, of the form: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
+        addSlackObjectiveTerms(numPEquations, slackPStartIndex, RelaxedKnitroSolver.WEIGHT_P_PENAL, RelaxedKnitroSolver.WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+        addSlackObjectiveTerms(numQEquations, slackQStartIndex, RelaxedKnitroSolver.WEIGHT_Q_PENAL, RelaxedKnitroSolver.WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+        addSlackObjectiveTerms(numVEquations, slackVStartIndex, RelaxedKnitroSolver.WEIGHT_V_PENAL, RelaxedKnitroSolver.WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+
+        setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
+        setObjectiveLinearPart(linIndexes, linCoefs);
     }
 
     /**
@@ -108,27 +129,6 @@ public abstract class AbstractRelaxedKnitroProblem extends AbstractKnitroProblem
             // add second linear term : weight * lambda * sm
             linIndexes.add(idxSm);
             linCoefs.add(lambda * weight);
-        }
-    }
-
-    void setJacobianMatrix(LfNetwork lfNetwork, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                           List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> listNonLinearConsts,
-                           List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
-                           List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) throws KNException {
-        int numVar = equationSystem.getIndex().getSortedVariablesToFind().size();
-        if (knitroParameters.getGradientComputationMode() == 1) { // User routine to compute the Jacobian
-            if (knitroParameters.getGradientUserRoutine() == 1) {
-                // Dense method: all non-linear constraints are considered as a function of all variables.
-                buildDenseJacobianMatrix(numVar, listNonLinearConsts, listNonZerosCtsDense, listNonZerosVarsDense);
-                this.setJacNnzPattern(listNonZerosCtsDense, listNonZerosVarsDense);
-            } else if (knitroParameters.getGradientUserRoutine() == 2) {
-                // Sparse method: compute Jacobian only for variables the constraints depend on.
-                buildSparseJacobianMatrix(sortedEquationsToSolve, listNonLinearConsts, listNonZerosCtsSparse, listNonZerosVarsSparse);
-                this.setJacNnzPattern(listNonZerosCtsSparse, listNonZerosVarsSparse);
-            }
-            // Set the callback for gradient evaluations if the user directly passes the Jacobian to the solver.
-            this.setGradEvalCallback(createGradientCallback(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
-                    listNonZerosCtsSparse, listNonZerosVarsSparse));
         }
     }
 
