@@ -35,30 +35,30 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(RelaxedKnitroSolver.class);
 
     // Penalty weights in the objective function
-    private static final double WEIGHT_P_PENAL = 1.0;
-    private static final double WEIGHT_Q_PENAL = 1.0;
-    private static final double WEIGHT_V_PENAL = 1.0;
+    protected static final double WEIGHT_P_PENAL = 1.0;
+    protected static final double WEIGHT_Q_PENAL = 1.0;
+    protected static final double WEIGHT_V_PENAL = 1.0;
 
     // Weights of the linear in the objective function
-    private static final double WEIGHT_ABSOLUTE_PENAL = 3.0;
+    protected static final double WEIGHT_ABSOLUTE_PENAL = 3.0;
 
     // Total number of variables (including power flow and slack variables)
-    private final int numberOfVariables;
+    protected int numberOfVariables;
 
     // Number of equations for active power (P), reactive power (Q), and voltage magnitude (V)
-    private final int numPEquations;
-    private final int numQEquations;
-    private final int numVEquations;
+    protected final int numPEquations;
+    protected final int numQEquations;
+    protected final int numVEquations;
 
     // Starting indices for slack variables in the variable vector
-    private final int slackPStartIndex;
-    private final int slackQStartIndex;
-    private final int slackVStartIndex;
+    protected final int slackPStartIndex;
+    protected final int slackQStartIndex;
+    protected final int slackVStartIndex;
 
     // Mappings from global equation indices to local indices by equation type
-    private final Map<Integer, Integer> pEquationLocalIds;
-    private final Map<Integer, Integer> qEquationLocalIds;
-    private final Map<Integer, Integer> vEquationLocalIds;
+    protected final Map<Integer, Integer> pEquationLocalIds;
+    protected final Map<Integer, Integer> qEquationLocalIds;
+    protected final Map<Integer, Integer> vEquationLocalIds;
 
     public RelaxedKnitroSolver(
             LfNetwork network,
