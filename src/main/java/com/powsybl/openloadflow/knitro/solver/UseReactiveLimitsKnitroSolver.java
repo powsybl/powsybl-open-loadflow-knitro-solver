@@ -8,7 +8,6 @@
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.artelys.knitro.api.*;
-import com.artelys.knitro.api.callbacks.KNEvalFCCallback;
 import com.artelys.knitro.api.callbacks.KNEvalGACallback;
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.math.matrix.SparseMatrix;
@@ -590,92 +589,51 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
         /**
          * Callback used by Knitro to evaluate the non-linear parts of the objective and constraint functions.
          */
-        private static final class CallbackEvalFC extends KNEvalFCCallback {
+        private static final class CallbackEvalFC extends KnitroCallbacks.BaseCallbackEvalFC {
 
-            private final List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve;
-            private final List<Integer> nonLinearConstraintIds;
             private final ResilientReacLimKnitroProblem problemInstance;
 
-            private CallbackEvalFC(ResilientReacLimKnitroProblem problemInstance, List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> nonLinearConstraintIds) {
+            private CallbackEvalFC(ResilientReacLimKnitroProblem problemInstance,
+                                          List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+                                          List<Integer> nonLinearConstraintIds) {
+                super(sortedEquationsToSolve, nonLinearConstraintIds);
                 this.problemInstance = problemInstance;
-                this.sortedEquationsToSolve = sortedEquationsToSolve;
-                this.nonLinearConstraintIds = nonLinearConstraintIds;
             }
 
-            /**
-             * Knitro callback function that evaluates the non-linear constraints at the current point.
-             *
-             * @param x   Current point (primal variables).
-             * @param obj Output objective value (unused here).
-             * @param c   Output constraint values.
-             */
             @Override
-            public void evaluateFC(final List<Double> x, final List<Double> obj, final List<Double> c) {
-                LOGGER.trace("============ Knitro evaluating callback function ============");
+            protected double addModificationOfNonLinearConstraints(int equationId, AcEquationType equationType,
+                                                                   List<Double> x) {
+                double constraintValue = 0;
+                Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
 
-                StateVector currentState = new StateVector(toArray(x));
-                LOGGER.trace("Current state vector: {}", currentState.get());
-                LOGGER.trace("Evaluating {} non-linear constraints", nonLinearConstraintIds.size());
-
-                int callbackConstraintIndex = 0;
-                int nmbreEqUnactivated = sortedEquationsToSolve.stream().filter(
-                        e -> !e.isActive()).toList().size();
-
-                for (int equationId : nonLinearConstraintIds) {
-                    Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
-                    AcEquationType type = equation.getType();
-
-                    // Ensure the constraint is non-linear
-                    if (NonLinearExternalSolverUtils.isLinear(type, equation.getTerms())) {
-                        throw new IllegalArgumentException(
-                                "Equation of type " + type + " is linear but passed to the non-linear callback");
+                if (equation.isActive()) {
+                    int slackIndexBase = problemInstance.getSlackIndexBase(equationType, equationId);
+                    if (slackIndexBase >= 0) {
+                        double sm = x.get(slackIndexBase);        // negative slack
+                        double sp = x.get(slackIndexBase + 1);    // positive slack
+                        constraintValue += sp - sm;              // add slack contribution
                     }
-
-                    // Evaluate equation using the current state
-                    double constraintValue = 0.0;
-                    for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                        term.setStateVector(currentState);
-                        if (term.isActive()) {
-                            constraintValue += term.eval();
-                        }
+                } else {
+                    int nmbreEqUnactivated = sortedEquationsToSolve.stream().filter(
+                            e -> !e.isActive()).toList().size();
+                    int elemNum = equation.getElementNum();
+                    int elemNumControlledBus = problemInstance.getElemNumControlledBus(elemNum);
+                    List<Equation<AcVariableType, AcEquationType>> controlledBusEquations = sortedEquationsToSolve.stream()
+                            .filter(e -> e.getElementNum() == elemNumControlledBus).toList();
+                    // the V equation
+                    Equation<AcVariableType, AcEquationType> equationV = controlledBusEquations.stream().filter(e -> e.getType() == BUS_TARGET_V).toList().get(0);
+                    int equationVId = sortedEquationsToSolve.indexOf(equationV);                                        //Index of V equation
+                    int compVarBaseIndex = problemInstance.getcompVarBaseIndex(equationVId);
+                    if (equationId - sortedEquationsToSolve.size() + nmbreEqUnactivated / 2 < 0) { // Q_low Constraint
+                        double bLow = x.get(compVarBaseIndex + 2);
+                        constraintValue -= bLow;
+                    } else {    // Q_up Constraint
+                        double bUp = x.get(compVarBaseIndex + 3);
+                        constraintValue += bUp;
                     }
-
-                    if (equation.isActive()) { // add slack variables
-                        int slackIndexBase = problemInstance.getSlackIndexBase(type, equationId);
-                        if (slackIndexBase >= 0) {
-                            double sm = x.get(slackIndexBase);        // negative slack
-                            double sp = x.get(slackIndexBase + 1);    // positive slack
-                            constraintValue += sp - sm;               // add s
-                            // slack contribution
-                        }
-                    } else { // add blow / bup depending on the constraint
-
-                        //As already done before, we are looking for the index of the V equation associated to the Q unactivated equation we are dealing with.
-                        // This index will make us able to select the good blow / bup variables
-                        int elemNum = equation.getElementNum();
-                        int elemNumControlledBus = problemInstance.getElemNumControlledBus(elemNum);
-                        List<Equation<AcVariableType, AcEquationType>> controlledBusEquations = sortedEquationsToSolve.stream()
-                                .filter(e -> e.getElementNum() == elemNumControlledBus).toList();
-                        // the V equation
-                        Equation<AcVariableType, AcEquationType> equationV = controlledBusEquations.stream().filter(e -> e.getType() == BUS_TARGET_V).toList().get(0);
-                        int equationVId = sortedEquationsToSolve.indexOf(equationV);                                        //Index of V equation
-                        int compVarBaseIndex = problemInstance.getcompVarBaseIndex(equationVId);
-                        if (equationId - sortedEquationsToSolve.size() + nmbreEqUnactivated / 2 < 0) { // Q_low Constraint
-                            double bLow = x.get(compVarBaseIndex + 2);
-                            constraintValue -= bLow;
-                        } else {    // Q_up Constraint
-                            double bUp = x.get(compVarBaseIndex + 3);
-                            constraintValue += bUp;
-                        }
-                    }
-                    try {
-                        c.set(callbackConstraintIndex, constraintValue);
-                        LOGGER.trace("Added non-linear constraint #{} (type: {}) = {}", equationId, type, constraintValue);
-                    } catch (Exception e) {
-                        throw new PowsyblException("Error while adding non-linear constraint #" + equationId, e);
-                    }
-                    callbackConstraintIndex++;
                 }
+
+                return constraintValue;
             }
         }
 
