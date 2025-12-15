@@ -52,7 +52,7 @@ public class ReactiveNoJacobienneTest {
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
         knitroLoadFlowParameters.setGradientComputationMode(2);
         knitroLoadFlowParameters.setMaxIterations(300);
-        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.SolverType.REACTIVLIMITS);
+        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.SolverType.USE_REACTIVE_LIMITS);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters).setAcSolverType(KnitroSolverFactory.NAME);
         OpenLoadFlowParameters.get(parameters).setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE);
