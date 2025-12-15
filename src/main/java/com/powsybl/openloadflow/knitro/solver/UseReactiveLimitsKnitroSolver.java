@@ -40,34 +40,16 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(UseReactiveLimitsKnitroSolver.class);
 
-    // Penalty weights in the objective function
-    private final double wK = 1.0;
-    private final double wP = 1.0;
-    private final double wQ = 1.0;
-    private final double wV = 1.0;
-
-    // Lambda
-    private final double lambda = 1.0;
-
     // Number of Load Flows (LF) variables in the system
     private final int numLFVariables;
 
     // Number of variables including slack variables
     private final int numLFandSlackVariables;
-    // Total number of variables including complementarity constraints' ones
-    private final int numTotalVariables;
 
     // Number of equations for active power (P), reactive power (Q), and voltage magnitude (V)
-    private final int numPEquations;
-    private final int numQEquations;
-    private final int numVEquations;
     private final int complConstVariables;
 
     // Starting indices for slack variables in the variable vector
-    private final int slackStartIndex;
-    private final int slackPStartIndex;
-    private final int slackQStartIndex;
-    private final int slackVStartIndex;
     private final int compVarStartIndex;
 
     // Mappings from global equation indices to local indices by equation type
@@ -99,17 +81,7 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
         List<Equation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedEquationsToSolve();
 
         // Count number of classic LF equations by type
-        this.numPEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_P).count();
-        this.numQEquations = (int) (sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count());
-        this.numVEquations = (int) (sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count());
-
-        int numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations);
-        this.numLFandSlackVariables = numLFVariables + numSlackVariables;
-
-        this.slackStartIndex = numLFVariables;
-        this.slackPStartIndex = slackStartIndex;
-        this.slackQStartIndex = slackPStartIndex + 2 * numPEquations;
-        this.slackVStartIndex = slackQStartIndex + 2 * numQEquations;
+        this.numLFandSlackVariables = numberOfVariables;
         this.compVarStartIndex = slackVStartIndex + 2 * numVEquations;
 
         this.elemNumControlledControllerBus = new LinkedHashMap<>();
@@ -151,7 +123,7 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
         // 3 new variables are used on both V equations modified, and 2 on the Q equations listed above
         this.complConstVariables = equationsQToAdd.size() * 5;
 
-        this.numTotalVariables = numLFandSlackVariables + complConstVariables;
+        this.numberOfVariables = numLFandSlackVariables + complConstVariables;
         this.equationsQBusV = Stream.concat(equationsQToAdd.stream(),
                 equationsQToAdd.stream()).toList(); //Duplication to get b_low and b_up eq
         this.listElementNumWithQEqUnactivated = listBusesWithQEqToAdd;
@@ -361,9 +333,9 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
             logSlackValues("V", slackVStartIndex, numVEquations, x);
 
             // ========== Penalty Computation ==========
-            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wK * wP, lambda);
-            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wK * wQ, lambda);
-            double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV, lambda);
+            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, WEIGHT_P_PENAL, WEIGHT_ABSOLUTE_PENAL);
+            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, WEIGHT_Q_PENAL, WEIGHT_ABSOLUTE_PENAL);
+            double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, WEIGHT_V_PENAL, WEIGHT_ABSOLUTE_PENAL);
             double totalPenalty = penaltyP + penaltyQ + penaltyV;
 
             LOGGER.info("==== Slack penalty details ====");
@@ -498,58 +470,6 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
         }
     }
 
-    /**
-     * Returns the sparsity pattern of the hessian matrix associated with the problem.
-     *
-     * @param nonlinearConstraintIndexes A list of the indexes of non-linear equations.
-     * @return row and column coordinates of non-zero entries in the hessian matrix.
-     */
-    private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols(List<Integer> nonlinearConstraintIndexes, List<Equation<AcVariableType, AcEquationType>> equationsToSolve) {
-        record NnzCoordinates(int iRow, int iCol) {
-        }
-        Set<NnzCoordinates> hessianEntries = new LinkedHashSet<>();
-
-        // Non-linear constraints contributions in the hessian matrix
-        for (int index : nonlinearConstraintIndexes) {
-            if (index < equationsToSolve.size()) {
-                Equation<AcVariableType, AcEquationType> equation = equationsToSolve.get(index);
-                for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                    for (Variable<AcVariableType> var1 : term.getVariables()) {
-                        int i = var1.getRow();
-                        for (Variable<AcVariableType> var2 : term.getVariables()) {
-                            int j = var2.getRow();
-                            if (j >= i) {
-                                hessianEntries.add(new NnzCoordinates(i, j));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Slacks variables contributions in the objective function
-        for (int iSlack = slackStartIndex; iSlack < compVarStartIndex; iSlack++) {
-            hessianEntries.add(new NnzCoordinates(iSlack, iSlack));
-            if (((iSlack - slackStartIndex) & 1) == 0) {
-                hessianEntries.add(new NnzCoordinates(iSlack, iSlack + 1));
-            }
-        }
-
-        // Sort the entries by row and column indices
-        hessianEntries = hessianEntries.stream()
-                .sorted(Comparator.comparingInt(NnzCoordinates::iRow).thenComparingInt(NnzCoordinates::iCol))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
-        List<Integer> hessRows = new ArrayList<>();
-        List<Integer> hessCols = new ArrayList<>();
-        for (NnzCoordinates entry : hessianEntries) {
-            hessRows.add(entry.iRow());
-            hessCols.add(entry.iCol());
-        }
-
-        return new AbstractMap.SimpleEntry<>(hessRows, hessCols);
-    }
-
     private final class ResilientReacLimKnitroProblem extends KNProblem {
 
         /**
@@ -566,16 +486,16 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
                 JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                 VoltageInitializer voltageInitializer) throws KNException {
             // =============== Variable Initialization ===============
-            super(numTotalVariables, equationSystem.getIndex().getSortedEquationsToSolve().size() +
+            super(numberOfVariables, equationSystem.getIndex().getSortedEquationsToSolve().size() +
                     3 * complConstVariables / 5);
 
             // Variable types (all continuous), bounds, and initial values
-            List<Integer> variableTypes = new ArrayList<>(Collections.nCopies(numTotalVariables, KNConstants.KN_VARTYPE_CONTINUOUS));
-            List<Double> lowerBounds = new ArrayList<>(Collections.nCopies(numTotalVariables, -KNConstants.KN_INFINITY));
-            List<Double> upperBounds = new ArrayList<>(Collections.nCopies(numTotalVariables, KNConstants.KN_INFINITY));
-            List<Double> scalingFactors = new ArrayList<>(Collections.nCopies(numTotalVariables, 1.0));
-            List<Double> scalingCenters = new ArrayList<>(Collections.nCopies(numTotalVariables, 0.0));
-            List<Double> initialValues = new ArrayList<>(Collections.nCopies(numTotalVariables, 0.0));
+            List<Integer> variableTypes = new ArrayList<>(Collections.nCopies(numberOfVariables, KNConstants.KN_VARTYPE_CONTINUOUS));
+            List<Double> lowerBounds = new ArrayList<>(Collections.nCopies(numberOfVariables, -KNConstants.KN_INFINITY));
+            List<Double> upperBounds = new ArrayList<>(Collections.nCopies(numberOfVariables, KNConstants.KN_INFINITY));
+            List<Double> scalingFactors = new ArrayList<>(Collections.nCopies(numberOfVariables, 1.0));
+            List<Double> scalingCenters = new ArrayList<>(Collections.nCopies(numberOfVariables, 0.0));
+            List<Double> initialValues = new ArrayList<>(Collections.nCopies(numberOfVariables, 0.0));
 
             setVarTypes(variableTypes);
 
@@ -586,7 +506,7 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
             }
 
             // Initialize slack variables (≥ 0, initial value = 0), scale P and Q slacks
-            for (int i = slackStartIndex; i < numLFandSlackVariables; i++) {
+            for (int i = numLFVariables; i < numLFandSlackVariables; i++) {
                 lowerBounds.set(i, 0.0);
 
                 if (i < slackVStartIndex) {
@@ -617,7 +537,7 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
 
             LOGGER.info("Voltage initialization strategy: {}", voltageInitializer);
 
-            int n = numTotalVariables;
+            int n = numberOfVariables;
             ArrayList<Integer> list = new ArrayList<>(n);
             for (int i = 0; i < n; i++) {
                 list.add(i);
@@ -688,9 +608,9 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
             List<Double> linCoefs = new ArrayList<>();
 
             // Slack penalty terms: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
-            addSlackObjectiveTerms(numPEquations, slackPStartIndex, wK * wP, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numQEquations, slackQStartIndex, wK * wQ, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numVEquations, slackVStartIndex, wV, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numPEquations, slackPStartIndex, WEIGHT_P_PENAL, WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numQEquations, slackQStartIndex, WEIGHT_Q_PENAL, WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numVEquations, slackVStartIndex, WEIGHT_V_PENAL, WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
 
             setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
             setObjectiveLinearPart(linIndexes, linCoefs);
@@ -708,8 +628,9 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
                     jacCstDense, jacVarDense, jacCstSparse, jacVarSparse
             );
 
-            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes, completeEquationsToSolve);
-            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
+            // TODO : uncomment me
+//            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes, completeEquationsToSolve);
+//            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
         }
 
         /**
