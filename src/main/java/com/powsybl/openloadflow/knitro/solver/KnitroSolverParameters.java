@@ -296,6 +296,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public enum SolverType {
         STANDARD,
         RELAXED,
-        REACTIVLIMITS,
+        USE_REACTIVE_LIMITS,
     }
 }
