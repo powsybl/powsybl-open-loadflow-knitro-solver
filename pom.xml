@@ -45,8 +45,6 @@
             <organization>Artelys</organization>
             <organizationUrl>http://www.artelys.com</organizationUrl>
         </developer>
-<<<<<<< HEAD
-=======
         <developer>
             <name>Amine Makhen</name>
             <email>amine.makhen@artelys.com</email>
@@ -59,7 +57,6 @@
             <organization>Artelys</organization>
             <organizationUrl>http://www.artelys.com</organizationUrl>
         </developer>
->>>>>>> 94aadbb (Add relaxed knitro solver for resilient solving  (#19))
     </developers>
 
     <properties>

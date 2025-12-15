@@ -107,7 +107,6 @@ class AcloadFlowReactiveLimitsTest {
                 .setDistributedSlack(false);
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters(); // set gradient computation mode
         knitroLoadFlowParameters.setGradientComputationMode(2);
-        knitroLoadFlowParameters.setKnitroSolverType(KnitroSolverParameters.KnitroSolverType.REACTIVLIMITS);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         OpenLoadFlowParameters.create(parameters).setAcSolverType(KnitroSolverFactory.NAME);
     }
@@ -126,27 +125,15 @@ class AcloadFlowReactiveLimitsTest {
 
     @Test
     void test() {
-
-        /*parameters.setUseReactiveLimits(false);
+        parameters.setUseReactiveLimits(false);
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
-        assertReactivePowerEquals(-109.229, gen.getTerminal());
-        assertReactivePowerEquals(-152.266, gen2.getTerminal());
-        assertReactivePowerEquals(-199.999, nhv2Nload.getTerminal2());*/
-
-        /*parameters.setUseReactiveLimits(true);
-        parameters.getExtension(OpenLoadFlowParameters.class)
-                .setAlwaysUpdateNetwork(true)
-                .setAcSolverType(NewtonRaphsonFactory.NAME);
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged());
-        parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
-        parameters.getExtension(OpenLoadFlowParameters.class)
-                .setAlwaysUpdateNetwork(true)
-                .setAcSolverType(KnitroSolverFactory.NAME);*/
+        assertReactivePowerEquals(-109.228, gen.getTerminal());
+        assertReactivePowerEquals(-152.265, gen2.getTerminal());
+        assertReactivePowerEquals(-199.998, nhv2Nload.getTerminal2());
 
         parameters.setUseReactiveLimits(true);
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
+        result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
         assertReactivePowerEquals(-164.315, gen.getTerminal());
         assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
@@ -175,10 +162,5 @@ class AcloadFlowReactiveLimitsTest {
         assertReactivePowerEquals(-164.315, gen.getTerminal());
         assertReactivePowerEquals(-120, gen2.getTerminal());
         assertReactivePowerEquals(100, ngen2Nhv1.getTerminal1());
-    }
-
-    private boolean checkNotOnlyPQ(LfNetwork lfNetwork, LoadFlowResult result) {
-
-        return false;
     }
 }
