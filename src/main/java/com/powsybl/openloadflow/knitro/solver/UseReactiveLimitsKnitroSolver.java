@@ -11,12 +11,9 @@ import com.artelys.knitro.api.*;
 import com.artelys.knitro.api.callbacks.KNEvalFCCallback;
 import com.artelys.knitro.api.callbacks.KNEvalGACallback;
 import com.powsybl.commons.PowsyblException;
-import com.powsybl.commons.report.ReportNode;
 import com.powsybl.math.matrix.SparseMatrix;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.ac.equations.AcVariableType;
-import com.powsybl.openloadflow.ac.solver.AcSolverResult;
-import com.powsybl.openloadflow.ac.solver.AcSolverStatus;
 import com.powsybl.openloadflow.ac.solver.AcSolverUtil;
 import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.network.*;
@@ -53,9 +50,6 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
     private final int compVarStartIndex;
 
     // Mappings from global equation indices to local indices by equation type
-    private final Map<Integer, Integer> pEquationLocalIds;
-    private final Map<Integer, Integer> qEquationLocalIds;
-    private final Map<Integer, Integer> vEquationLocalIds;
     private final Map<Integer, Integer> elemNumControlledControllerBus;
     private static final Map<Integer, Equation<AcVariableType, AcEquationType>> INDEQUNACTIVEQ = new LinkedHashMap<>();
 
@@ -129,14 +123,8 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
         this.listElementNumWithQEqUnactivated = listBusesWithQEqToAdd;
 
         // Map equations to local indices
-        this.pEquationLocalIds = new HashMap<>();
-        this.qEquationLocalIds = new HashMap<>();
-        this.vEquationLocalIds = new HashMap<>();
         this.vSuppEquationLocalIds = new HashMap<>();
 
-        int pCounter = 0;
-        int qCounter = 0;
-        int vCounter = 0;
         int vSuppCounter = 0;
 
         for (int i = 0; i < sortedEquations.size(); i++) {
@@ -144,13 +132,9 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
             AcEquationType type = equation.getType();
             switch (type) {
                 case BUS_TARGET_P:
-                    pEquationLocalIds.put(i, pCounter++);
-                    break;
                 case BUS_TARGET_Q:
-                    qEquationLocalIds.put(i, qCounter++);
                     break;
                 case BUS_TARGET_V:
-                    vEquationLocalIds.put(i, vCounter++);
                     // In case there is a Vsup equation
                     LfBus controlledBus = network.getBuses().get(equation.getElement(network).get().getNum());
                     LfBus controllerBus = controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
@@ -168,6 +152,50 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
     @Override
     public String getName() {
         return "Knitro Reactive Limits Solver";
+    }
+
+    @Override
+    protected KNProblem createKnitroProblem(VoltageInitializer voltageInitializer) {
+        try {
+            return new ResilientReacLimKnitroProblem(network, equationSystem, targetVector, j, voltageInitializer);
+        } catch (KNException e) {
+            throw new PowsyblException("Failed to create relaxed Knitro problem", e);
+        }
+    }
+
+    @Override
+    protected void processSolution(KNSolver solver, KNSolution solution, KNProblem problemInstance) {
+        super.processSolution(solver, solution, problemInstance);
+
+        List<Double> x = solution.getX();
+
+        LOGGER.info("=== Switches Done===");
+        logSwitches(x, compVarStartIndex, complConstVariables / 5);
+    }
+
+    /**
+     * Inform all switches PV -> PQ done in the solution found
+     * @param x             current network's estate
+     * @param startIndex    first index of complementarity constraints variables in x
+     * @param count         number of b_low / b_up different variables
+     */
+    private void logSwitches(List<Double> x, int startIndex, int count) {
+        for (int i = 0; i < count; i++) {
+            double vInf = x.get(startIndex + 5 * i);
+            double vSup = x.get(startIndex + 5 * i + 1);
+            double bLow = x.get(startIndex + 5 * i + 2);
+            double bUp = x.get(startIndex + 5 * i + 3);
+            String bus = equationSystem.getIndex()
+                    .getSortedEquationsToSolve().stream().filter(e ->
+                            e.getType() == BUS_TARGET_V).toList().get(i).getElement(network).get().getId();
+            if (Math.abs(bLow) < 1E-3 && !(vInf < 1E-4 && vSup < 1E-4)) {
+                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmin", bus);
+
+            } else if (Math.abs(bUp) < 1E-3 && !(vInf < 1E-4 && vSup < 1E-4)) {
+                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmax", bus);
+
+            }
+        }
     }
 
     /**
@@ -267,206 +295,6 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
             jacobianRowIndices.addAll(Collections.nCopies(involvedVariables.size(), constraintIndex));
 
             long end = System.nanoTime();
-        }
-    }
-
-    @Override
-    public AcSolverResult run(VoltageInitializer voltageInitializer, ReportNode reportNode) {
-        int nbIterations;
-        AcSolverStatus solverStatus;
-        ResilientReacLimKnitroProblem problemInstance;
-
-        try {
-            problemInstance = new ResilientReacLimKnitroProblem(network, equationSystem, targetVector, j, voltageInitializer);
-        } catch (KNException e) {
-            throw new PowsyblException("Exception while building Knitro problem", e);
-        }
-
-        try {
-            long startOptimization = System.nanoTime();
-            KNSolver solver = new KNSolver(problemInstance);
-            solver.initProblem();
-            setSolverParameters(solver);
-            solver.solve();
-            long endOptimization = System.nanoTime();
-            KNSolution solution = solver.getSolution();
-            List<Double> constraintValues = solver.getConstraintValues();
-            List<Double> x = solution.getX();
-            List<Double> lambda2 = solution.getLambda();
-
-            solverStatus = KnitroStatus.fromStatusCode(solution.getStatus()).toAcSolverStatus();
-            logKnitroStatus(KnitroStatus.fromStatusCode(solution.getStatus()));
-            nbIterations = solver.getNumberIters();
-
-            LOGGER.info("==== Solution Summary ====");
-            LOGGER.info("Objective value            = {}", solution.getObjValue());
-            LOGGER.info("Feasibility violation      = {}", solver.getAbsFeasError());
-            LOGGER.info("Optimality violation       = {}", solver.getAbsOptError());
-
-            // add voltage quality index
-            double vqi = 0;
-            for (var b : network.getBuses()) {
-                vqi += Math.abs(b.getV() - 1.0);
-            }
-            int n = network.getBuses().size();
-            LOGGER.info("VQI = {}", vqi / n);
-
-            // Log primal solution
-            LOGGER.debug("==== Optimal variables ====");
-            for (int i = 0; i < x.size(); i++) {
-                LOGGER.debug(" x[{}] = {}", i, x.get(i));
-            }
-
-            LOGGER.debug("==== Constraint values ====");
-            for (int i = 0; i < problemInstance.getNumCons(); i++) {
-                LOGGER.debug(" c[{}] = {} (λ = {})", i, constraintValues.get(i), lambda2.get(i));
-            }
-
-            LOGGER.debug("==== Constraint violations ====");
-            for (int i = 0; i < problemInstance.getNumCons(); i++) {
-                LOGGER.debug(" violation[{}] = {}", i, solver.getConViol(i));
-            }
-
-            // ========== Slack Logging ==========
-            logSlackValues("P", slackPStartIndex, numPEquations, x);
-            logSlackValues("Q", slackQStartIndex, numQEquations, x);
-            logSlackValues("V", slackVStartIndex, numVEquations, x);
-
-            // ========== Penalty Computation ==========
-            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, WEIGHT_P_PENAL, WEIGHT_ABSOLUTE_PENAL);
-            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, WEIGHT_Q_PENAL, WEIGHT_ABSOLUTE_PENAL);
-            double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, WEIGHT_V_PENAL, WEIGHT_ABSOLUTE_PENAL);
-            double totalPenalty = penaltyP + penaltyQ + penaltyV;
-
-            LOGGER.info("==== Slack penalty details ====");
-            LOGGER.info("Penalty P = {}", penaltyP);
-            LOGGER.info("Penalty Q = {}", penaltyQ);
-            LOGGER.info("Penalty V = {}", penaltyV);
-            LOGGER.info("Total penalty = {}", totalPenalty);
-
-            LOGGER.info("=== Switches Done===");
-            checkSwitchesDone(x, compVarStartIndex, complConstVariables / 5);
-
-            // ========== Network Update ==========
-            // Update the network values if the solver converged or if the network should always be updated
-            if (solverStatus == AcSolverStatus.CONVERGED || knitroParameters.isAlwaysUpdateNetwork()) {
-                //Update the state vector with the solution
-                equationSystem.getStateVector().set(toArray(x));
-                for (Equation<AcVariableType, AcEquationType> equation : equationSystem.getEquations()) {
-                    for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                        term.setStateVector(equationSystem.getStateVector());
-                    }
-                }
-                AcSolverUtil.updateNetwork(network, equationSystem);
-            }
-
-        } catch (KNException e) {
-            throw new PowsyblException("Exception while solving with Knitro", e);
-        }
-
-        double slackBusMismatch = network.getSlackBuses().stream()
-                .mapToDouble(LfBus::getMismatchP)
-                .sum();
-
-//        knitroWritter.write("Temps passé dans la classe KnitroSolverReacLim = " + time * 1e-9, true);
-        return new AcSolverResult(solverStatus, nbIterations, slackBusMismatch);
-    }
-
-    // Initially used to print the logs of the slacks, this function is also use to write their value in a file for the checker we tried to implement
-    private void logSlackValues(String type, int startIndex, int count, List<Double> x) {
-
-        final double threshold = 1e-6;  // Threshold for significant slack values
-        final double sbase = 100.0;     // Base power in MVA
-
-        LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
-        boolean firstIterP = true;
-        boolean firstIterQ = true;
-        boolean firstIterV = true;
-
-        int numSlackP = 0;
-        int numSlackQ = 0;
-        int numSlackV = 0;
-        for (int i = 0; i < count; i++) {
-            double sm = x.get(startIndex + 2 * i);
-            double sp = x.get(startIndex + 2 * i + 1);
-            double epsilon = sp - sm;
-
-            if (Math.abs(epsilon) <= threshold) {
-                continue;
-            }
-
-            String name = getSlackVariableBusName(i, type);
-            String interpretation;
-
-            switch (type) {
-                case "P" -> interpretation = String.format("ΔP = %.10f p.u. (%.1f MW)", epsilon, epsilon * sbase);
-                case "Q" -> interpretation = String.format("ΔQ = %.10f p.u. (%.1f MVAr)", epsilon, epsilon * sbase);
-                case "V" -> {
-                    var bus = network.getBusById(name);
-                    if (bus == null) {
-                        LOGGER.warn("Bus {} not found while logging V slack.", name);
-                        continue;
-                    }
-                    interpretation = String.format("ΔV = %.10f p.u. (%.1f kV)", epsilon, epsilon * bus.getNominalV());
-                }
-                default -> interpretation = "Unknown slack type";
-            }
-
-            String msg = String.format("Slack %s[ %s ] → Sm = %.4f, Sp = %.4f → %s", type, name, sm, sp, interpretation);
-            LOGGER.info(msg);
-        }
-    }
-
-    private String getSlackVariableBusName(Integer index, String type) {
-        Set<Map.Entry<Integer, Integer>> equationSet = switch (type) {
-            case "P" -> pEquationLocalIds.entrySet();
-            case "Q" -> qEquationLocalIds.entrySet();
-            case "V" -> vEquationLocalIds.entrySet();
-            default -> throw new IllegalStateException("Unexpected variable type: " + type);
-        };
-
-        Optional<Integer> varIndexOptional = equationSet.stream()
-                .filter(entry -> index.equals(entry.getValue()))
-                .map(Map.Entry::getKey)
-                .findAny();
-
-        int varIndex;
-        if (varIndexOptional.isPresent()) {
-            varIndex = varIndexOptional.get();
-        } else {
-            throw new RuntimeException("Variable index associated with slack variable " + type + "was not found");
-        }
-
-        LfBus bus = network.getBus(equationSystem.getIndex().getSortedEquationsToSolve().get(varIndex).getElementNum());
-
-        return bus.getId();
-    }
-
-    /**
-     * Inform all switches PV -> PQ done in the solution found
-     * @param x             current network's estate
-     * @param startIndex    first index of complementarity constraints variables in x
-     * @param count         number of b_low / b_up different variables
-     */
-    private void checkSwitchesDone(List<Double> x, int startIndex, int count) {
-        int nombreSwitches = 0;
-        for (int i = 0; i < count; i++) {
-            double vInf = x.get(startIndex + 5 * i);
-            double vSup = x.get(startIndex + 5 * i + 1);
-            double bLow = x.get(startIndex + 5 * i + 2);
-            double bUp = x.get(startIndex + 5 * i + 3);
-            String bus = equationSystem.getIndex()
-                    .getSortedEquationsToSolve().stream().filter(e ->
-                            e.getType() == BUS_TARGET_V).toList().get(i).getElement(network).get().getId();
-            if (Math.abs(bLow) < 1E-3 && !(vInf < 1E-4 && vSup < 1E-4)) {
-                nombreSwitches++;
-                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmin", bus);
-
-            } else if (Math.abs(bUp) < 1E-3 && !(vInf < 1E-4 && vSup < 1E-4)) {
-                nombreSwitches++;
-                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmax", bus);
-
-            }
         }
     }
 
