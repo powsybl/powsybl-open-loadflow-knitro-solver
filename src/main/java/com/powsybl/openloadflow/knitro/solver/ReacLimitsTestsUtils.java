@@ -37,6 +37,13 @@ public final class ReacLimitsTestsUtils {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * Récupère le réseau après optimisation et vérifie les switchs PV - PQ effectués. On parcourt les générateurs du
+     * réseau et on vérifie si la target de l'un d'entre eux n'est pas respecté.
+     * Si c'est le cas, c'est qu'un switch a dû avoir lieu, on vérifie alors la puissance réactive du bus controlé
+     * Dans les calculs il faut surement prendre en compte les slacks (à vérifier lesquels)
+     *
+     */
     public static ArrayList<Integer> countAndSwitch(Network network, HashMap<String, Double> listMinQ, HashMap<String, Double> listMaxQ,
                                                     HashMap<String, Double> slacksP, HashMap<String, Double> slacksQ, HashMap<String, Double> slacksV) throws Exception {
         int nmbSwitchQmin = 0;
@@ -44,6 +51,7 @@ public final class ReacLimitsTestsUtils {
         int previousNmbBusPV = 0;
         ArrayList<Integer> switches = new ArrayList<>();
         HashMap<String, String> visitedBuses = new HashMap<>();
+        List<String> listBusSwitched = new ArrayList<>();
         for (Generator g : network.getGenerators()) {
             if (g.getRegulatingTerminal().getBusView().getBus() == null || !g.isVoltageRegulatorOn()) {
                 continue;
@@ -105,30 +113,30 @@ public final class ReacLimitsTestsUtils {
                 if ((-t.getQ() + 2*DEFAULT_Q_TOLERANCE > qMing &&
                         -t.getQ() - 2*DEFAULT_Q_TOLERANCE < qMing) && qMing != qMaxg) {
                     nmbSwitchQmin++;
+                    listBusSwitched.add(idbus);
                     if (!(v + slackV > g.getTargetV())) {
-                        LOGGER.warn("V ( " + v + " ) below its target ( " + g.getTargetV() + " ) on a Qmin switch of bus "
+                        LOGGER.warn("V ( " + v + slackV + " ) below its target ( " + g.getTargetV() + " ) on a Qmin switch of bus "
                                 + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
                     }
-                    g.setTargetQ(listMinQ.get(g.getId()));
                     visitedBuses.put(idbus, "Switch Qmin");
                 } else if ((-t.getQ() + DEFAULT_Q_TOLERANCE > qMaxg &&
                         -t.getQ() - DEFAULT_Q_TOLERANCE < qMaxg) && qMing != qMaxg) {
                     nmbSwitchQmax++;
+                    listBusSwitched.add(idbus);
                     if (!(v + slackV < g.getTargetV())) {
                         LOGGER.warn("V ( " + v + slackV + " ) above its target ( " + g.getTargetV() + " ) on a Qmax switch of bus "
                                 + t.getBusView().getBus().getId() + ". Current generator checked : " + g.getId());
                     }
-                    g.setTargetQ(listMaxQ.get(g.getId()));
                     visitedBuses.put(idbus, "Switch Qmax");
                 } else if ((-t.getQ() + DEFAULT_Q_TOLERANCE > qMaxg &&
                         -t.getQ() - DEFAULT_Q_TOLERANCE < qMaxg) && qMaxg == qMing) {
                     if (v + slackV > g.getTargetV()) {
                         nmbSwitchQmin++;
-                        g.setTargetQ(listMinQ.get(g.getId()));
+                        listBusSwitched.add(idbus);
                         visitedBuses.put(idbus, "Switch Qmin");
                     } else {
                         nmbSwitchQmax++;
-                        g.setTargetQ(listMaxQ.get(g.getId()));
+                        listBusSwitched.add(idbus);
                         visitedBuses.put(idbus, "Switch Qmax");
                     }
                 } else {
@@ -140,7 +148,6 @@ public final class ReacLimitsTestsUtils {
 //                                    + qMaxg + " ) on the switch of bus " + t.getBusView().getBus().getId() +
 //                                    ". Current generator checked : " + g.getId());
                 }
-                g.setVoltageRegulatorOn(false);
             } else {
                 visitedBuses.put(idbus, "No Switch");
             }
@@ -148,9 +155,54 @@ public final class ReacLimitsTestsUtils {
         switches.add(nmbSwitchQmin);
         switches.add(nmbSwitchQmax);
         switches.add(previousNmbBusPV);
+        applicationStacks(network, slacksP, slacksQ, slacksV, listBusSwitched);
         return switches;
     }
 
+    /**
+     * Apply slacks used to the values of the network to make an accurate checker (doesn't work better)
+     */
+    private static void applicationStacks(Network network, HashMap<String, Double> slacksP, HashMap<String,
+            Double> slacksQ, HashMap<String, Double> slacksV, List<String> listBusSwitched) {
+        for (Generator g : network.getGenerators()) {
+            if (g.getRegulatingTerminal().getBusView().getBus() == null || !g.isVoltageRegulatorOn()) {
+                continue;
+            }
+            String idbus = g.getRegulatingTerminal().getBusView().getBus().getId();
+            Double slackP = slacksP.get(idbus);
+            Double slackQ = slacksQ.get(idbus);
+            Double slackV = slacksV.get(idbus);
+
+            if (slackP == null) {
+                slackP = 0.0;
+            }
+            if (slackQ == null) {
+                slackQ = 0.0;
+            }
+            if (slackV == null) {
+                slackV = 0.0;
+            }
+
+            Terminal t = g.getTerminal();
+            Terminal regulatingTerm = g.getRegulatingTerminal();
+            double p = t.getP();
+            double q = t.getQ();
+            double v = regulatingTerm.getBusView().getBus().getV();
+
+
+//            g.setTargetP(p);
+//            g.setTargetQ(q);
+            g.setTargetV(v);
+        }
+    }
+
+    /**
+     * Verification of the voltage values of the network post optimization with NR
+     * @param network       network post optimisation
+     * @param parameters    parameters
+     * @param loadFlowRunner
+     * @param nbreIter      max iteration of the NR methode, usually set at 0 (if so, need a personal olf's version)
+     */
     public static void verifNewtonRaphson(Network network, LoadFlowParameters parameters, LoadFlow.Runner loadFlowRunner, int nbreIter) {
         OpenLoadFlowParameters.get(parameters).setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.NONE);
         parameters.setVoltageInitMode(LoadFlowParameters.VoltageInitMode.PREVIOUS_VALUES);
@@ -161,6 +213,12 @@ public final class ReacLimitsTestsUtils {
         assertTrue(result.isFullyConverged());
     }
 
+    /**
+     * Reading of slacks variable used. Then check the switches made in the network
+     * @param network   network post optimization
+     * @param listMinQ  list of all the lower bound on Q on each generator
+     * @param listMaxQ  liste of all the upper bound on Q on each generator
+     */
     public static void checkSwitches(Network network, HashMap<String, Double> listMinQ, HashMap<String, Double> listMaxQ) {
         HashMap<String, Double> slacksP = new HashMap<String, Double>();
         HashMap<String, Double> slacksQ = new HashMap<String, Double>();
@@ -226,13 +284,13 @@ public final class ReacLimitsTestsUtils {
             throw new RuntimeException(e);
         }
 
-        for (String type : slacksfiles) {
-            try (FileWriter fw = new FileWriter("D:\\Documents\\Slacks\\Slacks" + type + ".txt", false)) {
-                fw.write("");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+//        for (String type : slacksfiles) {
+//            try (FileWriter fw = new FileWriter("D:\\Documents\\Slacks\\Slacks" + type + ".txt", false)) {
+//                fw.write("");
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
     }
 
     /**
