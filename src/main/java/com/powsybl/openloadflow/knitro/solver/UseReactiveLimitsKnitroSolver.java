@@ -5,7 +5,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  * SPDX-License-Identifier: MPL-2.0
  */
-
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.artelys.knitro.api.*;
@@ -16,14 +15,12 @@ import com.powsybl.commons.report.ReportNode;
 import com.powsybl.math.matrix.SparseMatrix;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.ac.equations.AcVariableType;
-import com.powsybl.openloadflow.ac.solver.AbstractAcSolver;
 import com.powsybl.openloadflow.ac.solver.AcSolverResult;
 import com.powsybl.openloadflow.ac.solver.AcSolverStatus;
 import com.powsybl.openloadflow.ac.solver.AcSolverUtil;
 import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.network.*;
 import com.powsybl.openloadflow.network.util.VoltageInitializer;
-import org.apache.commons.lang3.Range;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,14 +33,12 @@ import static com.google.common.primitives.Doubles.toArray;
 import static com.powsybl.openloadflow.ac.equations.AcEquationType.*;
 
 /**
- * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Yoann Anezin {@literal <yoann.anezin at artelys.com>}
  */
-public class KnitroSolverReacLim extends AbstractAcSolver {
+public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(KnitroSolverReacLim.class);
-    private boolean firstIter = true;
+    private static final Logger LOGGER = LoggerFactory.getLogger(UseReactiveLimitsKnitroSolver.class);
 
     // Penalty weights in the objective function
     private final double wK = 1.0;
@@ -53,7 +48,6 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
 
     // Lambda
     private final double lambda = 1.0;
-    private final double mu = 1.0;
 
     // Number of Load Flows (LF) variables in the system
     private final int numLFVariables;
@@ -89,7 +83,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
     private final Map<Integer, Integer> vSuppEquationLocalIds;
     protected KnitroSolverParameters knitroParameters;
 
-    public KnitroSolverReacLim(
+    public UseReactiveLimitsKnitroSolver(
             LfNetwork network,
             KnitroSolverParameters knitroParameters,
             EquationSystem<AcVariableType, AcEquationType> equationSystem,
@@ -97,7 +91,7 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             TargetVector<AcVariableType, AcEquationType> targetVector,
             EquationVector<AcVariableType, AcEquationType> equationVector,
             boolean detailedReport) {
-        super(network, equationSystem, jacobian, targetVector, equationVector, detailedReport);
+        super(network, knitroParameters, equationSystem, jacobian, targetVector, equationVector, detailedReport);
         this.knitroParameters = knitroParameters;
 
         this.numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
@@ -205,15 +199,6 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
     }
 
     /**
-     * Logs the Knitro status and its corresponding AcSolverStatus.
-     *
-     * @param status the KnitroStatus to log
-     */
-    private void logKnitroStatus(KnitroStatus status) {
-        LOGGER.info("Knitro Status: {}", status);
-    }
-
-    /**
      * Builds the row and column index lists corresponding to the dense Jacobian structure,
      * assuming each non-linear constraint is derived with respect to every variable.
      *
@@ -313,36 +298,6 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         }
     }
 
-    /**
-     * Sets Knitro solver parameters based on the provided KnitroSolverParameters object.
-     *
-     * @param solver The Knitro solver instance to configure.
-     * @throws KNException if Knitro fails to accept a parameter.
-     */
-    private void setSolverParameters(KNSolver solver) throws KNException {
-        LOGGER.info("Configuring Knitro solver parameters...");
-
-        solver.setParam(KNConstants.KN_PARAM_GRADOPT, knitroParameters.getGradientComputationMode());
-        solver.setParam(KNConstants.KN_PARAM_FEASTOL, knitroParameters.getRelConvEps());
-        solver.setParam(KNConstants.KN_PARAM_FEASTOLABS, knitroParameters.getAbsConvEps());
-        solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
-        solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
-//        solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
-//        solver.setParam(KNConstants.KN_PARAM_OUTMODE, KNConstants.KN_OUTMODE_FILE);
-        solver.setParam(KNConstants.KN_PARAM_OPTTOL, 1.0e-4);
-        solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, 1.0e-3);
-        solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
-        solver.setParam(KNConstants.KN_PARAM_ALGORITHM, 0);
-        //        solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, 1);
-//        solver.setParam(KNConstants.KN_PARAM_BAR_MPEC_HEURISTIC, 1);
-
-        LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, MAXIT={}",
-                knitroParameters.getGradientComputationMode(),
-                knitroParameters.getHessianComputationMode(),
-                knitroParameters.getRelConvEps(),
-                knitroParameters.getMaxIterations());
-    }
-
     @Override
     public AcSolverResult run(VoltageInitializer voltageInitializer, ReportNode reportNode) {
         int nbIterations;
@@ -406,9 +361,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             logSlackValues("V", slackVStartIndex, numVEquations, x);
 
             // ========== Penalty Computation ==========
-            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wK * wP, lambda, mu);
-            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wK * wQ, lambda, mu);
-            double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV, lambda, mu);
+            double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, wK * wP, lambda);
+            double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, wK * wQ, lambda);
+            double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, wV, lambda);
             double totalPenalty = penaltyP + penaltyQ + penaltyV;
 
             LOGGER.info("==== Slack penalty details ====");
@@ -515,18 +470,6 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         return bus.getId();
     }
 
-    private double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight, double lambda, double mu) {
-        double penalty = 0.0;
-        for (int i = 0; i < count; i++) {
-            double sm = x.get(startIndex + 2 * i);
-            double sp = x.get(startIndex + 2 * i + 1);
-            double diff = sp - sm;
-            penalty += weight * mu * (diff * diff); // Quadratic terms
-            penalty += weight * lambda * (sp + sm); // Linear terms
-        }
-        return penalty;
-    }
-
     /**
      * Inform all switches PV -> PQ done in the solution found
      * @param x             current network's estate
@@ -607,125 +550,6 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
         return new AbstractMap.SimpleEntry<>(hessRows, hessCols);
     }
 
-    /**
-     * Enum representing specific status codes returned by the Knitro solver,
-     * grouped either individually or by ranges, and mapped to corresponding {@link AcSolverStatus} values.
-     * This mapping allows a more fine-grained interpretation of solver termination reasons,
-     * distinguishing between convergence, infeasibility, modeling errors, evaluation issues, etc...
-     */
-    public enum KnitroStatus {
-
-        /**
-         * Successful convergence to a local optimum.
-         */
-        CONVERGED_TO_LOCAL_OPTIMUM(0, 0, AcSolverStatus.CONVERGED),
-
-        /**
-         * Converged to a feasible but not necessarily optimal solution.
-         */
-        CONVERGED_TO_FEASIBLE_APPROXIMATE_SOLUTION(-199, -100, AcSolverStatus.CONVERGED),
-
-        /**
-         * Solver terminated at an infeasible point.
-         */
-        TERMINATED_AT_INFEASIBLE_POINT(-299, -200, AcSolverStatus.SOLVER_FAILED),
-
-        /**
-         * The problem was detected as unbounded.
-         */
-        PROBLEM_UNBOUNDED(-399, -300, AcSolverStatus.SOLVER_FAILED),
-
-        /**
-         * Optimization stopped due to reaching iteration or time limits.
-         */
-        TERMINATED_DUE_TO_PRE_DEFINED_LIMIT(-499, -400, AcSolverStatus.MAX_ITERATION_REACHED),
-
-        /**
-         * Failure in a user-defined callback function.
-         */
-        CALLBACK_ERROR(-500, -500, AcSolverStatus.SOLVER_FAILED),
-
-        /**
-         * Internal LP solver failure in active-set method.
-         */
-        LP_SOLVER_ERROR(-501, -501, AcSolverStatus.SOLVER_FAILED),
-
-        /**
-         * Evaluation failure (e.g., division by zero or invalid sqrt).
-         */
-        EVALUATION_ERROR(-502, -502, AcSolverStatus.SOLVER_FAILED),
-
-        /**
-         * Insufficient memory to solve the problem.
-         */
-        OUT_OF_MEMORY(-503, -503, AcSolverStatus.SOLVER_FAILED),
-
-        /**
-         * Solver was stopped manually by the user.
-         */
-        USER_TERMINATION(-504, -504, AcSolverStatus.SOLVER_FAILED),
-
-        /**
-         * File open error when trying to read input.
-         */
-        INPUT_FILE_ERROR(-505, -505, AcSolverStatus.SOLVER_FAILED),
-
-        /**
-         * Modeling error: invalid variable/constraint setup.
-         */
-        MODEL_DEFINITION_ERROR(-530, -506, AcSolverStatus.SOLVER_FAILED),
-
-        /**
-         * Internal Knitro error – contact support.
-         */
-        INTERNAL_ERROR(-600, -600, AcSolverStatus.SOLVER_FAILED),
-
-        /**
-         * Fallback for unknown status codes.
-         */
-        UNKNOWN_STATUS(Integer.MIN_VALUE, Integer.MAX_VALUE, AcSolverStatus.SOLVER_FAILED);
-
-        private final Range<Integer> codeRange;
-        private final AcSolverStatus mappedStatus;
-
-        /**
-         * Constructs a KnitroStatus with a range of status codes and the associated AcSolverStatus.
-         *
-         * @param min          The minimum status code value (inclusive).
-         * @param max          The maximum status code value (inclusive).
-         * @param mappedStatus The corresponding AcSolverStatus.
-         */
-        KnitroStatus(int min, int max, AcSolverStatus mappedStatus) {
-            this.codeRange = Range.of(min, max);
-            this.mappedStatus = mappedStatus;
-        }
-
-        /**
-         * Returns the KnitroStatus corresponding to the given status code.
-         *
-         * @param statusCode the status code returned by Knitro
-         * @return the matching KnitroStatus enum constant, or UNKNOWN_STATUS if unknown
-         */
-        public static KnitroStatus fromStatusCode(int statusCode) {
-            return Arrays.stream(KnitroStatus.values())
-                    .filter(status -> status.codeRange.contains(statusCode))
-                    .findFirst()
-                    .orElse(UNKNOWN_STATUS);
-        }
-
-        /**
-         * Returns the {@link AcSolverStatus} associated with this KnitroStatus.
-         *
-         * @return the corresponding AcSolverStatus
-         */
-        public AcSolverStatus toAcSolverStatus() {
-            return mappedStatus;
-        }
-    }
-
-    record SlackKey(String type, String busId, double contribution) {
-    }
-
     private final class ResilientReacLimKnitroProblem extends KNProblem {
 
         /**
@@ -762,20 +586,11 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             }
 
             // Initialize slack variables (≥ 0, initial value = 0), scale P and Q slacks
-            boolean scaled = false;
             for (int i = slackStartIndex; i < numLFandSlackVariables; i++) {
                 lowerBounds.set(i, 0.0);
 
                 if (i < slackVStartIndex) {
                     scalingFactors.set(i, 1e-2);
-                    scaled = true;
-                }
-
-                // Scaling !!
-                if (scaled && firstIter) {
-                    firstIter = false;
-                } else if (firstIter) {
-                    firstIter = false;
                 }
             }
 
@@ -873,9 +688,9 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
             List<Double> linCoefs = new ArrayList<>();
 
             // Slack penalty terms: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
-            addSlackObjectiveTerms(numPEquations, slackPStartIndex, wK * wP, lambda, mu, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numQEquations, slackQStartIndex, wK * wQ, lambda, mu, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numVEquations, slackVStartIndex, wV, lambda, mu, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numPEquations, slackPStartIndex, wK * wP, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numQEquations, slackQStartIndex, wK * wQ, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numVEquations, slackVStartIndex, wV, lambda, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
 
             setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
             setObjectiveLinearPart(linIndexes, linCoefs);
@@ -905,7 +720,6 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                 int slackStartIdx,
                 double weight,
                 double lambda,
-                double mu,
                 List<Integer> quadRows,
                 List<Integer> quadCols,
                 List<Double> quadCoefs,
@@ -919,15 +733,15 @@ public class KnitroSolverReacLim extends AbstractAcSolver {
                 // Quadratic terms: weight * mu * (sp^2 + sm^2 - 2 * sp * sm)
                 quadRows.add(idxSp);
                 quadCols.add(idxSp);
-                quadCoefs.add(mu * weight);
+                quadCoefs.add(weight);
 
                 quadRows.add(idxSm);
                 quadCols.add(idxSm);
-                quadCoefs.add(mu * weight);
+                quadCoefs.add(weight);
 
                 quadRows.add(idxSp);
                 quadCols.add(idxSm);
-                quadCoefs.add(-2 * mu * weight);
+                quadCoefs.add(-2 * weight);
 
                 // Linear terms: weight * lambda * (sp + sm)
                 linIndexes.add(idxSp);
