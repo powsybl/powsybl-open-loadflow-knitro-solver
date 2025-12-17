@@ -37,9 +37,11 @@ To use the PowSyBl Open Load Flow Knitro Solver extension, a valid Knitro instal
 
 ### Platform compatibility
 
-Knitro supports Linux, Windows, and macOS; however, its Java bindings are currently available only on Linux and Windows.
+PowSyBl Open Load Flow Knitro Solver supports Linux, Windows, and macOS.
 
 ### Installing Knitro
+
+The PowSyBl Open Load Flow Knitro Solver extension currently uses Knitro **15.1.0**.
 
 1. Obtain the installation kit and trial license from the [Artelys website](https://www.artelys.com/solvers/knitro/programs/#trial).
 2. Configure the following environment variables:
@@ -82,7 +84,7 @@ Optimality violation     = 0,000003
 ### Installing Knitro Java Bindings
 The Knitro Java bindings require a private JAR file that must be installed locally, as it is not available on Maven Central.
 
-On **Linux**, use the following command:
+On **Linux** or **macOS**, use the following command:
 ```bash
 ./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_15.1.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=15.1.0 -Dpackaging=jar -DgeneratePom=true
 ```
