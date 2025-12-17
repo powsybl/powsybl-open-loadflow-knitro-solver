@@ -45,9 +45,9 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           wget -nv -O knitro.tar.gz --user "$KNITRO_DOWNLOAD_USER" --password "$KNITRO_DOWNLOAD_PASSWORD" "$KNITRO_MACOS_URL"
-          mkdir -p /opt/knitro
-          tar xzf knitro.tar.gz -C /opt/knitro
-          echo "KNITRODIR=/opt/knitro/knitro-15.1.0-ARM-MacOS" >> "$GITHUB_ENV"
+          mkdir -p $RUNNER_TEMP/knitro
+          tar xzf knitro.tar.gz -C $RUNNER_TEMP/knitro
+          echo "KNITRODIR=$RUNNER_TEMP/knitro/knitro-15.1.0-ARM-MacOS" >> "$GITHUB_ENV"
         env:
           KNITRO_DOWNLOAD_USER: ${{ secrets.KNITRO_DOWNLOAD_USER }}
           KNITRO_DOWNLOAD_PASSWORD: ${{ secrets.KNITRO_DOWNLOAD_PASSWORD }}
