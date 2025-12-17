@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]  # macos-latest : Knitro does not yet support Java API on macOS, to be tried later on
+        os: [ubuntu-latest, windows-latest, macos-latest]
       fail-fast: false
     defaults:
       run:
@@ -40,6 +40,18 @@ jobs:
           KNITRO_DOWNLOAD_USER: ${{ secrets.KNITRO_DOWNLOAD_USER }}
           KNITRO_DOWNLOAD_PASSWORD: ${{ secrets.KNITRO_DOWNLOAD_PASSWORD }}
           KNITRO_WINDOWS_URL: ${{ secrets.KNITRO_15_WINDOWS_URL }}
+
+      - name: Install Knitro (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          wget -nv -O knitro.tar.gz --user "$KNITRO_DOWNLOAD_USER" --password "$KNITRO_DOWNLOAD_PASSWORD" "$KNITRO_MACOS_URL"
+          mkdir -p /opt/knitro
+          tar xzf knitro.tar.gz -C /opt/knitro
+          echo "KNITRODIR=/opt/knitro/knitro-15.1.0-ARM-MacOS" >> "$GITHUB_ENV"
+        env:
+          KNITRO_DOWNLOAD_USER: ${{ secrets.KNITRO_DOWNLOAD_USER }}
+          KNITRO_DOWNLOAD_PASSWORD: ${{ secrets.KNITRO_DOWNLOAD_PASSWORD }}
+          KNITRO_MACOS_URL: ${{ secrets.KNITRO_15_MACOS_URL }}
 
       - name: Set up JDK 21
         uses: actions/setup-java@387ac29b308b003ca37ba93a6cab5eb57c8f5f93 # v4.0.0
@@ -107,7 +119,7 @@ jobs:
           mvn versions:set-property -Dproperty=powsybl-core.version -DnewVersion=$CORE_VERSION -DgenerateBackupPoms=false
           mvn versions:set-property -Dproperty=powsybl-open-loadflow.version -DnewVersion=$LOADFLOW_VERSION -DgenerateBackupPoms=false
 
-      - name: Build with Maven (Ubuntu)
+      - name: Build with Maven (Ubuntu and macOS)
         if: matrix.os != 'windows-latest'
         run: |
           ./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_15.1.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=15.1.0 -Dpackaging=jar -DgeneratePom=true

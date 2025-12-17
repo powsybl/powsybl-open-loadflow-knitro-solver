@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]  # macos-latest : Knitro does not yet support Java API on macOS, to be tried later on
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
       - name: Install Knitro (Linux)
@@ -41,6 +41,19 @@ jobs:
           KNITRO_DOWNLOAD_PASSWORD: ${{ secrets.KNITRO_DOWNLOAD_PASSWORD }}
           KNITRO_WINDOWS_URL: ${{ secrets.KNITRO_15_WINDOWS_URL }}
 
+
+      - name: Install Knitro (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          wget -nv -O knitro.tar.gz --user "$KNITRO_DOWNLOAD_USER" --password "$KNITRO_DOWNLOAD_PASSWORD" "$KNITRO_MACOS_URL"
+          mkdir -p /opt/knitro
+          tar xzf knitro.tar.gz -C /opt/knitro
+          echo "KNITRODIR=/opt/knitro/knitro-15.1.0-ARM-MacOS" >> "$GITHUB_ENV"
+        env:
+          KNITRO_DOWNLOAD_USER: ${{ secrets.KNITRO_DOWNLOAD_USER }}
+          KNITRO_DOWNLOAD_PASSWORD: ${{ secrets.KNITRO_DOWNLOAD_PASSWORD }}
+          KNITRO_MACOS_URL: ${{ secrets.KNITRO_15_MACOS_URL }}
+
       - name: Checkout sources
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
@@ -50,7 +63,7 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Build with Maven (Ubuntu)
+      - name: Build with Maven (Ubuntu and macOS)
         if: matrix.os != 'windows-latest'
         run: |
           ./mvnw install:install-file -Dfile="$KNITRODIR/examples/Java/lib/Knitro-Interfaces-2.5-KN_15.1.0.jar" -DgroupId=com.artelys -DartifactId=knitro-interfaces -Dversion=15.1.0 -Dpackaging=jar -DgeneratePom=true
