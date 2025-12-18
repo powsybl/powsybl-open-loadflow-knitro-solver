@@ -30,9 +30,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Yoann Anezin {@literal <yoann.anezin at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
-public class ReactiveNoJacobienneTest {
+public class ReactiveLimitsKnitroSolverFunctionalTest {
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
+    private KnitroLoadFlowParameters knitroParams;
 
     @BeforeEach
     void setUp() {
@@ -46,9 +47,10 @@ public class ReactiveNoJacobienneTest {
                 .setAcSolverType(KnitroSolverFactory.NAME)
                 .setVoltageInitModeOverride(OpenLoadFlowParameters.VoltageInitModeOverride.FULL_VOLTAGE);
 
-        KnitroLoadFlowParameters knitroParams = new KnitroLoadFlowParameters()
+        knitroParams = new KnitroLoadFlowParameters()
                 .setKnitroSolverType(KnitroSolverParameters.SolverType.USE_REACTIVE_LIMITS)
-                .setGradientComputationMode(2);
+                .setGradientComputationMode(2)
+                .setThreadNumber(1);
 
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
     }
@@ -122,13 +124,23 @@ public class ReactiveNoJacobienneTest {
     void testReacLimEurostagQlow() {
         Network network = modifiedEurostagFactory(250, 300);
 
-        // verify convergence
+        // verify convergence using finite differences
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
 
         Generator gen2 = network.getGenerator("GEN2");
         TwoWindingsTransformer ngen2Nhv1 = network.getTwoWindingsTransformer("NGEN2_NHV1");
         TwoWindingsTransformer nhv2Nload = network.getTwoWindingsTransformer("NHV2_NLOAD");
+
+        assertReactivePowerEquals(-250, gen2.getTerminal()); // GEN is correctly limited to 250 MVar
+        assertReactivePowerEquals(250, ngen2Nhv1.getTerminal1());
+        assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
+
+        // verify convergence using exact jacobian
+        knitroParams.setGradientComputationMode(1);
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
+        result = loadFlowRunner.run(network, parameters);
+        assertTrue(result.isFullyConverged());
 
         assertReactivePowerEquals(-250, gen2.getTerminal()); // GEN is correctly limited to 250 MVar
         assertReactivePowerEquals(250, ngen2Nhv1.getTerminal1());
@@ -142,7 +154,7 @@ public class ReactiveNoJacobienneTest {
     void testReacLimEurostagQup() {
         Network network = modifiedEurostagFactory(0, 100);
 
-        // verify convergence
+        // verify convergence using finite differences
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
 
@@ -150,6 +162,17 @@ public class ReactiveNoJacobienneTest {
         Generator gen2 = network.getGenerator("GEN2");
         TwoWindingsTransformer ngen2Nhv1 = network.getTwoWindingsTransformer("NGEN2_NHV1");
         TwoWindingsTransformer nhv2Nload = network.getTwoWindingsTransformer("NHV2_NLOAD");
+
+        assertReactivePowerEquals(-280, gen.getTerminal());
+        assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
+        assertReactivePowerEquals(100, ngen2Nhv1.getTerminal1());
+        assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
+
+        // verify convergence using exact jacobian
+        knitroParams.setGradientComputationMode(1);
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
+        result = loadFlowRunner.run(network, parameters);
+        assertTrue(result.isFullyConverged());
 
         assertReactivePowerEquals(-280, gen.getTerminal());
         assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
@@ -174,13 +197,23 @@ public class ReactiveNoJacobienneTest {
                 .setQ0(30.0)
                 .add();
 
-        // verify convergence
+        // verify convergence using finite differences
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
 
         Generator gen2 = network.getGenerator("GEN2");
         TwoWindingsTransformer ngen2Nhv1 = network.getTwoWindingsTransformer("NGEN2_NHV1");
         TwoWindingsTransformer nhv2Nload = network.getTwoWindingsTransformer("NHV2_NLOAD");
+
+        assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
+        assertReactivePowerEquals(70, ngen2Nhv1.getTerminal1());
+        assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
+
+        // verify convergence using exact jacobian
+        knitroParams.setGradientComputationMode(1);
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
+        result = loadFlowRunner.run(network, parameters);
+        assertTrue(result.isFullyConverged());
 
         assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
         assertReactivePowerEquals(70, ngen2Nhv1.getTerminal1());
@@ -213,7 +246,7 @@ public class ReactiveNoJacobienneTest {
                 .setMaxQ(40)
                 .add();
 
-        // verify convergence
+        // verify convergence using finite differences
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
 
@@ -226,11 +259,21 @@ public class ReactiveNoJacobienneTest {
         assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
         assertReactivePowerEquals(140.0, ngen2Nhv1.getTerminal1());
         assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
+
+        // verify convergence using exact jacobian
+        knitroParams.setGradientComputationMode(1);
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
+        result = loadFlowRunner.run(network, parameters);
+        assertTrue(result.isFullyConverged());
+
+        assertReactivePowerEquals(-122.735, gen.getTerminal());
+        assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
+        assertReactivePowerEquals(140.0, ngen2Nhv1.getTerminal1());
+        assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
     }
 
     @Test
     void testReacLimIeee14() {
-        parameters.setUseReactiveLimits(true);
         Network network = IeeeCdfNetworkFactory.create14();
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
@@ -238,7 +281,6 @@ public class ReactiveNoJacobienneTest {
 
     @Test
     void testReacLimIeee30() {
-        parameters.setUseReactiveLimits(true);
         Network network = IeeeCdfNetworkFactory.create30();
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
