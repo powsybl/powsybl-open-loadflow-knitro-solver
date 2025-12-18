@@ -20,7 +20,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Relaxed Knitro solver, solving the open load flow equation system by minimizing constraint violations through relaxation.
@@ -124,11 +123,6 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
         } catch (KNException e) {
             throw new PowsyblException("Failed to create relaxed Knitro problem", e);
         }
-    }
-
-    @Override
-    protected KNSolution getSolution(KNSolver solver) {
-        return solver.getBestFeasibleIterate();
     }
 
     @Override
@@ -297,10 +291,6 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
             // set the representation of the Jacobian matrix (dense or sparse)
             setJacobianMatrix(activeConstraints, nonlinearConstraintIndexes);
 
-            // set the representation of the Hessian matrix
-            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes);
-            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
-
             // set the objective function of the optimization problem
             // initialise lists to track quadratic objective function terms of the form: a * x1 * x2
             List<Integer> quadRows = new ArrayList<>(); // list of indexes of the first variable x1
@@ -318,57 +308,6 @@ public class RelaxedKnitroSolver extends AbstractKnitroSolver {
 
             setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
             setObjectiveLinearPart(linIndexes, linCoefs);
-        }
-
-        /**
-         * Returns the sparsity pattern of the hessian matrix associated with the problem.
-         *
-         * @param nonlinearConstraintIndexes A list of the indexes of non-linear equations.
-         * @return row and column coordinates of non-zero entries in the hessian matrix.
-         */
-        private AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols(List<Integer> nonlinearConstraintIndexes) {
-            record NnzCoordinates(int iRow, int iCol) {
-            }
-
-            Set<NnzCoordinates> hessianEntries = new LinkedHashSet<>();
-
-            // Non-linear constraints contributions in the hessian matrix
-            for (int index : nonlinearConstraintIndexes) {
-                Equation<AcVariableType, AcEquationType> equation = equationSystem.getIndex().getSortedEquationsToSolve().get(index);
-                for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                    for (Variable<AcVariableType> var1 : term.getVariables()) {
-                        int i = var1.getRow();
-                        for (Variable<AcVariableType> var2 : term.getVariables()) {
-                            int j = var2.getRow();
-                            if (j >= i) {
-                                hessianEntries.add(new NnzCoordinates(i, j));
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Slacks variables contributions in the objective function
-            for (int iSlack = numberOfPowerFlowVariables; iSlack < numberOfVariables; iSlack++) {
-                hessianEntries.add(new NnzCoordinates(iSlack, iSlack));
-                if (((iSlack - numberOfPowerFlowVariables) & 1) == 0) {
-                    hessianEntries.add(new NnzCoordinates(iSlack, iSlack + 1));
-                }
-            }
-
-            // Sort the entries by row and column indices
-            hessianEntries = hessianEntries.stream()
-                    .sorted(Comparator.comparingInt(NnzCoordinates::iRow).thenComparingInt(NnzCoordinates::iCol))
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-
-            List<Integer> hessRows = new ArrayList<>();
-            List<Integer> hessCols = new ArrayList<>();
-            for (NnzCoordinates entry : hessianEntries) {
-                hessRows.add(entry.iRow());
-                hessCols.add(entry.iCol());
-            }
-
-            return new AbstractMap.SimpleEntry<>(hessRows, hessCols);
         }
 
         /**
