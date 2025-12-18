@@ -140,7 +140,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
      * @param solver The Knitro solver instance.
      * @return The solution.
      */
-    protected KNSolution getSolution(KNSolver solver) {
+    protected KNSolution getSolution(KNSolver solver) throws KNException {
         return solver.getSolution();
     }
 
