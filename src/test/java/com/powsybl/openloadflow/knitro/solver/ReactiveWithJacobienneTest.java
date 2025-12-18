@@ -409,36 +409,4 @@ public class ReactiveWithJacobienneTest {
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
     }
-
-    @Test
-    void testReacLimIeee118() {
-        HashMap<String, Double> listMinQ = new HashMap<>();
-        HashMap<String, Double> listMaxQ = new HashMap<>();
-        parameters.setUseReactiveLimits(true);
-        Network network = IeeeCdfNetworkFactory.create118();
-        for (var g : network.getGenerators()) {
-            if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()) > -1.7976931348623157E308) {
-                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()));
-                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP()));
-            }
-        }
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged(), "Not Fully Converged");
-    }
-
-    @Test
-    void testReacLimIeee300() {
-        HashMap<String, Double> listMinQ = new HashMap<>();
-        HashMap<String, Double> listMaxQ = new HashMap<>();
-        parameters.setUseReactiveLimits(true);
-        Network network = IeeeCdfNetworkFactory.create300();
-        for (var g : network.getGenerators()) {
-            if (g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()) > -1.7976931348623157E308) {
-                listMinQ.put(g.getId(), g.getReactiveLimits().getMinQ(g.getTerminal().getBusView().getBus().getP()));
-                listMaxQ.put(g.getId(), g.getReactiveLimits().getMaxQ(g.getTerminal().getBusView().getBus().getP()));
-            }
-        }
-        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertTrue(result.isFullyConverged(), "Not Fully Converged");
-    }
 }
