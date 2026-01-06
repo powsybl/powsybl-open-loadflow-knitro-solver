@@ -31,7 +31,7 @@ import java.util.stream.IntStream;
  *  - Initialization and definition of variable bounds for the optimization problem.
  *  - Definition of constraints (including those evaluated via callbacks in {@link KnitroCallbacks}).
  *  - Representation of the constraint Jacobian for the problem.
- * This class can be extended to customize any of these features (e.g., in {@link RelaxedKnitroSolver.RelaxedKnitroProblem}).
+ * This class can be extended to customize any of these features (e.g., in {@link AbstractRelaxedKnitroSolver.RelaxedKnitroProblem}).
  * For example, if you modify the optimization problem, you may also need to update the initialization of additional variables.
  *
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
@@ -52,10 +52,11 @@ public abstract class AbstractKnitroProblem extends KNProblem {
     protected List<Equation<AcVariableType, AcEquationType>> activeConstraints = new ArrayList<>();
     protected final List<Integer> nonlinearConstraintIndexes = new ArrayList<>();
     protected final int numTotalVariables;
+    protected final VoltageInitializer voltageInitializer;
 
     protected AbstractKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                     TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                    KnitroSolverParameters knitroParameters, int numTotalVariables, int numTotalConstraints) {
+                                    KnitroSolverParameters knitroParameters, int numTotalVariables, int numTotalConstraints, VoltageInitializer voltageInitializer) {
         super(numTotalVariables, numTotalConstraints);
         this.numTotalVariables = numTotalVariables;
         this.network = network;
@@ -64,6 +65,7 @@ public abstract class AbstractKnitroProblem extends KNProblem {
         this.jacobianMatrix = jacobianMatrix;
         this.knitroParameters = knitroParameters;
         this.numberOfPowerFlowVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
+        this.voltageInitializer = voltageInitializer;
     }
 
     /**
@@ -99,6 +101,9 @@ public abstract class AbstractKnitroProblem extends KNProblem {
         // Allow subclasses to modify bounds and initial values (e.g., for slack variables)
         initializeCustomizedVariables(lowerBounds, upperBounds, initialValues, numTotalVariables);
 
+        // Set up scaling factors
+        setUpScalingFactors(numTotalVariables);
+
         setVarLoBnds(lowerBounds);
         setVarUpBnds(upperBounds);
         setXInitial(initialValues);
@@ -116,6 +121,10 @@ public abstract class AbstractKnitroProblem extends KNProblem {
      */
     protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds,
                                                  List<Double> initialValues, int numTotalVariables) {
+        // no customization by default
+    }
+
+    protected void setUpScalingFactors(int numTotalVariables) throws KNException {
         // no customization by default
     }
 
