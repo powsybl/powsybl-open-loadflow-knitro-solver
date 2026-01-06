@@ -31,12 +31,9 @@ import static com.powsybl.openloadflow.ac.equations.AcEquationType.*;
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Yoann Anezin {@literal <yoann.anezin at artelys.com>}
  */
-public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
+public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(UseReactiveLimitsKnitroSolver.class);
-
-    // Number of Load Flows (LF) variables in the system
-    private final int numLFVariables;
 
     // Number of variables including slack variables
     private final int numLFandSlackVariables;
@@ -155,7 +152,7 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
     @Override
     protected KNProblem createKnitroProblem(VoltageInitializer voltageInitializer) {
         try {
-            return new ResilientReacLimKnitroProblem(network, equationSystem, targetVector, j, voltageInitializer, knitroParameters);
+            return new UseReactiveLimitsKnitroProblem(network, equationSystem, targetVector, j, voltageInitializer, knitroParameters);
         } catch (KNException e) {
             throw new PowsyblException("Failed to create relaxed Knitro problem", e);
         }
@@ -196,7 +193,9 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
         }
     }
 
-    private final class ResilientReacLimKnitroProblem extends AbstractRelaxedKnitroProblem {
+    private final class UseReactiveLimitsKnitroProblem extends AbstractRelaxedKnitroProblem {
+
+        private List<Equation<AcVariableType, AcEquationType>> completeEquationsToSolve;
 
         /**
          * Knitro problem definition including:
@@ -205,7 +204,7 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
          * - Objective function setup
          * - Jacobian matrix setup for Knitro
          */
-        private ResilientReacLimKnitroProblem(
+        private UseReactiveLimitsKnitroProblem(
                 LfNetwork network,
                 EquationSystem<AcVariableType, AcEquationType> equationSystem,
                 TargetVector<AcVariableType, AcEquationType> targetVector,
@@ -213,79 +212,41 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
                 VoltageInitializer voltageInitializer,
                 KnitroSolverParameters parameters) throws KNException {
             // =============== Variable Initialization ===============
-            super(network, equationSystem, targetVector, jacobianMatrix, parameters, numberOfVariables,
-                    equationSystem.getIndex().getSortedEquationsToSolve().size() +
-                            3 * complConstVariables / 5, numLFandSlackVariables);
+            super(network, equationSystem,
+                    targetVector, jacobianMatrix, parameters, numberOfVariables, equationSystem.getIndex().getSortedEquationsToSolve().size() +
+                            3 * complConstVariables / 5, numLFandSlackVariables, voltageInitializer);
 
-            // Variable types (all continuous), bounds, and initial values
-            List<Integer> variableTypes = new ArrayList<>(Collections.nCopies(numberOfVariables, KNConstants.KN_VARTYPE_CONTINUOUS));
-            List<Double> lowerBounds = new ArrayList<>(Collections.nCopies(numberOfVariables, -KNConstants.KN_INFINITY));
-            List<Double> upperBounds = new ArrayList<>(Collections.nCopies(numberOfVariables, KNConstants.KN_INFINITY));
-            List<Double> scalingFactors = new ArrayList<>(Collections.nCopies(numberOfVariables, 1.0));
-            List<Double> scalingCenters = new ArrayList<>(Collections.nCopies(numberOfVariables, 0.0));
-            List<Double> initialValues = new ArrayList<>(Collections.nCopies(numberOfVariables, 0.0));
+            LOGGER.info("Defining {} variables", numberOfVariables);
 
-            setVarTypes(variableTypes);
+            // Set up the constraints of the optimization problem
+            setupConstraints();
 
-            // Compute initial voltage state using the given initializer
-            AcSolverUtil.initStateVector(network, equationSystem, voltageInitializer);
-            for (int i = 0; i < numLFVariables; i++) {
-                initialValues.set(i, equationSystem.getStateVector().get(i));
-            }
+            // Initialize variables
+            initializeVariables(voltageInitializer, numberOfVariables);
+            LOGGER.info("Initialization of variables : type of initialization {}", voltageInitializer);
 
-            // Initialize slack variables (≥ 0, initial value = 0), scale P and Q slacks
-            for (int i = numLFVariables; i < numLFandSlackVariables; i++) {
-                lowerBounds.set(i, 0.0);
+            // =============== Callbacks and Jacobian ===============
+            setObjEvalCallback(new UseReactiveLimitsCallbackEvalFC(this, completeEquationsToSolve, nonlinearConstraintIndexes));
 
-                if (i < slackVStartIndex) {
-                    scalingFactors.set(i, 1e-2);
-                }
-            }
+            setJacobianMatrix(completeEquationsToSolve, nonlinearConstraintIndexes);
 
-            // Set bounds for voltage variables based on Knitro parameters
-            for (int i = 0; i < numLFVariables; i++) {
-                if (equationSystem.getIndex().getSortedVariablesToFind().get(i).getType() == AcVariableType.BUS_V) {
-                    lowerBounds.set(i, knitroParameters.getLowerVoltageBound());
-                    upperBounds.set(i, knitroParameters.getUpperVoltageBound());
-                }
-            }
+            // TODO : uncomment me
+//            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes);
+//            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
 
-            // Set bounds for complementarity variables (≥ 0)
-            for (int i = 0; i < complConstVariables / 5; i++) {
-                lowerBounds.set(compVarStartIndex + 5 * i, 0.0);
-                lowerBounds.set(compVarStartIndex + 5 * i + 1, 0.0);
+            // set the objective function of the optimization problem
+            addObjectiveFunction(numPEquations, slackPStartIndex, numQEquations, slackQStartIndex, numVEquations, slackVStartIndex);
+        }
 
-                lowerBounds.set(compVarStartIndex + 5 * i + 2, 0.0);
-                lowerBounds.set(compVarStartIndex + 5 * i + 3, 0.0);
-                lowerBounds.set(compVarStartIndex + 5 * i + 4, 0.0);
-
-                initialValues.set(compVarStartIndex + 5 * i + 2, 1.0);
-                initialValues.set(compVarStartIndex + 5 * i + 3, 1.0);
-            }
-
-            LOGGER.info("Voltage initialization strategy: {}", voltageInitializer);
-
-            int n = numberOfVariables;
-            ArrayList<Integer> list = new ArrayList<>(n);
-            for (int i = 0; i < n; i++) {
-                list.add(i);
-            }
-
-            // Set bounds and initial state
-            setVarLoBnds(lowerBounds);
-            setVarUpBnds(upperBounds);
-            setVarScaleFactors(new KNSparseVector<>(list, scalingFactors));
-            setVarScaleCenters(new KNSparseVector<>(list, scalingCenters));
-            setXInitial(initialValues);
-            LOGGER.info("Variables initialization complete!");
-
+        @Override
+        protected void setupConstraints() throws KNException {
             List<Equation<AcVariableType, AcEquationType>> activeConstraints = equationSystem.getIndex().getSortedEquationsToSolve();
 
             // Linear and nonlinear constraints (the latter are deferred to callback)
             NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
 
             List<Integer> nonlinearConstraintIndexes = new ArrayList<>();                                                   // contains the indexes of all non-linear constraints
-            List<Equation<AcVariableType, AcEquationType>> completeEquationsToSolve = new ArrayList<>(activeConstraints);   // Contains all equations of the final system to be solved
+            completeEquationsToSolve = new ArrayList<>(activeConstraints);   // Contains all equations of the final system to be solved
             List<Double> wholeTargetVector = new ArrayList<>(Arrays.stream(targetVector.getArray()).boxed().toList());      // Contains all the target of the system to be solved
             for (int equationId = 0; equationId < activeConstraints.size(); equationId++) {
                 addActivatedConstraints(network, equationId, activeConstraints, solverUtils, nonlinearConstraintIndexes,
@@ -326,17 +287,43 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
 
             setCompConstraintsTypes(listTypeVar);
             setCompConstraintsParts(bVarList, vInfSuppList); // b_low compl with V_sup  and  b_up compl with V_inf
+        }
 
-            // =============== Callbacks and Jacobian ===============
-            setObjEvalCallback(new CallbackEvalFC(this, completeEquationsToSolve, nonlinearConstraintIndexes));
+        @Override
+        protected void setUpScalingFactors(int numTotalVariables) throws KNException {
+            List<Double> scalingFactors = new ArrayList<>(Collections.nCopies(numTotalVariables, 1.0));
+            List<Double> scalingCenters = new ArrayList<>(Collections.nCopies(numTotalVariables, 0.0));
+            for (int i = numLFVariables; i < slackVStartIndex; i++) {
+                scalingFactors.set(i, 1e-2);
+            }
 
-            setJacobianMatrix(completeEquationsToSolve, nonlinearConstraintIndexes);
-            // TODO : uncomment me
-//            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes);
-//            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
+            //todo : verify that this range(1,n) coincides with order given to knitro
+            int n = numTotalVariables;
+            ArrayList<Integer> list = new ArrayList<>(n);
+            for (int i = 0; i < n; i++) {
+                list.add(i);
+            }
 
-            // set the objective function of the optimization problem
-            addObjectiveFunction(numPEquations, slackPStartIndex, numQEquations, slackQStartIndex, numVEquations, slackVStartIndex);
+            setVarScaleFactors(new KNSparseVector<>(list, scalingFactors));
+            setVarScaleCenters(new KNSparseVector<>(list, scalingCenters));
+        }
+
+        @Override
+        protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds, List<Double> initialValues, int numTotalVariables) {
+            super.initializeCustomizedVariables(lowerBounds, upperBounds, initialValues, numTotalVariables);
+
+            // Set bounds for complementarity variables (≥ 0)
+            for (int i = 0; i < complConstVariables / 5; i++) {
+                lowerBounds.set(compVarStartIndex + 5 * i, 0.0);
+                lowerBounds.set(compVarStartIndex + 5 * i + 1, 0.0);
+
+                lowerBounds.set(compVarStartIndex + 5 * i + 2, 0.0);
+                lowerBounds.set(compVarStartIndex + 5 * i + 3, 0.0);
+                lowerBounds.set(compVarStartIndex + 5 * i + 4, 0.0);
+
+                initialValues.set(compVarStartIndex + 5 * i + 2, 1.0);
+                initialValues.set(compVarStartIndex + 5 * i + 3, 1.0);
+            }
         }
 
         /**
@@ -476,25 +463,6 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
             }
         }
 
-        /**
-         * Returns the base index of the slack variable associated with a given equation type and ID.
-         *
-         * @param equationType Type of the equation (P, Q, or V).
-         * @param equationId   Index of the equation.
-         * @return Base index of the corresponding slack variable, or -1 if not applicable.
-         */
-        private int getSlackIndexBase(AcEquationType equationType, int equationId) {
-            return switch (equationType) {
-                case BUS_TARGET_P -> pEquationLocalIds.getOrDefault(equationId, -1) >= 0
-                        ? slackPStartIndex + 2 * pEquationLocalIds.get(equationId) : -1;
-                case BUS_TARGET_Q -> qEquationLocalIds.getOrDefault(equationId, -1) >= 0
-                        ? slackQStartIndex + 2 * qEquationLocalIds.get(equationId) : -1;
-                case BUS_TARGET_V -> vEquationLocalIds.getOrDefault(equationId, -1) >= 0
-                        ? slackVStartIndex + 2 * vEquationLocalIds.get(equationId) : -1;
-                default -> -1;
-            };
-        }
-
         private int getcompVarBaseIndex(int equationId) {
             return compVarStartIndex + 5 * vSuppEquationLocalIds.get(equationId);
         }
@@ -508,95 +476,49 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
                                                           List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
                                                           List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) {
 
-            return new CallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
-                    listNonZerosCtsSparse, listNonZerosVarsSparse, network,
-                    equationSystem, knitroParameters);
+            return new UseReactiveLimitsCallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
+                    listNonZerosCtsSparse, listNonZerosVarsSparse, network, equationSystem,
+                    knitroParameters, numberOfPowerFlowVariables);
         }
 
-        /**
-         * Builds the sparse Jacobian matrix by identifying non-zero entries
-         * for each non-linear constraint, including contributions from slack variables.
-         *
-         * @param sortedEquationsToSolve Ordered list of equations to solve.
-         * @param nonLinearConstraintIds Indices of non-linear constraints within the sorted equation list.
-         * @param jacobianRowIndices     Output: row indices (constraints) of non-zero Jacobian entries.
-         * @param jacobianColumnIndices  Output: column indices (variables) of non-zero Jacobian entries.
-         */
         @Override
-        public void buildSparseJacobianMatrix(
-                List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
-                List<Integer> nonLinearConstraintIds,
-                List<Integer> jacobianRowIndices,
-                List<Integer> jacobianColumnIndices) {
-            int numberLFEq = sortedEquationsToSolve.size() - 3 * vSuppEquationLocalIds.size();
+        protected void addAdditionalJacobianVariables(int constraintIndex,
+                                                      Equation<AcVariableType, AcEquationType> equation,
+                                                      List<Integer> variableIndices) {
+            super.addAdditionalJacobianVariables(constraintIndex, equation, variableIndices);
+            int numberLFEq = equationSystem.getIndex().getSortedEquationsToSolve().size() - 3 * vSuppEquationLocalIds.size();
+            AcEquationType equationType = equation.getType();
+            // Add complementarity constraints' variables if the constraint type has them
+            int compVarStart;
+            // Case of inactive Q equations, we take the V equation associated to it to get the right index used to order the equation system
+            if (equationType == BUS_TARGET_Q && !equation.isActive()) {
+                int elemNumControlledBus = elemNumControlledControllerBus.get(equation.getElementNum());        // Controller bus
+                List<Equation<AcVariableType, AcEquationType>> listEqControlledBus = equationSystem             // Equations of the Controller bus
+                        .getEquations(ElementType.BUS, elemNumControlledBus);
+                Equation<AcVariableType, AcEquationType> eqVControlledBus = listEqControlledBus.stream()        // Take the one on V
+                        .filter(e -> e.getType() == BUS_TARGET_V).toList().get(0);
+                int indexEqVAssociated = equationSystem.getIndex().getSortedEquationsToSolve().indexOf(eqVControlledBus);   // Find the index of the V equation associated
 
-            for (Integer constraintIndex : nonLinearConstraintIds) {
-                Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(constraintIndex);
-                AcEquationType equationType = equation.getType();
-
-                // Collect all variable indices involved in the current equation
-                Set<Integer> involvedVariables = equation.getTerms().stream()
-                        .flatMap(term -> term.getVariables().stream())
-                        .map(Variable::getRow)
-                        .collect(Collectors.toCollection(TreeSet::new));
-
-                // Add slack variables if the constraint type has them
-                int slackStart = switch (equationType) {
-                    case BUS_TARGET_P -> pEquationLocalIds.getOrDefault(constraintIndex, -1);
-                    case BUS_TARGET_Q -> qEquationLocalIds.getOrDefault(constraintIndex, -1);
-                    case BUS_TARGET_V -> vEquationLocalIds.getOrDefault(constraintIndex, -1);
-                    default -> -1;
-                };
-
-                if (slackStart >= 0) {
-                    int slackBaseIndex = switch (equationType) {
-                        case BUS_TARGET_P -> slackPStartIndex;
-                        case BUS_TARGET_Q -> slackQStartIndex;
-                        case BUS_TARGET_V -> slackVStartIndex;
-                        default -> throw new IllegalStateException("Unexpected constraint type: " + equationType);
-                    };
-                    involvedVariables.add(slackBaseIndex + 2 * slackStart);     // Sm
-                    involvedVariables.add(slackBaseIndex + 2 * slackStart + 1); // Sp
+                compVarStart = vSuppEquationLocalIds.get(indexEqVAssociated);
+                if (constraintIndex < numberLFEq + 2 * vSuppEquationLocalIds.size()) {
+                    variableIndices.add(compVarStartIndex + 5 * compVarStart + 2); // b_low
+                } else {
+                    variableIndices.add(compVarStartIndex + 5 * compVarStart + 3); // b_up
                 }
-
-                // Add complementarity constraints' variables if the constraint type has them
-                int compVarStart;
-                // Case of inactive Q equations, we take the V equation associated to it to get the right index used to order the equation system
-                if (equationType == BUS_TARGET_Q && !equation.isActive()) {
-                    int elemNumControlledBus = elemNumControlledControllerBus.get(equation.getElementNum());        // Controller bus
-                    List<Equation<AcVariableType, AcEquationType>> listEqControlledBus = equationSystem             // Equations of the Controller bus
-                            .getEquations(ElementType.BUS, elemNumControlledBus);
-                    Equation<AcVariableType, AcEquationType> eqVControlledBus = listEqControlledBus.stream()        // Take the one on V
-                            .filter(e -> e.getType() == BUS_TARGET_V).toList().get(0);
-                    int indexEqVAssociated = equationSystem.getIndex().getSortedEquationsToSolve().indexOf(eqVControlledBus);   // Find the index of the V equation associated
-
-                    compVarStart = vSuppEquationLocalIds.get(indexEqVAssociated);
-                    if (constraintIndex < numberLFEq + 2 * vSuppEquationLocalIds.size()) {
-                        involvedVariables.add(compVarStartIndex + 5 * compVarStart + 2); // b_low
-                    } else {
-                        involvedVariables.add(compVarStartIndex + 5 * compVarStart + 3); // b_up
-                    }
-                }
-
-                // Add one entry for each non-zero (constraintIndex, variableIndex)
-                jacobianColumnIndices.addAll(involvedVariables);
-                jacobianRowIndices.addAll(Collections.nCopies(involvedVariables.size(), constraintIndex));
-
-                long end = System.nanoTime();
             }
         }
 
         /**
          * Callback used by Knitro to evaluate the non-linear parts of the objective and constraint functions.
          */
-        private static final class CallbackEvalFC extends KnitroCallbacks.BaseCallbackEvalFC {
+        private static final class UseReactiveLimitsCallbackEvalFC extends RelaxedCallbackEvalFC {
 
-            private final ResilientReacLimKnitroProblem problemInstance;
+            private final UseReactiveLimitsKnitroProblem problemInstance;
 
-            private CallbackEvalFC(ResilientReacLimKnitroProblem problemInstance,
+            private UseReactiveLimitsCallbackEvalFC(UseReactiveLimitsKnitroProblem problemInstance,
                                           List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
                                           List<Integer> nonLinearConstraintIds) {
-                super(sortedEquationsToSolve, nonLinearConstraintIds);
+                super(problemInstance, sortedEquationsToSolve,nonLinearConstraintIds);
                 this.problemInstance = problemInstance;
             }
 
@@ -641,17 +563,7 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
          * Callback used by Knitro to evaluate the gradient (Jacobian matrix) of the constraints.
          * Only constraints (no objective) are handled here.
          */
-        private static final class CallbackEvalG extends KNEvalGACallback {
-
-            private final JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix;
-            private final List<Integer> denseConstraintIndices;
-            private final List<Integer> denseVariableIndices;
-            private final List<Integer> sparseConstraintIndices;
-            private final List<Integer> sparseVariableIndices;
-
-            private final LfNetwork network;
-            private final EquationSystem<AcVariableType, AcEquationType> equationSystem;
-            private final KnitroSolverParameters knitroParameters;
+        private static final class UseReactiveLimitsCallbackEvalG extends RelaxedCallbackEvalG {
 
             private final int numLFVar;
             private final int numVEq;
@@ -659,7 +571,7 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
 
             private final LinkedHashMap indRowVariable;
 
-            private CallbackEvalG(
+            private UseReactiveLimitsCallbackEvalG(
                     JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                     List<Integer> denseConstraintIndices,
                     List<Integer> denseVariableIndices,
@@ -667,18 +579,14 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
                     List<Integer> sparseVariableIndices,
                     LfNetwork network,
                     EquationSystem<AcVariableType, AcEquationType> equationSystem,
-                    KnitroSolverParameters knitroParameters) {
+                    KnitroSolverParameters knitroParameters,
+                    int numLFVariables) {
 
-                this.jacobianMatrix = jacobianMatrix;
-                this.denseConstraintIndices = denseConstraintIndices;
-                this.denseVariableIndices = denseVariableIndices;
-                this.sparseConstraintIndices = sparseConstraintIndices;
-                this.sparseVariableIndices = sparseVariableIndices;
-                this.network = network;
-                this.equationSystem = equationSystem;
-                this.knitroParameters = knitroParameters;
+                super(jacobianMatrix, denseConstraintIndices, denseVariableIndices, sparseConstraintIndices, sparseVariableIndices,
+                        network, equationSystem, knitroParameters, numLFVariables);
 
                 this.numLFVar = equationSystem.getIndex().getSortedVariablesToFind().size();
+
                 this.numVEq = equationSystem.getIndex().getSortedEquationsToSolve().stream().filter(
                         e -> e.getType() == BUS_TARGET_V).toList().size();
 
@@ -778,6 +686,7 @@ public class UseReactiveLimitsKnitroSolver extends RelaxedKnitroSolver {
                                     }
                                 }
                             }
+                            // todo last resort is check how it was here !
                             // Check if var is a b_low or b_up var
                             if (var >= numLFVar + 2 * (numPQEq + numVEq)) {
                                 int rest = (var - numLFVar - 2 * (numPQEq + numVEq)) % 5;
