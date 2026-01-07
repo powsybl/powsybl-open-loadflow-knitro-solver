@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
-abstract public class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
+public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelaxedKnitroSolver.class);
 
@@ -255,6 +255,7 @@ abstract public class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     public abstract class AbstractRelaxedKnitroProblem extends AbstractKnitroProblem {
 
         protected final int numLfAndSlackVariables;
+
         /**
          * Relaxed Knitro problem definition including:
          * - initialization of variables (types, bounds, initial state)
@@ -494,11 +495,11 @@ abstract public class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
          */
         public static class RelaxedCallbackEvalG extends KnitroCallbacks.BaseCallbackEvalG {
 
-             RelaxedCallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                         List<Integer> denseConstraintIndices, List<Integer> denseVariableIndices,
-                                         List<Integer> sparseConstraintIndices, List<Integer> sparseVariableIndices,
-                                         LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
-                                         KnitroSolverParameters knitroParameters, int numLFVariables) {
+            RelaxedCallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
+                                 List<Integer> denseConstraintIndices, List<Integer> denseVariableIndices,
+                                 List<Integer> sparseConstraintIndices, List<Integer> sparseVariableIndices,
+                                 LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                                 KnitroSolverParameters knitroParameters, int numLFVariables) {
 
                 super(jacobianMatrix, denseConstraintIndices, denseVariableIndices, sparseConstraintIndices, sparseVariableIndices,
                         network, equationSystem, knitroParameters, numLFVariables);
