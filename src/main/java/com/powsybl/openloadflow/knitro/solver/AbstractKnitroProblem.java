@@ -50,7 +50,7 @@ public abstract class AbstractKnitroProblem extends KNProblem {
     protected final KnitroSolverParameters knitroParameters;
     protected final int numberOfPowerFlowVariables;
     protected List<Equation<AcVariableType, AcEquationType>> activeConstraints = new ArrayList<>();
-    protected final List<Integer> nonlinearConstraintIndexes = new ArrayList<>();
+    protected List<Integer> nonlinearConstraintIndexes = new ArrayList<>();
     protected final int numTotalVariables;
     protected final VoltageInitializer voltageInitializer;
 
