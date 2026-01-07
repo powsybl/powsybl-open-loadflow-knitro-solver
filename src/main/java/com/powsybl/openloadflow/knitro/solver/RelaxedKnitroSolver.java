@@ -15,7 +15,7 @@ import com.powsybl.openloadflow.network.util.VoltageInitializer;
 import java.util.AbstractMap;
 import java.util.List;
 
-public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver{
+public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver {
 
     public RelaxedKnitroSolver(
             LfNetwork network,
