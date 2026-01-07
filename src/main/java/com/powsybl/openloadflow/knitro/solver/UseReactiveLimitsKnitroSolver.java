@@ -245,7 +245,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             // Linear and nonlinear constraints (the latter are deferred to callback)
             NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
 
-            List<Integer> nonlinearConstraintIndexes = new ArrayList<>();                                                   // contains the indexes of all non-linear constraints
+            nonlinearConstraintIndexes = new ArrayList<>();                                                   // contains the indexes of all non-linear constraints
             completeEquationsToSolve = new ArrayList<>(activeConstraints);   // Contains all equations of the final system to be solved
             List<Double> wholeTargetVector = new ArrayList<>(Arrays.stream(targetVector.getArray()).boxed().toList());      // Contains all the target of the system to be solved
             for (int equationId = 0; equationId < activeConstraints.size(); equationId++) {
@@ -518,7 +518,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             private UseReactiveLimitsCallbackEvalFC(UseReactiveLimitsKnitroProblem problemInstance,
                                           List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
                                           List<Integer> nonLinearConstraintIds) {
-                super(problemInstance, sortedEquationsToSolve,nonLinearConstraintIds);
+                super(problemInstance, sortedEquationsToSolve, nonLinearConstraintIds);
                 this.problemInstance = problemInstance;
             }
 
