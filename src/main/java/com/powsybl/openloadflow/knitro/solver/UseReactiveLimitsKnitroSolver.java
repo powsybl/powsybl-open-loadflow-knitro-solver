@@ -481,6 +481,79 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                     knitroParameters, numberOfPowerFlowVariables);
         }
 
+        /**
+         * Builds the sparse Jacobian matrix by identifying non-zero entries
+         * for each non-linear constraint, including contributions from slack variables.
+         *
+         * @param sortedEquationsToSolve Ordered list of equations to solve.
+         * @param nonLinearConstraintIds Indices of non-linear constraints within the sorted equation list.
+         * @param jacobianRowIndices     Output: row indices (constraints) of non-zero Jacobian entries.
+         * @param jacobianColumnIndices  Output: column indices (variables) of non-zero Jacobian entries.
+         */
+        @Override
+        public void buildSparseJacobianMatrix(
+                List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+                List<Integer> nonLinearConstraintIds,
+                List<Integer> jacobianRowIndices,
+                List<Integer> jacobianColumnIndices) {
+            int numberLFEq = sortedEquationsToSolve.size() - 3 * vSuppEquationLocalIds.size();
+
+            for (Integer constraintIndex : nonLinearConstraintIds) {
+                Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(constraintIndex);
+                AcEquationType equationType = equation.getType();
+
+                // Collect all variable indices involved in the current equation
+                Set<Integer> involvedVariables = equation.getTerms().stream()
+                        .flatMap(term -> term.getVariables().stream())
+                        .map(Variable::getRow)
+                        .collect(Collectors.toCollection(TreeSet::new));
+
+                // Add slack variables if the constraint type has them
+                int slackStart = switch (equationType) {
+                    case BUS_TARGET_P -> pEquationLocalIds.getOrDefault(constraintIndex, -1);
+                    case BUS_TARGET_Q -> qEquationLocalIds.getOrDefault(constraintIndex, -1);
+                    case BUS_TARGET_V -> vEquationLocalIds.getOrDefault(constraintIndex, -1);
+                    default -> -1;
+                };
+
+                if (slackStart >= 0) {
+                    int slackBaseIndex = switch (equationType) {
+                        case BUS_TARGET_P -> slackPStartIndex;
+                        case BUS_TARGET_Q -> slackQStartIndex;
+                        case BUS_TARGET_V -> slackVStartIndex;
+                        default -> throw new IllegalStateException("Unexpected constraint type: " + equationType);
+                    };
+                    involvedVariables.add(slackBaseIndex + 2 * slackStart);     // Sm
+                    involvedVariables.add(slackBaseIndex + 2 * slackStart + 1); // Sp
+                }
+
+                // Add complementarity constraints' variables if the constraint type has them
+                int compVarStart;
+                // Case of inactive Q equations, we take the V equation associated to it to get the right index used to order the equation system
+                if (equationType == BUS_TARGET_Q && !equation.isActive()) {
+                    int elemNumControlledBus = elemNumControlledControllerBus.get(equation.getElementNum());        // Controller bus
+                    List<Equation<AcVariableType, AcEquationType>> listEqControlledBus = equationSystem             // Equations of the Controller bus
+                            .getEquations(ElementType.BUS, elemNumControlledBus);
+                    Equation<AcVariableType, AcEquationType> eqVControlledBus = listEqControlledBus.stream()        // Take the one on V
+                            .filter(e -> e.getType() == BUS_TARGET_V).toList().get(0);
+                    int indexEqVAssociated = equationSystem.getIndex().getSortedEquationsToSolve().indexOf(eqVControlledBus);   // Find the index of the V equation associated
+
+                    compVarStart = vSuppEquationLocalIds.get(indexEqVAssociated);
+                    if (constraintIndex < numberLFEq + 2 * vSuppEquationLocalIds.size()) {
+                        involvedVariables.add(compVarStartIndex + 5 * compVarStart + 2); // b_low
+                    } else {
+                        involvedVariables.add(compVarStartIndex + 5 * compVarStart + 3); // b_up
+                    }
+                }
+
+                // Add one entry for each non-zero (constraintIndex, variableIndex)
+                jacobianColumnIndices.addAll(involvedVariables);
+                jacobianRowIndices.addAll(Collections.nCopies(involvedVariables.size(), constraintIndex));
+
+                long end = System.nanoTime();
+            }
+        }
+
         @Override
         protected void addAdditionalJacobianVariables(int constraintIndex,
                                                       Equation<AcVariableType, AcEquationType> equation,
