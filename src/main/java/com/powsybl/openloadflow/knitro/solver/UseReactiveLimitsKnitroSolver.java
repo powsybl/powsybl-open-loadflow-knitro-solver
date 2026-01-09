@@ -294,10 +294,10 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
         protected void setupConstraints() throws KNException {
             activeConstraints = equationSystem.getIndex().getSortedEquationsToSolve();
 
-            // ce probleme modélise des contraintes de complémentarité pour modéliser le passage PV/PQ des bus
-            // pour se faire, des contraintes sont ajoutées au système par rapport au système d'OLF, et donc des membres droits également
-            // il n'est donc pas possible d'utiliser directement le système et le membre droit, c'est pourquoi on initialise les objets suivants
-            // ceux ci comprennent tous les élements du système / rhs d'OLF, et tous ceux qui sont ajoutés (pour les contraintes de complémentarité)
+            // this problem models complementarity constraints to model the PV/PQ switching of buses
+            // to do this, constraints are added to the system compared to the OLF system, and therefore right-hand sides are also added
+            // it is therefore not possible to use the system and right-hand side directly, which is why we initialize the following objects
+            // these include all the elements of the OLF system / rhs, and all those that are added (for complementarity constraints)
             completeEquationsToSolve = new ArrayList<>(activeConstraints);  // contains all equations of the final system to be solved
             completeTargetVector = new ArrayList<>(Arrays.stream(targetVector.getArray()).boxed().toList()); // contains all the target of the system to be solved
 
@@ -307,36 +307,36 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             // add linear constraints and fill the list of non-linear constraints
             addLinearConstraints(activeConstraints, solverUtils);
 
-            // nombre de variables issues du système d'OLF et dont les équations de contrôle en tension ont été dupliquées
-            // pour les cas où il y a des bornes en réactif bien définies
+            // number of variables from the OLF system and whose voltage control equations have been duplicated
+            // for cases where reactive power limits are well defined
             int intermediateNumberOfActiveEquations = completeEquationsToSolve.size();
 
-            // ajoute les constraintes qui permettent de considérer les bornes en réactif
+            // add the constraints that allow considering reactive power limits
             completeEquationsToSolve.addAll(equationsQBusV);
             for (int equationId = intermediateNumberOfActiveEquations; equationId < completeEquationsToSolve.size(); equationId++) {
                 Equation<AcVariableType, AcEquationType> equation = completeEquationsToSolve.get(equationId);
                 LfBus controllerBus = network.getBus(equation.getElementNum());
                 if (equationId - intermediateNumberOfActiveEquations < equationsQBusV.size() / 2) {
-                    completeTargetVector.add(controllerBus.getMinQ() - controllerBus.getLoadTargetQ());    // blow target
+                    completeTargetVector.add(controllerBus.getMinQ() - controllerBus.getLoadTargetQ());    // bLow target
                 } else {
-                    completeTargetVector.add(controllerBus.getMaxQ() - controllerBus.getLoadTargetQ());    // bup target
+                    completeTargetVector.add(controllerBus.getMaxQ() - controllerBus.getLoadTargetQ());    // bUp target
                 }
-                // ces équations sont non-linéaires sachant que les flux en réactif apparaissent dans le bilan
+                // these equations are non-linear since reactive power flows appear in the balance
                 nonlinearConstraintIndexes.add(equationId);
                 INDEQUNACTIVEQ.put(equationId, equation);
             }
 
-            // cela comprend le nombre d'équations provenant du système d'OLF,
-            // mais aussi de toutes celles ajoutées pour modéliser la complémentarité
+            // this includes the number of equations from the OLF system,
+            // but also all those added to model complementarity
             int totalNumConstraints = completeEquationsToSolve.size();
             LOGGER.info("Defining {} active constraints", totalNumConstraints);
             // TODO : ajouter complementary constraints
 
             // pass to Knitro the indexes of non-linear constraints, that will be evaluated in the callback function
-            // NOTE: dans les non-linear constraints, il y a également ici des éléments spécifiques aux contraintes que l'on a ajoutées
+            // NOTE: in the non-linear constraints, there are also here specific elements for the constraints that we have added
             setMainCallbackCstIndexes(nonlinearConstraintIndexes);
 
-            // right hand side (targets), specific au problème complet que l'on cherche à résoudre
+            // right hand side (targets), specific to the complete problem we are trying to solve
             setConEqBnds(completeTargetVector);
 
             // declaration of complementarity constraints in Knitro
@@ -377,7 +377,8 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                         // Equations on V are duplicated, we add V_inf to one and V_sup to the other.
                         // We are also adding a variable V_aux that allows us to perform the PV -> PQ switch.
 
-                        // vInf equation, provenant de l'équation du système d'OLF
+                        // vInf equation, from the OLF system equation
+                        // this equation serves to relax the voltage constraint when the maximum reactive power limit is reached
                         if (addComplementarityConstraintsVariable) {
                             int compVarBaseIndex = getComplementarityVarBaseIndex(equationId);
                             varVInfIndices.add(compVarBaseIndex); // vInf
@@ -387,7 +388,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                         }
 
                         // add slack variables if applicable
-                        // NOTE: des slacks peuvent être ajoutées pour relaxer l'équation, même s'il n'y a pas de complémentarité pour cette équation
+                        // NOTE: slacks can be added to relax the equation, even if there is no complementarity for this equation
                         addAdditionalConstraintVariables(equationId, equationType, varVInfIndices, coefficientsVInf);
 
                         for (int i = 0; i < varVInfIndices.size(); i++) {
@@ -396,8 +397,8 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
                         LOGGER.trace("Added linear constraint #{} of type {}", equationId, equationType);
 
-                        // vSup equation, ajoutée uniquement s'il s'agit d'une contrainte de complémentarité
-                        // cette équation sert à relacher la contrainte en tension dans le cas où la borne min en réactif est atteinte
+                        // vSup equation, added only if it is a complementarity constraint
+                        // this equation serves to relax the voltage constraint when the minimum reactive power limit is reached
                         if (addComplementarityConstraintsVariable) {
                             List<Integer> varVSupIndices = new ArrayList<>(linearConstraint.listIdVar());
                             List<Double> coefficientsVSup = new ArrayList<>(linearConstraint.listCoef());
@@ -421,18 +422,18 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                         throw new PowsyblException("Failed to process linear constraint for equation #" + equationId, e);
                     }
 
-                // si l'équation en V n'est pas linéaire, on ajoute l'indice au non linear equations (ainsi que le duplicat vSup)
+                // if the V equation is not linear, we add the index to non-linear equations (as well as the duplicate vSup)
                 } else {
                     nonlinearConstraintIndexes.add(equationId);
                     nonlinearConstraintIndexes.add(sortedEquationsToSolve.size() + vSuppEquationLocalIds.get(equationId));
                 }
 
-                // les equations dupliquees en tension ont été spécifiées au problème Knitro dans les lignes précédentes
-                // afin de garder une cohérence avec le système d'équation modélisé, ainsi que le rhs, on doit également mettre à jour les objects correspondant
-                // notamment, il faut ajouter l'équation pour vSup à la liste des équations modélisées et au rhs
+                // the duplicated voltage equations have been specified to the Knitro problem in the previous lines
+                // in order to maintain consistency with the modeled equation system, as well as the rhs, we must also update the corresponding objects
+                // in particular, we must add the equation for vSup to the list of modeled equations and to the rhs
                 if (addComplementarityConstraintsVariable) {
                     completeEquationsToSolve.add(equation);
-                    completeTargetVector.add(Arrays.stream(targetVector.getArray()).boxed().toList().get(equationId)); // on applique la même tension
+                    completeTargetVector.add(Arrays.stream(targetVector.getArray()).boxed().toList().get(equationId)); // we apply the same voltage
                 }
 
             // for other type of equations, the constraint can be added as usual
@@ -442,7 +443,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
         }
 
         /**
-         * Ajoute les complementarity constraints dans la définition du problème Knitro.
+         * Adds the complementarity constraints to the Knitro problem definition.
          */
         private void addComplementaryConstraints() throws KNException {
             List<Integer> listTypeVar = new ArrayList<>(Collections.nCopies(2 * numComplementaryEquationsAddedToEquationSystem, KNConstants.KN_CCTYPE_VARVAR));
