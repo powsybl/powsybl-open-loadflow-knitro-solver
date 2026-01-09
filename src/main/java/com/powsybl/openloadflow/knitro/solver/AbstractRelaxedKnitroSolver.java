@@ -142,9 +142,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         logSlackValues("V", slackVStartIndex, numVEquations, x);
 
         // ========== Penalty Computation ==========
-        double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, WEIGHT_P_PENAL, WEIGHT_ABSOLUTE_PENAL);
-        double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, WEIGHT_Q_PENAL, WEIGHT_ABSOLUTE_PENAL);
-        double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, WEIGHT_V_PENAL, WEIGHT_ABSOLUTE_PENAL);
+        double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, WEIGHT_P_PENAL);
+        double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, WEIGHT_Q_PENAL);
+        double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, WEIGHT_V_PENAL);
         double totalPenalty = penaltyP + penaltyQ + penaltyV;
 
         LOGGER.info("==== Slack penalty details ====");
@@ -163,7 +163,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param x The variable values as returned by solver.
      */
     protected void logSlackValues(String type, int startIndex, int count, List<Double> x) {
-        final double sbase = 100.0;     // Base power in MVA
+        // TODO : CHANGE THIS !
+        final double sbase = 100.0; // Base power in MVA
 
         LOGGER.debug("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
 
@@ -240,21 +241,20 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     /**
      * Calculates the total loss associated to a slack variable type
      *
-     * @param x The variable values as returned by solver.
+     * @param x          The variable values as returned by solver.
      * @param startIndex The start index of slack variables associated to the given type.
-     * @param count The maximum number of slack variables associated to the given type.
-     * @param weight The weight inf front of the given slack variables terms
-     * @param lambda The coefficient of the linear terms in the objective function.
+     * @param count      The maximum number of slack variables associated to the given type.
+     * @param weight     The weight inf front of the given slack variables terms
      * @return The total penalty associated to the slack variables type.
      */
-    double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight, double lambda) {
+    double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight) {
         double penalty = 0.0;
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
             double diff = sp - sm;
             penalty += weight * (diff * diff); // Quadratic terms
-            penalty += weight * lambda * (sp + sm); // Linear terms
+            penalty += weight * WEIGHT_ABSOLUTE_PENAL * (sp + sm); // Linear terms
         }
         return penalty;
     }
