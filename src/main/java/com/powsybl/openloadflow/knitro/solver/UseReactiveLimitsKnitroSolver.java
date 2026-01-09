@@ -235,6 +235,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
     private final class UseReactiveLimitsKnitroProblem extends AbstractRelaxedKnitroProblem {
 
         private List<Equation<AcVariableType, AcEquationType>> completeEquationsToSolve;
+        private List<Double> completeTargetVector;
 
         /**
          * Knitro problem definition including:
@@ -277,55 +278,24 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             addObjectiveFunction(numPEquations, slackPStartIndex, numQEquations, slackQStartIndex, numVEquations, slackVStartIndex);
         }
 
+        // ok
         @Override
-        protected void setupConstraints() throws KNException {
-            List<Equation<AcVariableType, AcEquationType>> activeConstraints = equationSystem.getIndex().getSortedEquationsToSolve();
+        protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds, List<Double> initialValues, int numTotalVariables) {
+            // initialize slack variables
+            super.initializeCustomizedVariables(lowerBounds, upperBounds, initialValues, numTotalVariables);
 
-            // linear and nonlinear constraints (the latter are deferred to callback)
-            NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
-
-            nonlinearConstraintIndexes = new ArrayList<>(); // contains the indexes of all non-linear constraints
-            completeEquationsToSolve = new ArrayList<>(activeConstraints);   // Contains all equations of the final system to be solved
-            List<Double> wholeTargetVector = new ArrayList<>(Arrays.stream(targetVector.getArray()).boxed().toList());      // Contains all the target of the system to be solved
-            for (int equationId = 0; equationId < activeConstraints.size(); equationId++) {
-                addActivatedConstraints(network, equationId, activeConstraints, solverUtils, nonlinearConstraintIndexes,
-                        completeEquationsToSolve, targetVector, wholeTargetVector, listElementNumWithQEqUnactivated);       // Add Linear constraints, index nonLinear ones and get target values
-            }
-            int totalActiveConstraints = completeEquationsToSolve.size();
-            completeEquationsToSolve.addAll(equationsQBusV);                                                                // Add all unactivated equation on Q
-
-            // Set Target Q on the unactive equations added
-            for (int equationId = totalActiveConstraints; equationId < completeEquationsToSolve.size(); equationId++) {
-                Equation<AcVariableType, AcEquationType> equation = completeEquationsToSolve.get(equationId);
-                LfBus controllerBus = network.getBus(equation.getElementNum()); //controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
-                if (equationId - totalActiveConstraints < equationsQBusV.size() / 2) {
-                    wholeTargetVector.add(controllerBus.getMinQ() - controllerBus.getLoadTargetQ());    //blow target
-                } else {
-                    wholeTargetVector.add(controllerBus.getMaxQ() - controllerBus.getLoadTargetQ());    //bup target
-                }
-                nonlinearConstraintIndexes.add(equationId);
-                INDEQUNACTIVEQ.put(equationId, equation);
-            }
-
-            int numConstraints = completeEquationsToSolve.size();
-            LOGGER.info("Defined {} constraints", numConstraints);
-            setMainCallbackCstIndexes(nonlinearConstraintIndexes);
-            setConEqBnds(wholeTargetVector);
-
-            // =============== Declaration of Complementarity Constraints ===============
-            List<Integer> listTypeVar = new ArrayList<>(Collections.nCopies(2 * complConstVariables / 5, KNConstants.KN_CCTYPE_VARVAR));
-            List<Integer> bVarList = new ArrayList<>(); // b_up, b_low
-            List<Integer> vInfSuppList = new ArrayList<>(); // V_inf, V_sup
-
+            // initialize auxiliary variables in complementary constraints
             for (int i = 0; i < complConstVariables / 5; i++) {
-                vInfSuppList.add(compVarStartIndex + 5 * i); //Vinf
-                vInfSuppList.add(compVarStartIndex + 5 * i + 1); //Vsup
-                bVarList.add(compVarStartIndex + 5 * i + 3); // bup
-                bVarList.add(compVarStartIndex + 5 * i + 2); // blow
-            }
+                lowerBounds.set(compVarStartIndex + 5 * i, 0.0);
+                lowerBounds.set(compVarStartIndex + 5 * i + 1, 0.0);
 
-            setCompConstraintsTypes(listTypeVar);
-            setCompConstraintsParts(bVarList, vInfSuppList); // b_low compl with V_sup  and  b_up compl with V_inf
+                lowerBounds.set(compVarStartIndex + 5 * i + 2, 0.0);
+                lowerBounds.set(compVarStartIndex + 5 * i + 3, 0.0);
+                lowerBounds.set(compVarStartIndex + 5 * i + 4, 0.0);
+
+                initialValues.set(compVarStartIndex + 5 * i + 2, 1.0);
+                initialValues.set(compVarStartIndex + 5 * i + 3, 1.0);
+            }
         }
 
         // ok
@@ -348,24 +318,58 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             setVarScaleCenters(new KNSparseVector<>(list, scalingCenters));
         }
 
-        // ok
         @Override
-        protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds, List<Double> initialValues, int numTotalVariables) {
-            // initialize slack variables
-            super.initializeCustomizedVariables(lowerBounds, upperBounds, initialValues, numTotalVariables);
+        protected void setupConstraints() throws KNException {
+            activeConstraints = equationSystem.getIndex().getSortedEquationsToSolve();
 
-            // initialize auxiliary variables in complementary constraints
-            for (int i = 0; i < complConstVariables / 5; i++) {
-                lowerBounds.set(compVarStartIndex + 5 * i, 0.0);
-                lowerBounds.set(compVarStartIndex + 5 * i + 1, 0.0);
+            // ce probleme modélise des contraintes de complémentarité pour modéliser le passage PV/PQ des bus
+            // pour se faire, des contraintes sont ajoutées au système par rapport au système d'OLF, et donc des membres droits également
+            // il n'est donc pas possible d'utiliser directement le système et le membre droit, c'est pourquoi on initialise les objets suivants
+            // ceux ci comprennent tous les élements du système / rhs d'OLF, et tous ceux qui sont ajoutés (pour les contraintes de complémentarité)
+            completeEquationsToSolve = new ArrayList<>(activeConstraints);  // contains all equations of the final system to be solved
+            completeTargetVector = new ArrayList<>(Arrays.stream(targetVector.getArray()).boxed().toList()); // contains all the target of the system to be solved
 
-                lowerBounds.set(compVarStartIndex + 5 * i + 2, 0.0);
-                lowerBounds.set(compVarStartIndex + 5 * i + 3, 0.0);
-                lowerBounds.set(compVarStartIndex + 5 * i + 4, 0.0);
+            // create solver utils here to only create one
+            NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
 
-                initialValues.set(compVarStartIndex + 5 * i + 2, 1.0);
-                initialValues.set(compVarStartIndex + 5 * i + 3, 1.0);
+            // add linear constraints and fill the list of non-linear constraints
+            addLinearConstraints(activeConstraints, solverUtils);
+
+            int totalActiveConstraints = completeEquationsToSolve.size();
+            completeEquationsToSolve.addAll(equationsQBusV);                                                                // Add all unactivated equation on Q
+
+            // Set Target Q on the unactive equations added
+            for (int equationId = totalActiveConstraints; equationId < completeEquationsToSolve.size(); equationId++) {
+                Equation<AcVariableType, AcEquationType> equation = completeEquationsToSolve.get(equationId);
+                LfBus controllerBus = network.getBus(equation.getElementNum()); //controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
+                if (equationId - totalActiveConstraints < equationsQBusV.size() / 2) {
+                    completeTargetVector.add(controllerBus.getMinQ() - controllerBus.getLoadTargetQ());    //blow target
+                } else {
+                    completeTargetVector.add(controllerBus.getMaxQ() - controllerBus.getLoadTargetQ());    //bup target
+                }
+                nonlinearConstraintIndexes.add(equationId);
+                INDEQUNACTIVEQ.put(equationId, equation);
             }
+
+            int numConstraints = completeEquationsToSolve.size();
+            LOGGER.info("Defined {} constraints", numConstraints);
+            setMainCallbackCstIndexes(nonlinearConstraintIndexes);
+            setConEqBnds(completeTargetVector);
+
+            // =============== Declaration of Complementarity Constraints ===============
+            List<Integer> listTypeVar = new ArrayList<>(Collections.nCopies(2 * complConstVariables / 5, KNConstants.KN_CCTYPE_VARVAR));
+            List<Integer> bVarList = new ArrayList<>(); // b_up, b_low
+            List<Integer> vInfSuppList = new ArrayList<>(); // V_inf, V_sup
+
+            for (int i = 0; i < complConstVariables / 5; i++) {
+                vInfSuppList.add(compVarStartIndex + 5 * i); //Vinf
+                vInfSuppList.add(compVarStartIndex + 5 * i + 1); //Vsup
+                bVarList.add(compVarStartIndex + 5 * i + 3); // bup
+                bVarList.add(compVarStartIndex + 5 * i + 2); // blow
+            }
+
+            setCompConstraintsTypes(listTypeVar);
+            setCompConstraintsParts(bVarList, vInfSuppList); // b_low compl with V_sup  and  b_up compl with V_inf
         }
 
         /**
@@ -373,25 +377,18 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
          * Linear constraints are directly encoded; non-linear ones are delegated to the callback.
          *
          * @param equationId             Index of the equation in the list.
-         * @param equationsToSolve       Base list of all equations to solve.
-         * @param solverUtils            Utilities to extract linear constraint components.
-         * @param nonLinearConstraintIds Output list of non-linear constraint indices.
          */
-        private void addActivatedConstraints(LfNetwork network, int equationId,
-                List<Equation<AcVariableType, AcEquationType>> equationsToSolve,
-                NonLinearExternalSolverUtils solverUtils, List<Integer> nonLinearConstraintIds,
-                List<Equation<AcVariableType, AcEquationType>> completeEquationsToSolve,
-                TargetVector<AcVariableType, AcEquationType> targetVector, List<Double> wholeTargetVector,
-                List<Integer> listBusesWithQEqToAdd) {
+        protected void addConstraint(int equationId, List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+                                     NonLinearExternalSolverUtils solverUtils) {
 
-            Equation<AcVariableType, AcEquationType> equation = equationsToSolve.get(equationId);
+            Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
             AcEquationType equationType = equation.getType();
             List<EquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
 
             if (equationType == BUS_TARGET_V) {
                 LfBus controlledBus = network.getBuses().get(equation.getElement(network).get().getNum());
                 LfBus controllerBus = controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
-                boolean addComplConstraintsVariable = listBusesWithQEqToAdd.contains(controllerBus.getNum());  //help to decide wether V eq have to be dupplicated or not
+                boolean addComplConstraintsVariable = listElementNumWithQEqUnactivated.contains(controllerBus.getNum());  //help to decide wether V eq have to be dupplicated or not
                 if (NonLinearExternalSolverUtils.isLinear(equationType, terms)) {
                     try {
 
@@ -439,7 +436,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                             addAdditionalConstraintVariables(equationId, equationType, varVSupIndices, coefficientsVSup);
 
                             for (int i = 0; i < varVSupIndices.size(); i++) {
-                                this.addConstraintLinearPart(equationsToSolve.size() + vSuppEquationLocalIds
+                                this.addConstraintLinearPart(sortedEquationsToSolve.size() + vSuppEquationLocalIds
                                         .get(equationId), varVSupIndices.get(i), coefficientsVSup.get(i));
                             }
                         }
@@ -448,20 +445,20 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                     }
 
                 } else {
-                    nonLinearConstraintIds.add(equationId);
-                    nonLinearConstraintIds.add(equationsToSolve.size() + vSuppEquationLocalIds.get(equationId));
+                    nonlinearConstraintIndexes.add(equationId);
+                    nonlinearConstraintIndexes.add(sortedEquationsToSolve.size() + vSuppEquationLocalIds.get(equationId));
                 }
 
                 // Add the duplicated equation (ie V_sup eq) to the list of eq to solve and its target
                 if (addComplConstraintsVariable) {
-                    Equation<AcVariableType, AcEquationType> vEq = equationsToSolve.get(equationId);
+                    Equation<AcVariableType, AcEquationType> vEq = sortedEquationsToSolve.get(equationId);
                     completeEquationsToSolve.add(vEq);
-                    wholeTargetVector.add(Arrays.stream(targetVector.getArray()).boxed().toList().get(equationId));
+                    completeTargetVector.add(Arrays.stream(targetVector.getArray()).boxed().toList().get(equationId));
                 }
 
             // for other type of equations, the constraint can be added as usual
             } else {
-                super.addConstraint(equationId, equationsToSolve, solverUtils, nonLinearConstraintIds);
+                super.addConstraint(equationId, sortedEquationsToSolve, solverUtils);
             }
         }
 

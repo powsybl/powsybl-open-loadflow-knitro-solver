@@ -142,7 +142,7 @@ public abstract class AbstractKnitroProblem extends KNProblem {
         NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
 
         // add linear constraints and fill the list of non-linear constraints
-        addLinearConstraints(activeConstraints, solverUtils, nonlinearConstraintIndexes);
+        addLinearConstraints(activeConstraints, solverUtils);
 
         // pass to Knitro the indexes of non-linear constraints, that will be evaluated in the callback function
         setMainCallbackCstIndexes(nonlinearConstraintIndexes);
@@ -156,14 +156,12 @@ public abstract class AbstractKnitroProblem extends KNProblem {
      *
      * @param sortedEquationsToSolve Sorted list of equations to solve.
      * @param solverUtils Utilities to extract linear constraints.
-     * @param nonLinearConstraintIds Output list of indices of non-linear constraints.
      */
     protected void addLinearConstraints(List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
-                                        NonLinearExternalSolverUtils solverUtils,
-                                        List<Integer> nonLinearConstraintIds) {
+                                        NonLinearExternalSolverUtils solverUtils) {
 
         for (int equationId = 0; equationId < sortedEquationsToSolve.size(); equationId++) {
-            addConstraint(equationId, sortedEquationsToSolve, solverUtils, nonLinearConstraintIds);
+            addConstraint(equationId, sortedEquationsToSolve, solverUtils);
         }
     }
 
@@ -174,10 +172,9 @@ public abstract class AbstractKnitroProblem extends KNProblem {
      * @param equationId Index of the equation in the list.
      * @param sortedEquationsToSolve List of all equations to solve.
      * @param solverUtils Utilities to extract linear constraint components.
-     * @param nonLinearConstraintIds Output list of non-linear constraint indices.
      */
     protected void addConstraint(int equationId, List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
-                                 NonLinearExternalSolverUtils solverUtils, List<Integer> nonLinearConstraintIds) {
+                                 NonLinearExternalSolverUtils solverUtils) {
 
         Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
         AcEquationType equationType = equation.getType();
@@ -201,7 +198,7 @@ public abstract class AbstractKnitroProblem extends KNProblem {
                 throw new PowsyblException("Failed to process linear constraint for equation #" + equationId, e);
             }
         } else {
-            nonLinearConstraintIds.add(equationId);
+            nonlinearConstraintIndexes.add(equationId);
         }
     }
 
