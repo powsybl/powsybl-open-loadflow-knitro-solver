@@ -599,14 +599,12 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                                                                    List<Double> x) {
                 double constraintValue = 0;
                 Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
-
+                // if the equation is active, then it is treated as an open load flow constraint
                 if (equation.isActive()) {
-                    int slackIndexBase = problemInstance.getSlackIndexBase(equationType, equationId);
-                    if (slackIndexBase >= 0) {
-                        double sm = x.get(slackIndexBase);        // negative slack
-                        double sp = x.get(slackIndexBase + 1);    // positive slack
-                        constraintValue += sp - sm;              // add slack contribution
-                    }
+                    // add relaxation if necessary
+                    constraintValue += super.addModificationOfNonLinearConstraints(equationId, equationType, x);
+
+                // otherwise, these are bLow and bUp constraints and the term must be added
                 } else {
                     int nmbreEqUnactivated = sortedEquationsToSolve.stream().filter(
                             e -> !e.isActive()).toList().size();
