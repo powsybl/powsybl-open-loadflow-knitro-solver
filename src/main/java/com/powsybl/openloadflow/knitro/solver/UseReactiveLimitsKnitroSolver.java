@@ -162,35 +162,72 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
     @Override
     protected void processSolution(KNSolver solver, KNSolution solution, KNProblem problemInstance) {
+        // log solution, slacks and penalties
         super.processSolution(solver, solution, problemInstance);
 
-        List<Double> x = solution.getX();
-
-        LOGGER.info("=== Switches Done===");
-        logSwitches(x, compVarStartIndex, complConstVariables / 5);
+        // log the switches computed by the optimization
+        logSwitches(solution, compVarStartIndex, complConstVariables / 5);
     }
+
+//    /**
+//     * Inform all switches PV -> PQ done in the solution found
+//     *
+//     * @param solution      Solution returned by the optimization
+//     * @param startIndex    first index of complementarity constraints variables in x
+//     * @param count         number of b_low / b_up different variables
+//     */
+//    private void logSwitches(KNSolution solution, int startIndex, int count) {
+//        LOGGER.info("=== Switches Done===");
+//        List<Double> x = solution.getX(); // solution returned by the optimization
+//        double eps = knitroParameters.getSlackThreshold();
+//
+//        for (int i = 0; i < count; i++) {
+//            double vInf = x.get(startIndex + 5 * i);
+//            double vSup = x.get(startIndex + 5 * i + 1);
+//            double bLow = x.get(startIndex + 5 * i + 2);
+//            double bUp = x.get(startIndex + 5 * i + 3);
+//            String bus = equationSystem.getIndex()
+//                    .getSortedEquationsToSolve().stream().filter(e ->
+//                            e.getType() == BUS_TARGET_V).toList().get(i).getElement(network).get().getId();
+//            if (Math.abs(bLow) < 1E-3 && !(vInf < 1E-4 && vSup < 1E-4)) {
+//                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmin", bus);
+//
+//            } else if (Math.abs(bUp) < 1E-3 && !(vInf < 1E-4 && vSup < 1E-4)) {
+//                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmax", bus);
+//
+//            }
+//        }
+//    }
 
     /**
      * Inform all switches PV -> PQ done in the solution found
-     * @param x             current network's estate
+     *
+     * @param solution      Solution returned by the optimization
      * @param startIndex    first index of complementarity constraints variables in x
      * @param count         number of b_low / b_up different variables
      */
-    private void logSwitches(List<Double> x, int startIndex, int count) {
+    private void logSwitches(KNSolution solution, int startIndex, int count) {
+        LOGGER.info("=== Switches Done===");
+        List<Double> x = solution.getX(); // solution returned by the optimization
+        double eps = knitroParameters.getSlackThreshold();
+
         for (int i = 0; i < count; i++) {
             double vInf = x.get(startIndex + 5 * i);
             double vSup = x.get(startIndex + 5 * i + 1);
             double bLow = x.get(startIndex + 5 * i + 2);
             double bUp = x.get(startIndex + 5 * i + 3);
-            String bus = equationSystem.getIndex()
+            // FIXME : this is not determinist
+            String busId = equationSystem.getIndex()
                     .getSortedEquationsToSolve().stream().filter(e ->
                             e.getType() == BUS_TARGET_V).toList().get(i).getElement(network).get().getId();
-            if (Math.abs(bLow) < 1E-3 && !(vInf < 1E-4 && vSup < 1E-4)) {
-                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmin", bus);
 
-            } else if (Math.abs(bUp) < 1E-3 && !(vInf < 1E-4 && vSup < 1E-4)) {
-                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmax", bus);
+            // switch to lower bound case: bLow is null and the auxiliary variable is not
+            if (Math.abs(bLow) < eps && (vInf > eps || vSup > eps)) {
+                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmin", busId);
 
+                // switch to upper bound case: bUp is null and the auxiliary variable is not
+            } else if (Math.abs(bUp) < eps && (vInf > eps || vSup > eps)) {
+                LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmax", busId);
             }
         }
     }
@@ -340,15 +377,11 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
          * @param solverUtils            Utilities to extract linear constraint components.
          * @param nonLinearConstraintIds Output list of non-linear constraint indices.
          */
-        private void addActivatedConstraints(
-                LfNetwork network,
-                int equationId,
+        private void addActivatedConstraints(LfNetwork network, int equationId,
                 List<Equation<AcVariableType, AcEquationType>> equationsToSolve,
-                NonLinearExternalSolverUtils solverUtils,
-                List<Integer> nonLinearConstraintIds,
+                NonLinearExternalSolverUtils solverUtils, List<Integer> nonLinearConstraintIds,
                 List<Equation<AcVariableType, AcEquationType>> completeEquationsToSolve,
-                TargetVector<AcVariableType, AcEquationType> targetVector,
-                List<Double> wholeTargetVector,
+                TargetVector<AcVariableType, AcEquationType> targetVector, List<Double> wholeTargetVector,
                 List<Integer> listBusesWithQEqToAdd) {
 
             Equation<AcVariableType, AcEquationType> equation = equationsToSolve.get(equationId);
@@ -382,13 +415,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                             coefficientsVInf.add(-1.0);
                         }
                         // Add slack variables if applicable
-                        int slackBase = getSlackIndexBase(equationType, equationId);
-                        if (slackBase >= 0) {
-                            varVInfIndices.add(slackBase);       // Sm
-                            varVInfIndices.add(slackBase + 1);   // Sp
-                            coefficientsVInf.add(-1.0);
-                            coefficientsVInf.add(1.0);
-                        }
+                        addAdditionalConstraintVariables(equationId, equationType, varVInfIndices, coefficientsVInf);
 
                         for (int i = 0; i < varVInfIndices.size(); i++) {
                             this.addConstraintLinearPart(equationId, varVInfIndices.get(i), coefficientsVInf.get(i));
@@ -409,12 +436,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                             coefficientsVSup.add(1.0);
 
                             // Add slack variables if applicable
-                            if (slackBase >= 0) {
-                                varVSupIndices.add(slackBase);       // Sm
-                                varVSupIndices.add(slackBase + 1);   // Sp
-                                coefficientsVSup.add(-1.0);
-                                coefficientsVSup.add(1.0);
-                            }
+                            addAdditionalConstraintVariables(equationId, equationType, varVSupIndices, coefficientsVSup);
 
                             for (int i = 0; i < varVSupIndices.size(); i++) {
                                 this.addConstraintLinearPart(equationsToSolve.size() + vSuppEquationLocalIds
@@ -437,37 +459,13 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                     wholeTargetVector.add(Arrays.stream(targetVector.getArray()).boxed().toList().get(equationId));
                 }
 
+            // for other type of equations, the constraint can be added as usual
             } else {
-                if (NonLinearExternalSolverUtils.isLinear(equationType, terms)) {
-                    try {
-                        // Extract linear constraint components
-                        var linearConstraint = solverUtils.getLinearConstraint(equationType, terms);
-                        List<Integer> varIndices = new ArrayList<>(linearConstraint.listIdVar());
-                        List<Double> coefficients = new ArrayList<>(linearConstraint.listCoef());
-
-                        // Add slack variables if applicable
-                        int slackBase = getSlackIndexBase(equationType, equationId);
-                        if (slackBase >= 0) {
-                            varIndices.add(slackBase);       // Sm
-                            varIndices.add(slackBase + 1);   // Sp
-                            coefficients.add(-1.0);
-                            coefficients.add(+1.0);
-                        }
-
-                        for (int i = 0; i < varIndices.size(); i++) {
-                            this.addConstraintLinearPart(equationId, varIndices.get(i), coefficients.get(i));
-                        }
-
-                        LOGGER.trace("Added linear constraint #{} of type {}", equationId, equationType);
-                    } catch (UnsupportedOperationException e) {
-                        throw new PowsyblException("Failed to process linear constraint for equation #" + equationId, e);
-                    }
-                } else {
-                    nonLinearConstraintIds.add(equationId);
-                }
+                super.addConstraint(equationId, equationsToSolve, solverUtils, nonLinearConstraintIds);
             }
         }
 
+        // TODO : rename
         private int getcompVarBaseIndex(int equationId) {
             return compVarStartIndex + 5 * vSuppEquationLocalIds.get(equationId);
         }
