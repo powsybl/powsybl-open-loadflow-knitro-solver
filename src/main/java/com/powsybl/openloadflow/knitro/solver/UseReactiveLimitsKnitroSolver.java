@@ -225,7 +225,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             if (Math.abs(bLow) < eps && (vInf > eps || vSup > eps)) {
                 LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmin", busId);
 
-                // switch to upper bound case: bUp is null and the auxiliary variable is not
+            // switch to upper bound case: bUp is null and the auxiliary variable is not
             } else if (Math.abs(bUp) < eps && (vInf > eps || vSup > eps)) {
                 LOGGER.info("Switch PV -> PQ on bus {}, Q set at Qmax", busId);
             }
@@ -335,27 +335,38 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             // add linear constraints and fill the list of non-linear constraints
             addLinearConstraints(activeConstraints, solverUtils);
 
-            int totalActiveConstraints = completeEquationsToSolve.size();
-            completeEquationsToSolve.addAll(equationsQBusV);                                                                // Add all unactivated equation on Q
+            // nombre de variables issues du système d'OLF et dont les équations de contrôle en tension ont été dupliquées
+            // pour les cas où il y a des bornes en réactif bien définies
+            int intermediateNumberOfActiveEquations = completeEquationsToSolve.size();
 
-            // Set Target Q on the unactive equations added
-            for (int equationId = totalActiveConstraints; equationId < completeEquationsToSolve.size(); equationId++) {
+            // ajoute les constraintes qui permettent de considérer les bornes en réactif
+            completeEquationsToSolve.addAll(equationsQBusV);
+            for (int equationId = intermediateNumberOfActiveEquations; equationId < completeEquationsToSolve.size(); equationId++) {
                 Equation<AcVariableType, AcEquationType> equation = completeEquationsToSolve.get(equationId);
-                LfBus controllerBus = network.getBus(equation.getElementNum()); //controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
-                if (equationId - totalActiveConstraints < equationsQBusV.size() / 2) {
-                    completeTargetVector.add(controllerBus.getMinQ() - controllerBus.getLoadTargetQ());    //blow target
+                LfBus controllerBus = network.getBus(equation.getElementNum());
+                if (equationId - intermediateNumberOfActiveEquations < equationsQBusV.size() / 2) {
+                    completeTargetVector.add(controllerBus.getMinQ() - controllerBus.getLoadTargetQ());    // blow target
                 } else {
-                    completeTargetVector.add(controllerBus.getMaxQ() - controllerBus.getLoadTargetQ());    //bup target
+                    completeTargetVector.add(controllerBus.getMaxQ() - controllerBus.getLoadTargetQ());    // bup target
                 }
+                // ces équations sont non-linéaires sachant que les flux en réactif apparaissent dans le bilan
                 nonlinearConstraintIndexes.add(equationId);
                 INDEQUNACTIVEQ.put(equationId, equation);
             }
 
-            int numConstraints = completeEquationsToSolve.size();
-            LOGGER.info("Defined {} constraints", numConstraints);
+            // cela comprend le nombre d'équations provenant du système d'OLF,
+            // mais aussi de toutes celles ajoutées pour modéliser la complémentarité
+            int totalNumConstraints = completeEquationsToSolve.size();
+            LOGGER.info("Defining {} active constraints", totalNumConstraints);
+
+            // pass to Knitro the indexes of non-linear constraints, that will be evaluated in the callback function
+            // NOTE: dans les non-linear constraints, il y a également ici des éléments spécifiques aux contraintes que l'on a ajoutées
             setMainCallbackCstIndexes(nonlinearConstraintIndexes);
+
+            // right hand side (targets), specific au problème complet que l'on cherche à résoudre
             setConEqBnds(completeTargetVector);
 
+            // TODO : reopitmiser ça
             // =============== Declaration of Complementarity Constraints ===============
             List<Integer> listTypeVar = new ArrayList<>(Collections.nCopies(2 * complConstVariables / 5, KNConstants.KN_CCTYPE_VARVAR));
             List<Integer> bVarList = new ArrayList<>(); // b_up, b_low
