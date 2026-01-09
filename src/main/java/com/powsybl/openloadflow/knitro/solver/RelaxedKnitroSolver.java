@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2025, Artelys (http://www.artelys.com/)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
+ */
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.artelys.knitro.api.KNException;
@@ -15,6 +22,12 @@ import com.powsybl.openloadflow.network.util.VoltageInitializer;
 import java.util.AbstractMap;
 import java.util.List;
 
+/**
+ * TODO
+ *
+ * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
+ * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
+ */
 public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver {
 
     public RelaxedKnitroSolver(
@@ -44,6 +57,7 @@ public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver {
     }
 
     public final class RelaxedKnitroProblem extends AbstractRelaxedKnitroProblem {
+
         private RelaxedKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                      TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                                      KnitroSolverParameters knitroParameters, VoltageInitializer voltageInitializer) throws KNException {

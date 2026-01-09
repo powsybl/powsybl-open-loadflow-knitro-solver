@@ -28,6 +28,8 @@ import static com.google.common.primitives.Doubles.toArray;
 import static com.powsybl.openloadflow.ac.equations.AcEquationType.*;
 
 /**
+ * TODO
+ *
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Yoann Anezin {@literal <yoann.anezin at artelys.com>}
  */
@@ -242,10 +244,10 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
         protected void setupConstraints() throws KNException {
             List<Equation<AcVariableType, AcEquationType>> activeConstraints = equationSystem.getIndex().getSortedEquationsToSolve();
 
-            // Linear and nonlinear constraints (the latter are deferred to callback)
+            // linear and nonlinear constraints (the latter are deferred to callback)
             NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
 
-            nonlinearConstraintIndexes = new ArrayList<>();                                                   // contains the indexes of all non-linear constraints
+            nonlinearConstraintIndexes = new ArrayList<>(); // contains the indexes of all non-linear constraints
             completeEquationsToSolve = new ArrayList<>(activeConstraints);   // Contains all equations of the final system to be solved
             List<Double> wholeTargetVector = new ArrayList<>(Arrays.stream(targetVector.getArray()).boxed().toList());      // Contains all the target of the system to be solved
             for (int equationId = 0; equationId < activeConstraints.size(); equationId++) {
@@ -289,6 +291,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             setCompConstraintsParts(bVarList, vInfSuppList); // b_low compl with V_sup  and  b_up compl with V_inf
         }
 
+        // ok
         @Override
         protected void setUpScalingFactors(int numTotalVariables) throws KNException {
             List<Double> scalingFactors = new ArrayList<>(Collections.nCopies(numTotalVariables, 1.0));
@@ -308,11 +311,13 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             setVarScaleCenters(new KNSparseVector<>(list, scalingCenters));
         }
 
+        // ok
         @Override
         protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds, List<Double> initialValues, int numTotalVariables) {
+            // initialize slack variables
             super.initializeCustomizedVariables(lowerBounds, upperBounds, initialValues, numTotalVariables);
 
-            // Set bounds for complementarity variables (≥ 0)
+            // initialize auxiliary variables in complementary constraints
             for (int i = 0; i < complConstVariables / 5; i++) {
                 lowerBounds.set(compVarStartIndex + 5 * i, 0.0);
                 lowerBounds.set(compVarStartIndex + 5 * i + 1, 0.0);

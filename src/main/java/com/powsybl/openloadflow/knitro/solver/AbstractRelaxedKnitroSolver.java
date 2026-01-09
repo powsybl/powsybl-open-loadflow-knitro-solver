@@ -23,6 +23,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
+ * TODO: update
  * Relaxed Knitro solver, solving the open load flow equation system by minimizing constraint violations through relaxation.
  * This class additionally provides:
  *  - Post-processing of the computed solutions, including the reporting of relaxation variables.
@@ -115,6 +116,15 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
     }
 
+    /**
+     * Gets the best solution found by the solver.
+     * When the relaxed solver is called on large instances, it is possible that no solution
+     * exactly satisfying the convergence criteria has been found, yet good solutions
+     * may still be available.
+     *
+     * @param solver The Knitro solver instance.
+     * @return The best solution.
+     */
     @Override
     protected KNSolution getSolution(KNSolver solver) {
         return solver.getBestFeasibleIterate();
