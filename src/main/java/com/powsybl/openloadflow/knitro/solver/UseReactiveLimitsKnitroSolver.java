@@ -136,26 +136,27 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
         // map added voltage target equations to local indices
         this.vSuppEquationLocalIds = new HashMap<>();
-        int vSuppCounter = 0;
+        int[] vSuppCounter = {0};
         for (int i = 0; i < olfSortedEquations.size(); i++) {
+            final int equationIndex = i;
             Equation<AcVariableType, AcEquationType> equation = olfSortedEquations.get(i);
             AcEquationType type = equation.getType();
             if (Objects.requireNonNull(type) == BUS_TARGET_V) {
                 // add a vSup equation
-                if (equation.getElement(network).isPresent()) {
-                    LfElement element = equation.getElement(network).get();
-                    LfBus controlledBus = network.getBuses().get(element.getNum());
-                    // supports only voltage control of generators
-                    if (controlledBus.getGeneratorVoltageControl().isPresent()) {
-                        GeneratorVoltageControl generatorVoltageControl = controlledBus.getGeneratorVoltageControl().get();
-                        LfBus controllerBus = generatorVoltageControl.getControllerElements().getFirst();
-                        if (busesNumWithReactiveLimitEquationsToAdd.contains(controllerBus.getNum())) {
-                            vSuppEquationLocalIds.put(i, vSuppCounter++);
-                        }
+                equation.getElement(network).ifPresent(
+                    element -> {
+                        LfBus controlledBus = network.getBuses().get(element.getNum());
+                        // supports only voltage control of generators
+                        controlledBus.getGeneratorVoltageControl().ifPresent(
+                            generatorVoltageControl -> {
+                                LfBus controllerBus = generatorVoltageControl.getControllerElements().getFirst();
+                                if (busesNumWithReactiveLimitEquationsToAdd.contains(controllerBus.getNum())) {
+                                    vSuppEquationLocalIds.put(equationIndex, vSuppCounter[0]++);
+                                }
+                            }
+                        );
                     }
-                } else {
-                    throw new IllegalStateException("LfElement is not present");
-                }
+                );
             }
         }
     }
