@@ -143,7 +143,8 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             if (Objects.requireNonNull(type) == BUS_TARGET_V) {
                 // add a vSup equation
                 if (equation.getElement(network).isPresent()) {
-                    LfBus controlledBus = network.getBuses().get(equation.getElement(network).get().getNum());
+                    LfElement element = equation.getElement(network).get();
+                    LfBus controlledBus = network.getBuses().get(element.getNum());
                     // supports only voltage control of generators
                     if (controlledBus.getGeneratorVoltageControl().isPresent()) {
                         GeneratorVoltageControl generatorVoltageControl = controlledBus.getGeneratorVoltageControl().get();
@@ -200,10 +201,10 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             double vSup = x.get(startIndex + 5 * i + 1);
             double bLow = x.get(startIndex + 5 * i + 2);
             double bUp = x.get(startIndex + 5 * i + 3);
-            // FIXME : this is not determinist
-            String busId = equationSystem.getIndex()
-                    .getSortedEquationsToSolve().stream().filter(e ->
-                            e.getType() == BUS_TARGET_V).toList().get(i).getElement(network).get().getId();
+
+            int controllerBusNum = busesNumWithReactiveLimitEquationsToAdd.get(i);
+            // get the bus ID from the network
+            String busId = network.getBuses().get(controllerBusNum).getId();
 
             // switch to lower bound case: bLow is null and the auxiliary variable is not
             if (Math.abs(bLow) < eps && (vInf > eps || vSup > eps)) {
@@ -339,7 +340,6 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             // but also all those added to model complementarity
             int totalNumConstraints = completeEquationsToSolve.size();
             LOGGER.info("Defining {} active constraints", totalNumConstraints);
-            // TODO : ajouter complementary constraints
 
             // pass to Knitro the indexes of non-linear constraints, that will be evaluated in the callback function
             // NOTE: in the non-linear constraints, there are also here specific elements for the constraints that we have added
@@ -367,84 +367,87 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             List<EquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
 
             if (equationType == BUS_TARGET_V) {
-                LfBus controlledBus = network.getBuses().get(equation.getElement(network).get().getNum());
-                LfBus controllerBus = controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
+                equation.getElement(network).ifPresent(lfElement -> {
+                    LfBus controlledBus = network.getBuses().get(lfElement.getNum());
+                    controlledBus.getGeneratorVoltageControl().ifPresent(generatorVoltageControl -> {
+                        LfBus controllerBus = generatorVoltageControl.getControllerElements().getFirst();
 
-                // boolean to indicate if the V equation will be duplicated
-                boolean addComplementarityConstraintsVariable = busesNumWithReactiveLimitEquationsToAdd.contains(controllerBus.getNum());
+                        // boolean to indicate if the V equation will be duplicated
+                        boolean addComplementarityConstraintsVariable = busesNumWithReactiveLimitEquationsToAdd.contains(controllerBus.getNum());
 
-                if (NonLinearExternalSolverUtils.isLinear(equationType, terms)) {
-                    try {
-                        // Extract linear constraint components
-                        var linearConstraint = solverUtils.getLinearConstraint(equationType, terms);
-                        List<Integer> varVInfIndices = new ArrayList<>(linearConstraint.listIdVar());
-                        List<Double> coefficientsVInf = new ArrayList<>(linearConstraint.listCoef());
+                        if (NonLinearExternalSolverUtils.isLinear(equationType, terms)) {
+                            try {
+                                // Extract linear constraint components
+                                var linearConstraint = solverUtils.getLinearConstraint(equationType, terms);
+                                List<Integer> varVInfIndices = new ArrayList<>(linearConstraint.listIdVar());
+                                List<Double> coefficientsVInf = new ArrayList<>(linearConstraint.listCoef());
 
-                        // To add complementarity conditions, Knitro requires that they be written as two variables
-                        // that complement each other. That is why we are introducing new variables that will play this role.
-                        // We call them V_inf, V_sup, b_low and b_up. The two lasts appear in non-linear constraints
-                        // Equations on V are duplicated, we add V_inf to one and V_sup to the other.
-                        // We are also adding a variable V_aux that allows us to perform the PV -> PQ switch.
+                                // To add complementarity conditions, Knitro requires that they be written as two variables
+                                // that complement each other. That is why we are introducing new variables that will play this role.
+                                // We call them V_inf, V_sup, b_low and b_up. The two lasts appear in non-linear constraints
+                                // Equations on V are duplicated, we add V_inf to one and V_sup to the other.
+                                // We are also adding a variable V_aux that allows us to perform the PV -> PQ switch.
 
-                        // vInf equation, from the OLF system equation
-                        // this equation serves to relax the voltage constraint when the maximum reactive power limit is reached
-                        if (addComplementarityConstraintsVariable) {
-                            int compVarBaseIndex = getComplementarityVarBaseIndex(equationId);
-                            varVInfIndices.add(compVarBaseIndex); // vInf
-                            varVInfIndices.add(compVarBaseIndex + 4); // vAux
-                            coefficientsVInf.add(1.0);
-                            coefficientsVInf.add(-1.0);
-                        }
+                                // vInf equation, from the OLF system equation
+                                // this equation serves to relax the voltage constraint when the maximum reactive power limit is reached
+                                if (addComplementarityConstraintsVariable) {
+                                    int compVarBaseIndex = getComplementarityVarBaseIndex(equationId);
+                                    varVInfIndices.add(compVarBaseIndex); // vInf
+                                    varVInfIndices.add(compVarBaseIndex + 4); // vAux
+                                    coefficientsVInf.add(1.0);
+                                    coefficientsVInf.add(-1.0);
+                                }
 
-                        // add slack variables if applicable
-                        // NOTE: slacks can be added to relax the equation, even if there is no complementarity for this equation
-                        addAdditionalConstraintVariables(equationId, equationType, varVInfIndices, coefficientsVInf);
+                                // add slack variables if applicable
+                                // NOTE: slacks can be added to relax the equation, even if there is no complementarity for this equation
+                                addAdditionalConstraintVariables(equationId, equationType, varVInfIndices, coefficientsVInf);
 
-                        for (int i = 0; i < varVInfIndices.size(); i++) {
-                            this.addConstraintLinearPart(equationId, varVInfIndices.get(i), coefficientsVInf.get(i));
-                        }
+                                for (int i = 0; i < varVInfIndices.size(); i++) {
+                                    this.addConstraintLinearPart(equationId, varVInfIndices.get(i), coefficientsVInf.get(i));
+                                }
 
-                        LOGGER.trace("Added linear constraint #{} of type {}", equationId, equationType);
+                                LOGGER.trace("Added linear constraint #{} of type {}", equationId, equationType);
 
-                        // vSup equation, added only if it is a complementarity constraint
-                        // this equation serves to relax the voltage constraint when the minimum reactive power limit is reached
-                        if (addComplementarityConstraintsVariable) {
-                            List<Integer> varVSupIndices = new ArrayList<>(linearConstraint.listIdVar());
-                            List<Double> coefficientsVSup = new ArrayList<>(linearConstraint.listCoef());
+                                // vSup equation, added only if it is a complementarity constraint
+                                // this equation serves to relax the voltage constraint when the minimum reactive power limit is reached
+                                if (addComplementarityConstraintsVariable) {
+                                    List<Integer> varVSupIndices = new ArrayList<>(linearConstraint.listIdVar());
+                                    List<Double> coefficientsVSup = new ArrayList<>(linearConstraint.listCoef());
 
-                            // add complementarity constraints' variables
-                            int compVarBaseIndex = getComplementarityVarBaseIndex(equationId);
-                            varVSupIndices.add(compVarBaseIndex + 1); // V_sup
-                            varVSupIndices.add(compVarBaseIndex + 4); // V_aux
-                            coefficientsVSup.add(-1.0);
-                            coefficientsVSup.add(1.0);
+                                    // add complementarity constraints' variables
+                                    int compVarBaseIndex = getComplementarityVarBaseIndex(equationId);
+                                    varVSupIndices.add(compVarBaseIndex + 1); // V_sup
+                                    varVSupIndices.add(compVarBaseIndex + 4); // V_aux
+                                    coefficientsVSup.add(-1.0);
+                                    coefficientsVSup.add(1.0);
 
-                            // add slack variables if applicable
-                            addAdditionalConstraintVariables(equationId, equationType, varVSupIndices, coefficientsVSup);
+                                    // add slack variables if applicable
+                                    addAdditionalConstraintVariables(equationId, equationType, varVSupIndices, coefficientsVSup);
 
-                            for (int i = 0; i < varVSupIndices.size(); i++) {
-                                int equationIndex = sortedEquationsToSolve.size() + vSuppEquationLocalIds.get(equationId);
-                                this.addConstraintLinearPart(equationIndex, varVSupIndices.get(i), coefficientsVSup.get(i));
+                                    for (int i = 0; i < varVSupIndices.size(); i++) {
+                                        int equationIndex = sortedEquationsToSolve.size() + vSuppEquationLocalIds.get(equationId);
+                                        this.addConstraintLinearPart(equationIndex, varVSupIndices.get(i), coefficientsVSup.get(i));
+                                    }
+                                }
+                            } catch (UnsupportedOperationException e) {
+                                throw new PowsyblException("Failed to process linear constraint for equation #" + equationId, e);
                             }
+
+                            // if the V equation is not linear, we add the index to non-linear equations (as well as the duplicate vSup)
+                        } else {
+                            nonlinearConstraintIndexes.add(equationId);
+                            nonlinearConstraintIndexes.add(sortedEquationsToSolve.size() + vSuppEquationLocalIds.get(equationId));
                         }
-                    } catch (UnsupportedOperationException e) {
-                        throw new PowsyblException("Failed to process linear constraint for equation #" + equationId, e);
-                    }
 
-                // if the V equation is not linear, we add the index to non-linear equations (as well as the duplicate vSup)
-                } else {
-                    nonlinearConstraintIndexes.add(equationId);
-                    nonlinearConstraintIndexes.add(sortedEquationsToSolve.size() + vSuppEquationLocalIds.get(equationId));
-                }
-
-                // the duplicated voltage equations have been specified to the Knitro problem in the previous lines
-                // in order to maintain consistency with the modeled equation system, as well as the rhs, we must also update the corresponding objects
-                // in particular, we must add the equation for vSup to the list of modeled equations and to the rhs
-                if (addComplementarityConstraintsVariable) {
-                    completeEquationsToSolve.add(equation);
-                    completeTargetVector.add(Arrays.stream(targetVector.getArray()).boxed().toList().get(equationId)); // we apply the same voltage
-                }
-
+                        // the duplicated voltage equations have been specified to the Knitro problem in the previous lines
+                        // in order to maintain consistency with the modeled equation system, as well as the rhs, we must also update the corresponding objects
+                        // in particular, we must add the equation for vSup to the list of modeled equations and to the rhs
+                        if (addComplementarityConstraintsVariable) {
+                            completeEquationsToSolve.add(equation);
+                            completeTargetVector.add(Arrays.stream(targetVector.getArray()).boxed().toList().get(equationId)); // we apply the same voltage
+                        }
+                    });
+                });
             // for other type of equations, the constraint can be added as usual
             } else {
                 super.addConstraint(equationId, sortedEquationsToSolve, solverUtils);
@@ -544,7 +547,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                     List<Equation<AcVariableType, AcEquationType>> listEqControlledBus = equationSystem             // Equations of the Controller bus
                             .getEquations(ElementType.BUS, elemNumControlledBus);
                     Equation<AcVariableType, AcEquationType> eqVControlledBus = listEqControlledBus.stream()        // Take the one on V
-                            .filter(e -> e.getType() == BUS_TARGET_V).toList().get(0);
+                            .filter(e -> e.getType() == BUS_TARGET_V).toList().getFirst();
                     int indexEqVAssociated = equationSystem.getIndex().getSortedEquationsToSolve().indexOf(eqVControlledBus);   // Find the index of the V equation associated
 
                     compVarStart = vSuppEquationLocalIds.get(indexEqVAssociated);
@@ -578,7 +581,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                 List<Equation<AcVariableType, AcEquationType>> listEqControlledBus = equationSystem             // Equations of the Controller bus
                         .getEquations(ElementType.BUS, elemNumControlledBus);
                 Equation<AcVariableType, AcEquationType> eqVControlledBus = listEqControlledBus.stream()        // Take the one on V
-                        .filter(e -> e.getType() == BUS_TARGET_V).toList().get(0);
+                        .filter(e -> e.getType() == BUS_TARGET_V).toList().getFirst();
                 int indexEqVAssociated = equationSystem.getIndex().getSortedEquationsToSolve().indexOf(eqVControlledBus);   // Find the index of the V equation associated
 
                 compVarStart = vSuppEquationLocalIds.get(indexEqVAssociated);
@@ -623,7 +626,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                     List<Equation<AcVariableType, AcEquationType>> controlledBusEquations = sortedEquationsToSolve.stream()
                             .filter(e -> e.getElementNum() == elemNumControlledBus).toList();
                     // the V equation
-                    Equation<AcVariableType, AcEquationType> equationV = controlledBusEquations.stream().filter(e -> e.getType() == BUS_TARGET_V).toList().get(0);
+                    Equation<AcVariableType, AcEquationType> equationV = controlledBusEquations.stream().filter(e -> e.getType() == BUS_TARGET_V).toList().getFirst();
                     int equationVId = sortedEquationsToSolve.indexOf(equationV);                                        //Index of V equation
                     int compVarBaseIndex = problemInstance.getComplementarityVarBaseIndex(equationVId);
                     if (equationId - sortedEquationsToSolve.size() + nmbreEqUnactivated / 2 < 0) { // Q_low Constraint
