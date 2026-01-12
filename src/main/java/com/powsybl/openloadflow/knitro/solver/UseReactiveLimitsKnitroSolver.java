@@ -153,6 +153,8 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                             vSuppEquationLocalIds.put(i, vSuppCounter++);
                         }
                     }
+                } else {
+                    throw new IllegalStateException("LfElement is not present");
                 }
             }
         }
