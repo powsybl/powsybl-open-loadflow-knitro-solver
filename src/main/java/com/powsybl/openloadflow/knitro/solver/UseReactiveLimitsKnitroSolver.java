@@ -37,11 +37,13 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(UseReactiveLimitsKnitroSolver.class);
 
-    // Number of variables including slack variables
+    // number of variables including slack variables
     private final int numLFandSlackVariables;
 
-    // Number of complementary equations added to open load flow equations system
-    private final int numComplementaryEquationsAddedToEquationSystem;
+    // number of buses for which the reactive limits are well-defined
+    // for each of these equations, some complementarity constraints will be added to Knitro optimization problem,
+    // to model the PV/PQ switches of generators, when reactive limits are considered in the modeling
+    private final int numBusesWithFiniteQLimits;
 
     // Starting indices for slack variables in the variable vector
     private final int compVarStartIndex;
@@ -50,97 +52,103 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
     private final Map<Integer, Integer> elemNumControlledControllerBus;
     private static final Map<Integer, Equation<AcVariableType, AcEquationType>> INDEQUNACTIVEQ = new LinkedHashMap<>();
 
-    // Unactivated Equations on reactiv power to deal with
+    // reactive limit equations to add to the constraints to model the PV/PQ switches of generators
     private final List<Equation<AcVariableType, AcEquationType>> equationsQBusV;
-    private final List<Integer> listElementNumWithQEqUnactivated;
+    private final List<Integer> busesNumWithReactiveLimitEquationsToAdd;
+    // mappings from global equation indices to local indices for the voltage target equations to duplicate
     private final Map<Integer, Integer> vSuppEquationLocalIds;
-    protected KnitroSolverParameters knitroParameters;
 
-    public UseReactiveLimitsKnitroSolver(
-            LfNetwork network,
-            KnitroSolverParameters knitroParameters,
-            EquationSystem<AcVariableType, AcEquationType> equationSystem,
-            JacobianMatrix<AcVariableType, AcEquationType> jacobian,
-            TargetVector<AcVariableType, AcEquationType> targetVector,
-            EquationVector<AcVariableType, AcEquationType> equationVector,
-            boolean detailedReport) {
+    public UseReactiveLimitsKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                                         JacobianMatrix<AcVariableType, AcEquationType> jacobian, TargetVector<AcVariableType, AcEquationType> targetVector,
+                                         EquationVector<AcVariableType, AcEquationType> equationVector, boolean detailedReport) {
         super(network, knitroParameters, equationSystem, jacobian, targetVector, equationVector, detailedReport);
-        this.knitroParameters = knitroParameters;
 
-        this.numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
-
-        List<Equation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedEquationsToSolve();
-
-        // Count number of classic LF equations by type
-        // TODO : remove this and only homogeneize after
+        // count number of classic LF equations by type
         this.numLFandSlackVariables = numberOfVariables;
+
+        // the optimization problem modeled here duplicates and modifies V equations of open load flow equations system, to model
+        // the voltage change due to a PV/PQ switch of a generator
+        // to do this, it also adds two Q equations on each PV bus, fixing the setpoint to a limit, if the reactive power exceeds this limit
         this.compVarStartIndex = slackVStartIndex + 2 * numVEquations;
 
+        // to define a coherent system, first we need to collect the Q equations for which reactive bounds are well-defined
         this.elemNumControlledControllerBus = new LinkedHashMap<>();
 
-        // The new equation system implemented here duplicates and modifies V equations
-        // It also adds two equations on Q on each PV bus
-        // First we need to collect those Q equations
+        // first, we retrieve the V equations from the open load flow system, because reactive power limits are added
+        // for generators that control voltage
+        List<Equation<AcVariableType, AcEquationType>> olfSortedEquations = equationSystem.getIndex().getSortedEquationsToSolve();
+        List<Integer> busesWithVoltageTargetEquation = olfSortedEquations.stream()
+                .filter(e -> e.getType() == AcEquationType.BUS_TARGET_V)
+                .map(e -> e.getTerms().getFirst().getElementNum())
+                .toList();
 
-        // At first, we isolate buses with V equation
-        List<Equation<AcVariableType, AcEquationType>> activeEquationsV = sortedEquations.stream()
-                .filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).toList();
-        List<Integer> listBusesWithVEq = activeEquationsV.stream()
-                .map(e -> e.getTerms().get(0).getElementNum()).toList();
+        // contains the reactive equations that must be added to the optimization problem constraints
+        List<Equation<AcVariableType, AcEquationType>> reactiveEquationsToAdd = new ArrayList<>();
+        // contains the buses for which reactive limit equation must be added to the constraints
+        this.busesNumWithReactiveLimitEquationsToAdd = new ArrayList<>();
 
-        List<Equation<AcVariableType, AcEquationType>> equationsQToAdd = new ArrayList<>();
+        for (int elementNum : busesWithVoltageTargetEquation) {
+            LfBus controlledBus = network.getBuses().get(elementNum);
 
-        // Collect the Q equation associated
-        List<Integer> listBusesWithQEqToAdd = new ArrayList<>();
+            // the reactive limits is only supported for buses whose voltage is controlled by a generator
+            controlledBus.getGeneratorVoltageControl().ifPresent(
+                    generatorVoltageControl -> {
+                        LfBus controllerBus = generatorVoltageControl.getControllerElements().getFirst();
 
-        // For each bus with a V equation
-        for (int elementNum : listBusesWithVEq) {
-            LfBus controlledBus = network.getBuses().get(elementNum);   // Take the controller bus
+                        // only buses with well-defined reactive power limits are considered
+                        // otherwise, we cannot fix the reactive power via complementarity, in the optimization problem modeled here
+                        if (!(controllerBus.getMaxQ() >= 1.7976931348623156E30 || controllerBus.getMinQ() <= -1.7976931348623156E30)) {
 
-            // Look at the bus controlling voltage and take its Q equation
-            LfBus controllerBus = controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
-            List<Equation<AcVariableType, AcEquationType>> listEqControllerBus = equationSystem.getEquations(ElementType.BUS, controllerBus.getNum());
-            Equation<AcVariableType, AcEquationType> equationQToAdd = listEqControllerBus.stream()
-                    .filter(e -> e.getType() == BUS_TARGET_Q).toList().get(0);
+                            // retrieve the reactive power balance equation of the bus that controls voltage
+                            // the equation is inactive in the open load flow equation system, but it will be used to evaluate the reactive power balance of the generator
+                            // in the optimization problem constraints
+                            List<Equation<AcVariableType, AcEquationType>> controllerBusEquations = equationSystem.getEquations(ElementType.BUS, controllerBus.getNum());
+                            Equation<AcVariableType, AcEquationType> reactiveEquationToAdd = controllerBusEquations.stream()
+                                    .filter(e -> e.getType() == BUS_TARGET_Q)
+                                    .toList()
+                                    .getFirst();
 
-            // We are taking into account only buses with limits on reactive power
-            if (!(controllerBus.getMaxQ() >= 1.7976931348623156E30 || controllerBus.getMinQ() <= -1.7976931348623156E30)) {
-                equationsQToAdd.add(equationQToAdd);
-                elemNumControlledControllerBus.put(controllerBus.getNum(), controlledBus.getNum());  // link between controller and controlled bus
-                listBusesWithQEqToAdd.add(controllerBus.getNum());
-            }
-
+                            // add the equations to model in the corresponding lists
+                            reactiveEquationsToAdd.add(reactiveEquationToAdd);
+                            elemNumControlledControllerBus.put(controllerBus.getNum(), controlledBus.getNum());  // link between controller and controlled bus
+                            busesNumWithReactiveLimitEquationsToAdd.add(controllerBus.getNum());
+                        }
+                    }
+            );
         }
 
-        this.numComplementaryEquationsAddedToEquationSystem = equationsQToAdd.size();
+        // this will be used to iterate on the equations to add in the system
+        this.numBusesWithFiniteQLimits = reactiveEquationsToAdd.size();
 
         // for each complementary equation to add, 3 new variables are used on V equations and 2 on Q equations
-        // le nombre de variable total comprend ces variables, ainsi que celle issue d'OLF et de la relaxation (slack)
-        this.numberOfVariables = numLFandSlackVariables + numComplementaryEquationsAddedToEquationSystem * 5;
-        this.equationsQBusV = Stream.concat(equationsQToAdd.stream(),
-                equationsQToAdd.stream()).toList(); //Duplication to get b_low and b_up eq
-        this.listElementNumWithQEqUnactivated = listBusesWithQEqToAdd;
+        // these "auxiliary variables" allow modeling the relaxation of setpoints or limits
+        // the total number of variables includes these variables, as well as those from the open load flow system
+        // and from the system relaxation (slack variables)
+        this.numberOfVariables = numLFandSlackVariables + numBusesWithFiniteQLimits * 5;
 
-        // Map equations to local indices
+        // duplication to later model the equations defining the bLow and bUp variables, equal
+        // to the equations modeling the fixing of reactive power limits
+        this.equationsQBusV = Stream.concat(reactiveEquationsToAdd.stream(), reactiveEquationsToAdd.stream()).toList();
+
+        // map added voltage target equations to local indices
         this.vSuppEquationLocalIds = new HashMap<>();
-
         int vSuppCounter = 0;
-
-        for (int i = 0; i < sortedEquations.size(); i++) {
-            Equation<AcVariableType, AcEquationType> equation = sortedEquations.get(i);
+        for (int i = 0; i < olfSortedEquations.size(); i++) {
+            Equation<AcVariableType, AcEquationType> equation = olfSortedEquations.get(i);
             AcEquationType type = equation.getType();
-            switch (type) {
-                case BUS_TARGET_P:
-                case BUS_TARGET_Q:
-                    break;
-                case BUS_TARGET_V:
-                    // In case there is a Vsup equation
+            if (Objects.requireNonNull(type) == BUS_TARGET_V) {
+                // add a vSup equation
+                if (equation.getElement(network).isPresent()) {
                     LfBus controlledBus = network.getBuses().get(equation.getElement(network).get().getNum());
-                    LfBus controllerBus = controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
-                    if (listElementNumWithQEqUnactivated.contains(controllerBus.getNum())) {
-                        vSuppEquationLocalIds.put(i, vSuppCounter++);
+                    // supports only voltage control of generators
+                    if (controlledBus.getGeneratorVoltageControl().isPresent()) {
+                        GeneratorVoltageControl generatorVoltageControl = controlledBus.getGeneratorVoltageControl().get();
+                        LfBus controllerBus = generatorVoltageControl.getControllerElements().getFirst();
+                        if (busesNumWithReactiveLimitEquationsToAdd.contains(controllerBus.getNum())) {
+                            vSuppEquationLocalIds.put(i, vSuppCounter++);
+                        }
                     }
-                    break;
+                }
             }
         }
     }
@@ -150,15 +158,15 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
      */
     @Override
     public String getName() {
-        return "Knitro Reactive Limits Solver";
+        return "Knitro Generator Reactive Limits Solver";
     }
 
     @Override
     protected KNProblem createKnitroProblem(VoltageInitializer voltageInitializer) {
         try {
-            return new UseReactiveLimitsKnitroProblem(network, equationSystem, targetVector, j, voltageInitializer, knitroParameters);
+            return new UseReactiveLimitsKnitroProblem(network, equationSystem, targetVector, j, knitroParameters, voltageInitializer);
         } catch (KNException e) {
-            throw new PowsyblException("Failed to create relaxed Knitro problem", e);
+            throw new PowsyblException("Failed to create Knitro problem modeling generator reactive limits", e);
         }
     }
 
@@ -168,7 +176,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
         super.processSolution(solver, solution, problemInstance);
 
         // log the switches computed by the optimization
-        logSwitches(solution, compVarStartIndex, numComplementaryEquationsAddedToEquationSystem);
+        logSwitches(solution, compVarStartIndex, numBusesWithFiniteQLimits);
     }
 
     /**
@@ -216,17 +224,14 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
          * - Objective function setup
          * - Jacobian matrix setup for Knitro
          */
-        private UseReactiveLimitsKnitroProblem(
-                LfNetwork network,
-                EquationSystem<AcVariableType, AcEquationType> equationSystem,
-                TargetVector<AcVariableType, AcEquationType> targetVector,
-                JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                VoltageInitializer voltageInitializer,
-                KnitroSolverParameters parameters) throws KNException {
-            // =============== Variable Initialization ===============
-            super(network, equationSystem,
-                    targetVector, jacobianMatrix, parameters, numberOfVariables, equationSystem.getIndex().getSortedEquationsToSolve().size() +
-                            3 * numComplementaryEquationsAddedToEquationSystem, numLFandSlackVariables, voltageInitializer);
+        private UseReactiveLimitsKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                                               TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
+                                               KnitroSolverParameters parameters, VoltageInitializer voltageInitializer) throws KNException {
+            // initialize optimization problem
+            // the total number
+            super(network, equationSystem, targetVector, jacobianMatrix, parameters, numberOfVariables,
+                    equationSystem.getIndex().getSortedEquationsToSolve().size() +
+                            3 * numBusesWithFiniteQLimits, numLFandSlackVariables, voltageInitializer);
 
             LOGGER.info("Defining {} variables", numberOfVariables);
 
@@ -237,14 +242,11 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             initializeVariables(voltageInitializer, numberOfVariables);
             LOGGER.info("Initialization of variables : type of initialization {}", voltageInitializer);
 
-            // =============== Callbacks and Jacobian ===============
+            // specify the callback to evaluate the jacobian
             setObjEvalCallback(new UseReactiveLimitsCallbackEvalFC(this, completeEquationsToSolve, nonlinearConstraintIndexes));
 
+            // set the pattern of the jacobian
             setJacobianMatrix(completeEquationsToSolve, nonlinearConstraintIndexes);
-
-            // TODO : uncomment me
-//            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes);
-//            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
 
             // set the objective function of the optimization problem
             addObjectiveFunction(numPEquations, slackPStartIndex, numQEquations, slackQStartIndex, numVEquations, slackVStartIndex);
@@ -257,7 +259,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             super.initializeCustomizedVariables(lowerBounds, upperBounds, initialValues, numTotalVariables);
 
             // initialize auxiliary variables in complementary constraints
-            for (int i = 0; i < numComplementaryEquationsAddedToEquationSystem; i++) {
+            for (int i = 0; i < numBusesWithFiniteQLimits; i++) {
                 lowerBounds.set(compVarStartIndex + 5 * i, 0.0);
                 lowerBounds.set(compVarStartIndex + 5 * i + 1, 0.0);
 
@@ -362,7 +364,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                 LfBus controllerBus = controlledBus.getGeneratorVoltageControl().get().getControllerElements().get(0);
 
                 // boolean to indicate if the V equation will be duplicated
-                boolean addComplementarityConstraintsVariable = listElementNumWithQEqUnactivated.contains(controllerBus.getNum());
+                boolean addComplementarityConstraintsVariable = busesNumWithReactiveLimitEquationsToAdd.contains(controllerBus.getNum());
 
                 if (NonLinearExternalSolverUtils.isLinear(equationType, terms)) {
                     try {
@@ -446,11 +448,11 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
          * Adds the complementarity constraints to the Knitro problem definition.
          */
         private void addComplementaryConstraints() throws KNException {
-            List<Integer> listTypeVar = new ArrayList<>(Collections.nCopies(2 * numComplementaryEquationsAddedToEquationSystem, KNConstants.KN_CCTYPE_VARVAR));
+            List<Integer> listTypeVar = new ArrayList<>(Collections.nCopies(2 * numBusesWithFiniteQLimits, KNConstants.KN_CCTYPE_VARVAR));
             List<Integer> bVarList = new ArrayList<>(); // bUp and bLow
             List<Integer> vInfSuppList = new ArrayList<>(); // vInf and vSup
 
-            for (int i = 0; i < numComplementaryEquationsAddedToEquationSystem; i++) {
+            for (int i = 0; i < numBusesWithFiniteQLimits; i++) {
                 vInfSuppList.add(compVarStartIndex + 5 * i); // vInf
                 vInfSuppList.add(compVarStartIndex + 5 * i + 1); // vSup
                 bVarList.add(compVarStartIndex + 5 * i + 3); // bUp
