@@ -58,10 +58,13 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
     // mappings from global equation indices to local indices for the voltage target equations to duplicate
     private final Map<Integer, Integer> vSuppEquationLocalIds;
 
+    // threshold to identify inconsistent generator reactive power limits
+    private static final double MAX_REASONABLE_REACTIVE_LIMIT = 1e15;
+
     public UseReactiveLimitsKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
-                                         JacobianMatrix<AcVariableType, AcEquationType> jacobian, TargetVector<AcVariableType, AcEquationType> targetVector,
+                                         JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
                                          EquationVector<AcVariableType, AcEquationType> equationVector, boolean detailedReport) {
-        super(network, knitroParameters, equationSystem, jacobian, targetVector, equationVector, detailedReport);
+        super(network, knitroParameters, equationSystem, j, targetVector, equationVector, detailedReport);
 
         // count number of classic LF equations by type
         this.numLFandSlackVariables = numberOfVariables;
@@ -97,7 +100,8 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
                         // only buses with well-defined reactive power limits are considered
                         // otherwise, we cannot fix the reactive power via complementarity, in the optimization problem modeled here
-                        if (!(controllerBus.getMaxQ() >= 1.7976931348623156E30 || controllerBus.getMinQ() <= -1.7976931348623156E30)) {
+                        if (Double.isFinite(controllerBus.getMaxQ()) && Math.abs(controllerBus.getMaxQ()) < MAX_REASONABLE_REACTIVE_LIMIT
+                                && Double.isFinite(controllerBus.getMinQ()) && Math.abs(controllerBus.getMinQ()) < MAX_REASONABLE_REACTIVE_LIMIT) {
 
                             // retrieve the reactive power balance equation of the bus that controls voltage
                             // the equation is inactive in the open load flow equation system, but it will be used to evaluate the reactive power balance of the generator
@@ -214,21 +218,26 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
     private final class UseReactiveLimitsKnitroProblem extends AbstractRelaxedKnitroProblem {
 
+        // objects to retrieve the complete form of the equation system that we seek to satisfy as constraints
+        // of the optimization problem
+        // to model generator reactive limits, additional equations and therefore right-hand sides are necessary, and these
+        // are not considered in the open load flow objects
         private List<Equation<AcVariableType, AcEquationType>> completeEquationsToSolve;
         private List<Double> completeTargetVector;
 
         /**
-         * Knitro problem definition including:
-         * - Initialization of variables (types, bounds, initial state)
+         * Generator reactive limits Knitro problem definition including:
+         * - Initialization of customized variables (complmentarity auxiliary variables, and those specific to the Knitro modeling)
          * - Definition of linear and non-linear constraints
-         * - Objective function setup
          * - Jacobian matrix setup for Knitro
          */
         private UseReactiveLimitsKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                                TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                                                KnitroSolverParameters parameters, VoltageInitializer voltageInitializer) throws KNException {
             // initialize optimization problem
-            // the total number
+            // the total number of equations equals the number of constraints in the open load flow system,
+            // to which 3 equations are added for each voltage control equation whose associated generator
+            // has finite reactive power limits
             super(network, equationSystem, targetVector, jacobianMatrix, parameters, numberOfVariables,
                     equationSystem.getIndex().getSortedEquationsToSolve().size() +
                             3 * numBusesWithFiniteQLimits, numLFandSlackVariables, voltageInitializer);
@@ -252,7 +261,6 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             addObjectiveFunction(numPEquations, slackPStartIndex, numQEquations, slackQStartIndex, numVEquations, slackVStartIndex);
         }
 
-        // ok
         @Override
         protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds, List<Double> initialValues, int numTotalVariables) {
             // initialize slack variables
@@ -272,7 +280,6 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             }
         }
 
-        // ok
         @Override
         protected void setUpScalingFactors(int numTotalVariables) throws KNException {
             List<Double> scalingFactors = new ArrayList<>(Collections.nCopies(numTotalVariables, 1.0));
@@ -310,7 +317,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             addLinearConstraints(activeConstraints, solverUtils);
 
             // number of variables from the OLF system and whose voltage control equations have been duplicated
-            // for cases where reactive power limits are well defined
+            // for cases where reactive power limits are well-defined
             int intermediateNumberOfActiveEquations = completeEquationsToSolve.size();
 
             // add the constraints that allow considering reactive power limits
