@@ -77,7 +77,7 @@ public class KnitroSolverFactory implements AcSolverFactory {
         return switch (knitroSolverType) {
             case STANDARD -> new KnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
             case RELAXED -> new RelaxedKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
-            case REACTIVLIMITS -> new KnitroSolverReacLim(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
+            case USE_REACTIVE_LIMITS -> new UseReactiveLimitsKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
         };
     }
 

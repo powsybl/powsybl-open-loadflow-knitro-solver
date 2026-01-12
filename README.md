@@ -37,7 +37,7 @@ To use the PowSyBl Open Load Flow Knitro Solver extension, a valid Knitro instal
 
 ### Platform compatibility
 
-PowSyBl Open Load Flow Knitro Solver supports Linux, Windows, and macOS.
+Knitro supports Linux, Windows, and macOS; however, its Java bindings are currently available only on Linux and Windows.
 
 ### Installing Knitro
 

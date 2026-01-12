@@ -22,7 +22,6 @@ import java.util.Objects;
  */
 public class KnitroSolverParameters implements AcSolverParameters {
 
-    public static final String DEFAULT_LOG_FILE_NAME = "Logs.txt";
     public static final int DEFAULT_GRADIENT_COMPUTATION_MODE = 1; // Specifies how the Jacobian matrix is computed
     public static final int DEFAULT_GRADIENT_USER_ROUTINE = 2; // If the user chooses to pass the exact Jacobian to knitro, specifies the sparsity pattern for the Jacobian matrix.
     public static final int DEFAULT_HESSIAN_COMPUTATION_MODE = 6; // Specifies how the Hessian matrix is computed. 6 means that the Hessian is approximated using the L-BFGS method, which is a quasi-Newton method.
@@ -54,16 +53,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
     private int gradientUserRoutine = DEFAULT_GRADIENT_USER_ROUTINE;
 
     private int hessianComputationMode = DEFAULT_HESSIAN_COMPUTATION_MODE;
-    private String logFileName = DEFAULT_LOG_FILE_NAME;
-    private KnitroWritter knitroWritter;
-
-    public KnitroSolverParameters(KnitroWritter knitroWritter) {
-        this.knitroWritter = knitroWritter;
-    }
-
-    public KnitroSolverParameters() {
-        this.knitroWritter = new KnitroWritter("Logs.txt");
-    }
 
     private double lowerVoltageBound = DEFAULT_LOWER_VOLTAGE_BOUND;
 
@@ -283,15 +272,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return this;
     }
 
-    public KnitroWritter getKnitroWritter() {
-        return knitroWritter;
-    }
-
-    public KnitroSolverParameters setKnitroWritter(KnitroWritter knitroWritter) {
-        this.knitroWritter = knitroWritter;
-        return this;
-    }
-
     @Override
     public String toString() {
         return "KnitroSolverParameters(" +
@@ -316,6 +296,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public enum SolverType {
         STANDARD,
         RELAXED,
-        REACTIVLIMITS,
+        USE_REACTIVE_LIMITS,
     }
 }
