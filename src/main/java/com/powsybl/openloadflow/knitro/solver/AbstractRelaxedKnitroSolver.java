@@ -15,6 +15,7 @@ import com.powsybl.openloadflow.ac.equations.AcVariableType;
 import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.network.LfBus;
 import com.powsybl.openloadflow.network.LfNetwork;
+import com.powsybl.openloadflow.util.PerUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -152,9 +153,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param x The variable values as returned by solver.
      */
     protected void logSlackValues(String type, int startIndex, int count, List<Double> x) {
-        // TODO : CHANGE THIS !
-        final double sbase = 100.0; // Base power in MVA
-
         LOGGER.debug("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
 
         for (int i = 0; i < count; i++) {
@@ -171,8 +169,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 name = getSlackVariableBusName(i, type);
 
                 switch (type) {
-                    case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * sbase);
-                    case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * sbase);
+                    case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB);
+                    case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * PerUnit.SB);
                     case "V" -> {
                         var bus = network.getBusById(name);
                         if (bus == null) {
