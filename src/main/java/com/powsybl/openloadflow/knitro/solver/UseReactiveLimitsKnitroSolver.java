@@ -28,7 +28,15 @@ import static com.google.common.primitives.Doubles.toArray;
 import static com.powsybl.openloadflow.ac.equations.AcEquationType.*;
 
 /**
- * TODO
+ * Relaxed Knitro solver, solving the open load flow equation system by minimizing constraint violations through relaxation,
+ * and taking into account generator reactive limits.
+ * The consideration of limits is ensured by adding complementarity constraints in the problem formulation.
+ * The solver must therefore extend the open load flow equation system.
+ *
+ * It should be noted that complementarity constraints fix the reactive limit on one side if it is violated,
+ * and relax the voltage setpoint through the addition of auxiliary variables.
+ * It should be noted that this relaxation is not penalized, as it corresponds to a PV/PQ transition of the bus.
+ * Note that voltage setpoints remain relaxed through the addition of a slack variable.
  *
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Yoann Anezin {@literal <yoann.anezin at artelys.com>}
@@ -55,6 +63,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
     // reactive limit equations to add to the constraints to model the PV/PQ switches of generators
     private final List<Equation<AcVariableType, AcEquationType>> equationsQBusV;
     private final List<Integer> busesNumWithReactiveLimitEquationsToAdd;
+
     // mappings from global equation indices to local indices for the voltage target equations to duplicate
     private final Map<Integer, Integer> vSuppEquationLocalIds;
 
@@ -83,35 +92,34 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
         List<Equation<AcVariableType, AcEquationType>> reactiveEquationsToAdd = new ArrayList<>();
         // contains the buses for which reactive limit equation must be added to the constraints
         this.busesNumWithReactiveLimitEquationsToAdd = new ArrayList<>();
-
         for (int elementNum : busesWithVoltageTargetEquation) {
             LfBus controlledBus = network.getBuses().get(elementNum);
 
             // the reactive limits is only supported for buses whose voltage is controlled by a generator
             controlledBus.getGeneratorVoltageControl().ifPresent(
-                    generatorVoltageControl -> {
-                        LfBus controllerBus = generatorVoltageControl.getControllerElements().getFirst();
+                generatorVoltageControl -> {
+                    LfBus controllerBus = generatorVoltageControl.getControllerElements().getFirst();
 
-                        // only buses with well-defined reactive power limits are considered
-                        // otherwise, we cannot fix the reactive power via complementarity, in the optimization problem modeled here
-                        if (Double.isFinite(controllerBus.getMaxQ()) && Math.abs(controllerBus.getMaxQ()) < MAX_REASONABLE_REACTIVE_LIMIT
-                                && Double.isFinite(controllerBus.getMinQ()) && Math.abs(controllerBus.getMinQ()) < MAX_REASONABLE_REACTIVE_LIMIT) {
+                    // only buses with well-defined reactive power limits are considered
+                    // otherwise, we cannot fix the reactive power via complementarity, in the optimization problem modeled here
+                    if (Double.isFinite(controllerBus.getMaxQ()) && Math.abs(controllerBus.getMaxQ()) < MAX_REASONABLE_REACTIVE_LIMIT
+                            && Double.isFinite(controllerBus.getMinQ()) && Math.abs(controllerBus.getMinQ()) < MAX_REASONABLE_REACTIVE_LIMIT) {
 
-                            // retrieve the reactive power balance equation of the bus that controls voltage
-                            // the equation is inactive in the open load flow equation system, but it will be used to evaluate the reactive power balance of the generator
-                            // in the optimization problem constraints
-                            List<Equation<AcVariableType, AcEquationType>> controllerBusEquations = equationSystem.getEquations(ElementType.BUS, controllerBus.getNum());
-                            Equation<AcVariableType, AcEquationType> reactiveEquationToAdd = controllerBusEquations.stream()
-                                    .filter(e -> e.getType() == BUS_TARGET_Q)
-                                    .toList()
-                                    .getFirst();
+                        // retrieve the reactive power balance equation of the bus that controls voltage
+                        // the equation is inactive in the open load flow equation system, but it will be used to evaluate the reactive power balance of the generator
+                        // in the optimization problem constraints
+                        List<Equation<AcVariableType, AcEquationType>> controllerBusEquations = equationSystem.getEquations(ElementType.BUS, controllerBus.getNum());
+                        Equation<AcVariableType, AcEquationType> reactiveEquationToAdd = controllerBusEquations.stream()
+                                .filter(e -> e.getType() == BUS_TARGET_Q)
+                                .toList()
+                                .getFirst();
 
-                            // add the equations to model in the corresponding lists
-                            reactiveEquationsToAdd.add(reactiveEquationToAdd);
-                            elemNumControlledControllerBus.put(controllerBus.getNum(), controlledBus.getNum());  // link between controller and controlled bus
-                            busesNumWithReactiveLimitEquationsToAdd.add(controllerBus.getNum());
-                        }
+                        // add the equations to model in the corresponding lists
+                        reactiveEquationsToAdd.add(reactiveEquationToAdd);
+                        elemNumControlledControllerBus.put(controllerBus.getNum(), controlledBus.getNum());  // link between controller and controlled bus
+                        busesNumWithReactiveLimitEquationsToAdd.add(controllerBus.getNum());
                     }
+                }
             );
         }
 
@@ -556,8 +564,6 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                 // Add one entry for each non-zero (constraintIndex, variableIndex)
                 jacobianColumnIndices.addAll(involvedVariables);
                 jacobianRowIndices.addAll(Collections.nCopies(involvedVariables.size(), constraintIndex));
-
-                long end = System.nanoTime();
             }
         }
 
@@ -647,7 +653,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             private final int numVEq;
             private final int numPQEq;
 
-            private final LinkedHashMap indRowVariable;
+            private final Map<Integer, Variable<AcVariableType>> indRowVariable = new LinkedHashMap<>();
 
             private UseReactiveLimitsCallbackEvalG(
                     JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
@@ -672,7 +678,6 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                         e -> e.getType() == BUS_TARGET_Q ||
                                 e.getType() == BUS_TARGET_P).toList().size();
 
-                this.indRowVariable = new LinkedHashMap();
                 List<Variable<AcVariableType>> listVar = equationSystem.getVariableSet().getVariables().stream().toList();
                 for (Variable<AcVariableType> variable : listVar) {
                     indRowVariable.put(variable.getRow(), variable);
@@ -726,11 +731,9 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                             // Find matching (var, ct) entry in sparse column
                             int colStart = columnStart[ct];
 
-                            if (!firstIteration) {
-                                if (currentConstraint != ct) {
-                                    iRowIndices = 0;
-                                    currentConstraint = ct;
-                                }
+                            if (!firstIteration && currentConstraint != ct) {
+                                iRowIndices = 0;
+                                currentConstraint = ct;
                             }
 
                             if (var >= numVariables) {

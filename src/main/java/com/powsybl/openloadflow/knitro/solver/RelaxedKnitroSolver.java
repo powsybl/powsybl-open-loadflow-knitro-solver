@@ -23,7 +23,7 @@ import java.util.AbstractMap;
 import java.util.List;
 
 /**
- * TODO
+ * Relaxed Knitro solver, solving the open load flow equation system by minimizing constraint violations through relaxation.
  *
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}

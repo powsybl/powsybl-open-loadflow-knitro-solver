@@ -5,7 +5,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  * SPDX-License-Identifier: MPL-2.0
  */
-
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.iidm.network.Network;
@@ -30,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Yoann Anezin {@literal <yoann.anezin at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
-public class ReactiveLimitsKnitroSolverFunctionalTest {
+class ReactiveLimitsKnitroSolverFunctionalTest {
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
     private KnitroLoadFlowParameters knitroParams;
