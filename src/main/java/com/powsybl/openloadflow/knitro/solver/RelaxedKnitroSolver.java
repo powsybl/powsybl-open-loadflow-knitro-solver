@@ -62,13 +62,12 @@ public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver {
                                      TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                                      KnitroSolverParameters knitroParameters, VoltageInitializer voltageInitializer) throws KNException {
 
-            super(network, equationSystem, targetVector, jacobianMatrix, knitroParameters,
-                    numberOfVariables, equationSystem.getIndex().getSortedEquationsToSolve().size(), numberOfVariables, voltageInitializer);
+            super(network, equationSystem, targetVector, jacobianMatrix, knitroParameters, numSlackVariables, 0);
 
-            LOGGER.info("Defining {} variables", numberOfVariables);
+            LOGGER.info("Defining {} variables", numTotalVariables);
 
             // Initialize variables (base class handles LF variables, we customize for slack)
-            initializeVariables(voltageInitializer, numberOfVariables);
+            initializeVariables(voltageInitializer);
             LOGGER.info("Voltage initialization strategy: {}", voltageInitializer);
 
             // Set up the constraints of the relaxed optimization problem

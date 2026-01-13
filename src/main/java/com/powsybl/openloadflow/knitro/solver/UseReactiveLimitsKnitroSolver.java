@@ -37,12 +37,12 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(UseReactiveLimitsKnitroSolver.class);
 
-    // number of variables including slack variables
-    private final int numLFandSlackVariables;
+    // threshold to identify well-defined generator reactive power limits
+    private static final double MAX_REASONABLE_REACTIVE_LIMIT = 1e15;
 
     // number of buses for which the reactive limits are well-defined
-    // for each of these equations, some complementarity constraints will be added to Knitro optimization problem,
-    // to model the PV/PQ switches of generators, when reactive limits are considered in the modeling
+    // for each of these equations, some complementarity constraints / variables will be added to Knitro optimization problem,
+    // to model the PV/PQ switches of generators
     private final int numBusesWithFiniteQLimits;
 
     // Starting indices for slack variables in the variable vector
@@ -58,16 +58,10 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
     // mappings from global equation indices to local indices for the voltage target equations to duplicate
     private final Map<Integer, Integer> vSuppEquationLocalIds;
 
-    // threshold to identify inconsistent generator reactive power limits
-    private static final double MAX_REASONABLE_REACTIVE_LIMIT = 1e15;
-
     public UseReactiveLimitsKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                          JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
                                          EquationVector<AcVariableType, AcEquationType> equationVector, boolean detailedReport) {
         super(network, knitroParameters, equationSystem, j, targetVector, equationVector, detailedReport);
-
-        // count number of classic LF equations by type
-        this.numLFandSlackVariables = numberOfVariables;
 
         // the optimization problem modeled here duplicates and modifies V equations of open load flow equations system, to model
         // the voltage change due to a PV/PQ switch of a generator
@@ -123,12 +117,6 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
         // this will be used to iterate on the equations to add in the system
         this.numBusesWithFiniteQLimits = reactiveEquationsToAdd.size();
-
-        // for each complementary equation to add, 3 new variables are used on V equations and 2 on Q equations
-        // these "auxiliary variables" allow modeling the relaxation of setpoints or limits
-        // the total number of variables includes these variables, as well as those from the open load flow system
-        // and from the system relaxation (slack variables)
-        this.numberOfVariables = numLFandSlackVariables + numBusesWithFiniteQLimits * 5;
 
         // duplication to later model the equations defining the bLow and bUp variables, equal
         // to the equations modeling the fixing of reactive power limits
@@ -239,20 +227,24 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                                                TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                                                KnitroSolverParameters parameters, VoltageInitializer voltageInitializer) throws KNException {
             // initialize optimization problem
+
+            // for each complementary equation to add, 3 new variables are used on V equations and 2 on Q equations
+            // these "auxiliary variables" allow modeling the relaxation of set points or limits
+            // the total number of variables includes these variables, as well as those from the open load flow system
+            // and from the system relaxation (slack variables)
+
             // the total number of equations equals the number of constraints in the open load flow system,
             // to which 3 equations are added for each voltage control equation whose associated generator
             // has finite reactive power limits
-            super(network, equationSystem, targetVector, jacobianMatrix, parameters, numberOfVariables,
-                    equationSystem.getIndex().getSortedEquationsToSolve().size() +
-                            3 * numBusesWithFiniteQLimits, numLFandSlackVariables, voltageInitializer);
+            super(network, equationSystem, targetVector, jacobianMatrix, parameters, numSlackVariables + numBusesWithFiniteQLimits * 5, 3 * numBusesWithFiniteQLimits);
 
-            LOGGER.info("Defining {} variables", numberOfVariables);
+            LOGGER.info("Defining {} variables", numTotalVariables);
 
             // Set up the constraints of the optimization problem
             setupConstraints();
 
             // Initialize variables
-            initializeVariables(voltageInitializer, numberOfVariables);
+            initializeVariables(voltageInitializer);
             LOGGER.info("Initialization of variables : type of initialization {}", voltageInitializer);
 
             // specify the callback to evaluate the jacobian
@@ -266,9 +258,9 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
         }
 
         @Override
-        protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds, List<Double> initialValues, int numTotalVariables) {
+        protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds, List<Double> initialValues) {
             // initialize slack variables
-            super.initializeCustomizedVariables(lowerBounds, upperBounds, initialValues, numTotalVariables);
+            super.initializeCustomizedVariables(lowerBounds, upperBounds, initialValues);
 
             // initialize auxiliary variables in complementary constraints
             for (int i = 0; i < numBusesWithFiniteQLimits; i++) {
@@ -285,10 +277,10 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
         }
 
         @Override
-        protected void setUpScalingFactors(int numTotalVariables) throws KNException {
+        protected void setUpScalingFactors() throws KNException {
             List<Double> scalingFactors = new ArrayList<>(Collections.nCopies(numTotalVariables, 1.0));
             List<Double> scalingCenters = new ArrayList<>(Collections.nCopies(numTotalVariables, 0.0));
-            for (int i = numLFVariables; i < slackVStartIndex; i++) {
+            for (int i = numberOfPowerFlowVariables; i < slackVStartIndex; i++) {
                 scalingFactors.set(i, 1e-2);
             }
 
