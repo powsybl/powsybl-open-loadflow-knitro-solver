@@ -15,7 +15,6 @@ import com.powsybl.openloadflow.ac.equations.AcVariableType;
 import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.network.LfBus;
 import com.powsybl.openloadflow.network.LfNetwork;
-import com.powsybl.openloadflow.network.util.VoltageInitializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,11 +43,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     // Weights of the linear in the objective function
     protected static final double WEIGHT_ABSOLUTE_PENAL = 3.0;
 
-    // Number of Load Flows (LF) variables in the system
-    protected int numLFVariables;
-
     // Total number of variables (including power flow and slack variables)
-    protected int numberOfVariables;
+    protected int numSlackVariables;
 
     // Number of equations for active power (P), reactive power (Q), and voltage magnitude (V)
     protected final int numPEquations;
@@ -76,9 +72,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         super(network, knitroParameters, equationSystem, j, targetVector, equationVector, detailedReport);
 
-        // Number of variables in the equations system of open load flow
-        this.numLFVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
-
         List<Equation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedEquationsToSolve();
 
         // Count number of equations by type
@@ -86,10 +79,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         this.numQEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count();
         this.numVEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count();
 
-        int numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations);
-        this.numberOfVariables = numLFVariables + numSlackVariables;
+        this.numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations);
 
-        this.slackPStartIndex = numLFVariables;
+        // the slack variables start after power flow variables
+        this.slackPStartIndex = equationSystem.getIndex().getSortedVariablesToFind().size();
         this.slackQStartIndex = slackPStartIndex + 2 * numPEquations;
         this.slackVStartIndex = slackQStartIndex + 2 * numQEquations;
 
@@ -264,8 +257,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      */
     public abstract class AbstractRelaxedKnitroProblem extends AbstractKnitroProblem {
 
-        protected final int numLfAndSlackVariables;
-
         /**
          * Relaxed Knitro problem definition including:
          * - initialization of variables (types, bounds, initial state)
@@ -275,12 +266,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
          * - definition of the objective function to be minimized (equation system violations)
          */
         protected AbstractRelaxedKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
-                                             TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                             KnitroSolverParameters knitroParameters,
-                                             int numTotalVariables, int numTotalConstraints, int numLfAndSlackVariables, VoltageInitializer voltageInitializer) throws KNException {
-
-            super(network, equationSystem, targetVector, jacobianMatrix, knitroParameters, numTotalVariables, numTotalConstraints, voltageInitializer);
-            this.numLfAndSlackVariables = numLfAndSlackVariables;
+                                               TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
+                                               KnitroSolverParameters knitroParameters, int numAdditionalVariables, int numAdditionalConstraints) {
+            super(network, equationSystem, targetVector, jacobianMatrix, knitroParameters, numAdditionalVariables, numAdditionalConstraints);
         }
 
         /**
@@ -312,7 +300,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             }
 
             // Slacks variables contributions in the objective function
-            for (int iSlack = numberOfPowerFlowVariables; iSlack < numLfAndSlackVariables; iSlack++) {
+            for (int iSlack = numberOfPowerFlowVariables; iSlack < numTotalVariables; iSlack++) {
                 hessianEntries.add(new NnzCoordinates(iSlack, iSlack));
                 if (((iSlack - numberOfPowerFlowVariables) & 1) == 0) {
                     hessianEntries.add(new NnzCoordinates(iSlack, iSlack + 1));
@@ -395,10 +383,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         @Override
         protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds,
-                                                     List<Double> initialValues, int numTotalVariables) {
+                                                     List<Double> initialValues) {
             // set a lower bound to slack variables (>= 0)
             // initial values have already been set to 0
-            for (int i = numLFVariables; i < numLfAndSlackVariables; i++) {
+            for (int i = numberOfPowerFlowVariables; i < numTotalVariables; i++) {
                 lowerBounds.set(i, 0.0);
             }
         }
@@ -467,7 +455,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                                                           List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
                                                           List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) {
 
-            return new RelaxedCallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
+            return new AbstractRelaxedKnitroProblem.RelaxedCallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
                     listNonZerosCtsSparse, listNonZerosVarsSparse, network,
                     equationSystem, knitroParameters, numberOfPowerFlowVariables);
         }

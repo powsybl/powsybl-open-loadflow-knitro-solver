@@ -52,20 +52,25 @@ public abstract class AbstractKnitroProblem extends KNProblem {
     protected List<Equation<AcVariableType, AcEquationType>> activeConstraints = new ArrayList<>();
     protected List<Integer> nonlinearConstraintIndexes = new ArrayList<>();
     protected final int numTotalVariables;
-    protected final VoltageInitializer voltageInitializer;
 
     protected AbstractKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                     TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                    KnitroSolverParameters knitroParameters, int numTotalVariables, int numTotalConstraints, VoltageInitializer voltageInitializer) {
-        super(numTotalVariables, numTotalConstraints);
-        this.numTotalVariables = numTotalVariables;
+                                    KnitroSolverParameters knitroParameters) {
+        this(network, equationSystem, targetVector, jacobianMatrix, knitroParameters, 0, 0);
+    }
+
+    protected AbstractKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                                    TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
+                                    KnitroSolverParameters knitroParameters, int numAdditionalVariables, int numAdditionalConstraints) {
+        super(equationSystem.getIndex().getSortedVariablesToFind().size() + numAdditionalVariables,
+                equationSystem.getIndex().getSortedEquationsToSolve().size() + numAdditionalConstraints);
+        this.numberOfPowerFlowVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
+        this.numTotalVariables = numberOfPowerFlowVariables + numAdditionalVariables;
         this.network = network;
         this.equationSystem = equationSystem;
         this.targetVector = targetVector;
         this.jacobianMatrix = jacobianMatrix;
         this.knitroParameters = knitroParameters;
-        this.numberOfPowerFlowVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
-        this.voltageInitializer = voltageInitializer;
     }
 
     /**
@@ -73,9 +78,8 @@ public abstract class AbstractKnitroProblem extends KNProblem {
      * Can be overridden by subclasses to add additional variables (e.g., slack variables).
      *
      * @param voltageInitializer The voltage initializer to use.
-     * @param numTotalVariables  Total number of variables including any additional ones.
      */
-    protected void initializeVariables(VoltageInitializer voltageInitializer, int numTotalVariables) throws KNException {
+    protected void initializeVariables(VoltageInitializer voltageInitializer) throws KNException {
         List<Integer> variableTypes = new ArrayList<>(Collections.nCopies(numTotalVariables, KNConstants.KN_VARTYPE_CONTINUOUS));
         List<Double> lowerBounds = new ArrayList<>(Collections.nCopies(numTotalVariables, -KNConstants.KN_INFINITY));
         List<Double> upperBounds = new ArrayList<>(Collections.nCopies(numTotalVariables, KNConstants.KN_INFINITY));
@@ -99,10 +103,10 @@ public abstract class AbstractKnitroProblem extends KNProblem {
         }
 
         // Allow subclasses to modify bounds and initial values (e.g., for slack variables)
-        initializeCustomizedVariables(lowerBounds, upperBounds, initialValues, numTotalVariables);
+        initializeCustomizedVariables(lowerBounds, upperBounds, initialValues);
 
         // Set up scaling factors
-        setUpScalingFactors(numTotalVariables);
+        setUpScalingFactors();
 
         setVarLoBnds(lowerBounds);
         setVarUpBnds(upperBounds);
@@ -117,14 +121,13 @@ public abstract class AbstractKnitroProblem extends KNProblem {
      * @param lowerBounds Lower bounds list to modify.
      * @param upperBounds Upper bounds list to modify.
      * @param initialValues Initial values list to modify.
-     * @param numTotalVariables Total number of variables.
      */
     protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds,
-                                                 List<Double> initialValues, int numTotalVariables) {
+                                                 List<Double> initialValues) {
         // no customization by default
     }
 
-    protected void setUpScalingFactors(int numTotalVariables) throws KNException {
+    protected void setUpScalingFactors() throws KNException {
         // no customization by default
     }
 
