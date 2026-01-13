@@ -288,10 +288,8 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                 scalingFactors.set(i, 1e-2);
             }
 
-            //todo : verify that this range(1,n) coincides with order given to knitro
-            int n = numTotalVariables;
-            ArrayList<Integer> list = new ArrayList<>(n);
-            for (int i = 0; i < n; i++) {
+            ArrayList<Integer> list = new ArrayList<>(numTotalVariables);
+            for (int i = 0; i < numTotalVariables; i++) {
                 list.add(i);
             }
 
