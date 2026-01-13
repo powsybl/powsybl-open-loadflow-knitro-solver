@@ -66,6 +66,9 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 .setThreadNumber(knitroLoadFlowParameters.getThreadNumber());
 
         }
+        if (knitroSolverParameters.getGradientUserRoutine() == 1 && knitroSolverParameters.getGradientComputationMode() == 1 && knitroSolverParameters.getSolverType() == KnitroSolverParameters.SolverType.USE_REACTIVE_LIMITS) {
+            throw new PowsyblException("Cannot use reactive limits solver while using exact dense jacobian!");
+        }
         return knitroSolverParameters;
     }
 
