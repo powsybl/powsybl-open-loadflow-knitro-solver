@@ -213,7 +213,7 @@ public final class KnitroCallbacks {
                 try {
                     double value;
 
-                    if (constraintIndex < Arrays.stream(columnStart).count()) {// Find matching (variableIndex, constraintIndex) entry in sparse column
+                    if (constraintIndex < Arrays.stream(columnStart).count()) { // Find matching (variableIndex, constraintIndex) entry in sparse column
                         int colStart = columnStart[constraintIndex];
 
                         // Check if we moved to the next constraint

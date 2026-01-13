@@ -10,10 +10,8 @@ package com.powsybl.openloadflow.knitro.solver;
 import com.artelys.knitro.api.*;
 import com.artelys.knitro.api.callbacks.KNEvalGACallback;
 import com.powsybl.commons.PowsyblException;
-import com.powsybl.math.matrix.SparseMatrix;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.ac.equations.AcVariableType;
-import com.powsybl.openloadflow.ac.solver.AcSolverUtil;
 import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.network.*;
 import com.powsybl.openloadflow.network.util.VoltageInitializer;
@@ -24,7 +22,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.google.common.primitives.Doubles.toArray;
 import static com.powsybl.openloadflow.ac.equations.AcEquationType.*;
 
 /**
@@ -715,110 +712,6 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                 }
                 return value;
             }
-
-            /*@Override
-            public void evaluateGA(final List<Double> x, final List<Double> objGrad, final List<Double> jac) {
-                // Update internal state and Jacobian
-                equationSystem.getStateVector().set(toArray(x));
-                AcSolverUtil.updateNetwork(network, equationSystem);
-                jacobianMatrix.forceUpdate();
-
-                // Get sparse matrix representation
-                SparseMatrix sparseMatrix = jacobianMatrix.getMatrix().toSparse();
-                int[] columnStart = sparseMatrix.getColumnStart();
-                double[] values = sparseMatrix.getValues();
-
-                // Determine which list to use based on Knitro settings
-                List<Integer> constraintIndices;
-                List<Integer> variableIndices;
-
-                int routineType = knitroParameters.getGradientUserRoutine();
-                if (routineType == 1) {
-                    constraintIndices = denseConstraintIndices;
-                    variableIndices = denseVariableIndices;
-                } else if (routineType == 2) {
-                    constraintIndices = sparseConstraintIndices;
-                    variableIndices = sparseVariableIndices;
-                } else {
-                    throw new IllegalArgumentException("Unsupported gradientUserRoutine value: " + routineType);
-                }
-
-                // Fill Jacobian values
-                boolean firstIteration = true;
-                int iRowIndices = 0;
-                int currentConstraint = -1;
-                int numVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
-                for (int index = 0; index < constraintIndices.size(); index++) {
-                    try {
-                        if (firstIteration) {
-                            currentConstraint = constraintIndices.get(index);
-                        }
-
-                        int ct = constraintIndices.get(index);
-                        int var = variableIndices.get(index);
-                        double value;
-
-                        if (ct < Arrays.stream(columnStart).count()) {
-
-                            // Find matching (var, ct) entry in sparse column
-                            int colStart = columnStart[ct];
-
-                            if (!firstIteration && currentConstraint != ct) {
-                                iRowIndices = 0;
-                                currentConstraint = ct;
-                            }
-
-                            if (var >= numVariables) {
-                                if (((var - numVariables) & 1) == 0) {
-                                    // set Jacobian entry to -1.0 if slack variable is Sm
-                                    value = -1.0;
-                                } else {
-                                    // set Jacobian entry to +1.0 if slack variable is Sp
-                                    value = 1.0;
-                                }
-                            } else {
-                                value = values[colStart + iRowIndices++];
-                            }
-                            jac.set(index, value);
-                            if (firstIteration) {
-                                firstIteration = false;
-                            }
-                        } else { // Case of Unactivated Q equations
-                            // If var is a LF variable : derivate non-activated equations
-                            value = 0.0;
-                            Equation<AcVariableType, AcEquationType> equation = INDEQUNACTIVEQ.get(ct);
-                            if (var < numLFVar) {
-                                // add non-linear terms
-                                for (Map.Entry<Variable<AcVariableType>, List<EquationTerm<AcVariableType, AcEquationType>>> e : equation.getTermsByVariable().entrySet()) {
-                                    for (EquationTerm<AcVariableType, AcEquationType> term : e.getValue()) {
-                                        Variable<AcVariableType> v = e.getKey();
-                                        if (indRowVariable.get(var) == v) {
-                                            value += term.isActive() ? term.der(v) : 0;
-                                        }
-
-                                    }
-                                }
-                            }
-                            // Check if var is a b_low or b_up var
-                            if (var >= numLFVar + 2 * (numPQEq + numVEq)) {
-                                int rest = (var - numLFVar - 2 * (numPQEq + numVEq)) % 5;
-                                if (rest == 2) {
-                                    // set Jacobian entry to -1.0 if variable is b_low
-                                    value = -1.0;
-                                } else if (rest == 3) {
-                                    // set Jacobian entry to 1.0 if variable is b_up
-                                    value = 1.0;
-                                }
-                            }
-                            jac.set(index, value);
-                        }
-                    } catch (Exception e) {
-                        int varId = routineType == 1 ? denseVariableIndices.get(index) : sparseVariableIndices.get(index);
-                        int ctId = routineType == 1 ? denseConstraintIndices.get(index) : sparseConstraintIndices.get(index);
-                        LOGGER.error("Error while filling Jacobian term at var {} and constraint {}", varId, ctId, e);
-                    }
-                }
-            }*/
         }
     }
 }
