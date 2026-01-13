@@ -685,6 +685,38 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             }
 
             @Override
+            protected double computeAddedConstraintJacobianValue(int variableIndex, int constraintIndex) {
+                // Case of Unactivated Q equations
+                // If var is a LF variable : derivate non-activated equations
+                double value = 0.0;
+                Equation<AcVariableType, AcEquationType> equation = INDEQUNACTIVEQ.get(constraintIndex);
+                if (variableIndex < numLFVar) {
+                    // add non-linear terms
+                    for (Map.Entry<Variable<AcVariableType>, List<EquationTerm<AcVariableType, AcEquationType>>> e : equation.getTermsByVariable().entrySet()) {
+                        for (EquationTerm<AcVariableType, AcEquationType> term : e.getValue()) {
+                            Variable<AcVariableType> v = e.getKey();
+                            if (indRowVariable.get(variableIndex) == v) {
+                                value += term.isActive() ? term.der(v) : 0;
+                            }
+
+                        }
+                    }
+                }
+                // Check if var is a b_low or b_up var
+                if (variableIndex >= numLFVar + 2 * (numPQEq + numVEq)) {
+                    int rest = (variableIndex - numLFVar - 2 * (numPQEq + numVEq)) % 5;
+                    if (rest == 2) {
+                        // set Jacobian entry to -1.0 if variable is b_low
+                        value = -1.0;
+                    } else if (rest == 3) {
+                        // set Jacobian entry to 1.0 if variable is b_up
+                        value = 1.0;
+                    }
+                }
+                return value;
+            }
+
+            /*@Override
             public void evaluateGA(final List<Double> x, final List<Double> objGrad, final List<Double> jac) {
                 // Update internal state and Jacobian
                 equationSystem.getStateVector().set(toArray(x));
@@ -767,7 +799,6 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                                     }
                                 }
                             }
-                            // todo last resort is check how it was here !
                             // Check if var is a b_low or b_up var
                             if (var >= numLFVar + 2 * (numPQEq + numVEq)) {
                                 int rest = (var - numLFVar - 2 * (numPQEq + numVEq)) % 5;
@@ -787,7 +818,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                         LOGGER.error("Error while filling Jacobian term at var {} and constraint {}", varId, ctId, e);
                     }
                 }
-            }
+            }*/
         }
     }
 }
