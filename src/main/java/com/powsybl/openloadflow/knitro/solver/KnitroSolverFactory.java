@@ -8,6 +8,7 @@
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.google.auto.service.AutoService;
+import com.powsybl.commons.PowsyblException;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.ac.AcLoadFlowParameters;
@@ -64,6 +65,9 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 .setSolverType(knitroLoadFlowParameters.getKnitroSolverType())
                 .setThreadNumber(knitroLoadFlowParameters.getThreadNumber());
 
+        }
+        if (knitroSolverParameters.getGradientUserRoutine() == 1 && knitroSolverParameters.getGradientComputationMode() == 1 && knitroSolverParameters.getSolverType() == KnitroSolverParameters.SolverType.USE_REACTIVE_LIMITS) {
+            throw new PowsyblException("Cannot use reactive limits solver while using exact dense jacobian!");
         }
         return knitroSolverParameters;
     }
