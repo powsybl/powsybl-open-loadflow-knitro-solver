@@ -114,7 +114,7 @@ public final class KnitroCallbacks {
          * Allows modification of the constraint value.
          * Default implementation returns no modification.
          * Should be overridden by subclasses that modify the callbacks of Jacobian matrix
-         * (e.g., to add relaxation variables in {@link AbstractRelaxedKnitroSolver.RelaxedKnitroProblem}).
+         * (e.g., to add relaxation variables in {@link AbstractRelaxedKnitroSolver.AbstractRelaxedKnitroProblem}).
          *
          * @param equationId The equation ID.
          * @param equationType The equation type.
@@ -251,7 +251,7 @@ public final class KnitroCallbacks {
         /**
          * Computes a modified Jacobian value. Default implementation returns 0.
          * Should be overridden by subclasses that modify the callbacks of Jacobian matrix
-         * (e.g., to add relaxation variables in {@link AbstractRelaxedKnitroSolver.RelaxedKnitroProblem}).
+         * (e.g., to add relaxation variables in {@link AbstractRelaxedKnitroSolver.AbstractRelaxedKnitroProblem}).
          */
         protected double computeModifiedJacobianValue(int variableIndex, int constraintIndex) {
             return 0.0;

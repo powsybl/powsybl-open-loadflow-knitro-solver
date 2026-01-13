@@ -212,7 +212,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
         }
     }
 
-    private final class UseReactiveLimitsKnitroProblem extends AbstractRelaxedKnitroProblem {
+    public final class UseReactiveLimitsKnitroProblem extends AbstractRelaxedKnitroProblem {
 
         // objects to retrieve the complete form of the equation system that we seek to satisfy as constraints
         // of the optimization problem

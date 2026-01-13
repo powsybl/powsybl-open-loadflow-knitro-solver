@@ -247,7 +247,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     }
 
     /**
-     * Optimization problem solving the open load flow equation system by minimizing constraint violations through relaxation.
+     * Optimization problem-solving the open load flow equation system by minimizing constraint violations through relaxation.
      */
     public abstract class AbstractRelaxedKnitroProblem extends AbstractKnitroProblem {
 

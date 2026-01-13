@@ -31,7 +31,7 @@ import java.util.stream.IntStream;
  *  - Initialization and definition of variable bounds for the optimization problem.
  *  - Definition of constraints (including those evaluated via callbacks in {@link KnitroCallbacks}).
  *  - Representation of the constraint Jacobian for the problem.
- * This class can be extended to customize any of these features (e.g., in {@link AbstractRelaxedKnitroSolver.RelaxedKnitroProblem}).
+ * This class can be extended to customize any of these features (e.g., in {@link AbstractRelaxedKnitroSolver.AbstractRelaxedKnitroProblem}).
  * For example, if you modify the optimization problem, you may also need to update the initialization of additional variables.
  *
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
@@ -127,6 +127,11 @@ public abstract class AbstractKnitroProblem extends KNProblem {
         // no customization by default
     }
 
+    /**
+     * Allows subclasses to utilize scaling.
+     * Default implementation does nothing.
+     *
+     */
     protected void setUpScalingFactors() throws KNException {
         // no customization by default
     }
