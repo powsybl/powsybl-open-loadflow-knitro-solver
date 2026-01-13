@@ -22,14 +22,16 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * TODO: update
- * Relaxed Knitro solver, solving the open load flow equation system by minimizing constraint violations through relaxation.
- * This class additionally provides:
- *  - Post-processing of the computed solutions, including the reporting of relaxation variables.
- *  - An extended optimization problem formulation dedicated to solving the open load flow equation system.
+ * Abstract class for relaxed Knitro solvers, solving the open load flow equation system by minimizing constraint violations through relaxation.
+ * It provides common functionality, including:
+ *      - Post-processing of the computed solutions, including the reporting of relaxation variables.
+ *      - An extended optimization problem formulation dedicated to solving the open load flow equation system, including relaxations.
+ * This class can be extended to add custom behavior to any of these features (e.g., in {@link com.powsybl.openloadflow.knitro.solver.UseReactiveLimitsKnitroSolver}).
+ * For example, if you modify the optimization problem, you may also need to update the solution-processing logic.
  *
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
+ * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  */
 public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
@@ -61,15 +63,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     protected final Map<Integer, Integer> qEquationLocalIds;
     protected final Map<Integer, Integer> vEquationLocalIds;
 
-    public AbstractRelaxedKnitroSolver(
-            LfNetwork network,
-            KnitroSolverParameters knitroParameters,
-            EquationSystem<AcVariableType, AcEquationType> equationSystem,
-            JacobianMatrix<AcVariableType, AcEquationType> j,
-            TargetVector<AcVariableType, AcEquationType> targetVector,
-            EquationVector<AcVariableType, AcEquationType> equationVector,
-            boolean detailedReport) {
-
+    protected AbstractRelaxedKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                                          JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
+                                          EquationVector<AcVariableType, AcEquationType> equationVector, boolean detailedReport) {
         super(network, knitroParameters, equationSystem, j, targetVector, equationVector, detailedReport);
 
         List<Equation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedEquationsToSolve();
