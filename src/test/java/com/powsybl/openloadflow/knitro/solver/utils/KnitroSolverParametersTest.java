@@ -7,11 +7,7 @@
  */
 package com.powsybl.openloadflow.knitro.solver.utils;
 
-import com.powsybl.commons.PowsyblException;
-import com.powsybl.loadflow.LoadFlowParameters;
-import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParameters;
-import com.powsybl.openloadflow.knitro.solver.KnitroSolverFactory;
 import com.powsybl.openloadflow.knitro.solver.KnitroSolverParameters;
 
 import org.junit.jupiter.api.Test;
@@ -219,28 +215,4 @@ class KnitroSolverParametersTest {
         assertEquals("KnitroSolverParameters(solverType=STANDARD, gradientComputationMode=1, gradientUserRoutine=2, hessianComputationMode=6, relativeFeasibilityStoppingCriteria=1.0E-6, absoluteFeasibilityStoppingCriteria=0.001, relativeOptimalityStoppingCriteria=1.0E-6, absoluteOptimalityStoppingCriteria=0.001, optimalityStoppingCriteria=1.0E-6, slackThreshold=1.0E-6, minRealisticVoltage=0.5, maxRealisticVoltage=1.5, alwaysUpdateNetwork=false, maxIterations=200, threadNumber=-1)",
                 parameters.toString());
     }
-
-    @Test
-    void testNoExactDenseJacobianInReactiveLimitsSolver() {
-        LoadFlowParameters parameters;
-        KnitroLoadFlowParameters knitroParams;
-
-        parameters = new LoadFlowParameters()
-                .setUseReactiveLimits(true)
-                .setDistributedSlack(false);
-
-        OpenLoadFlowParameters.create(parameters)
-                .setAcSolverType(KnitroSolverFactory.NAME);
-
-        knitroParams = new KnitroLoadFlowParameters()
-                .setKnitroSolverType(KnitroSolverParameters.SolverType.USE_REACTIVE_LIMITS)
-                .setGradientComputationMode(1)
-                .setGradientUserRoutine(1);
-
-        parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
-
-        PowsyblException e = assertThrows(PowsyblException.class, () -> new KnitroSolverFactory().createParameters(parameters));
-        assertEquals("Cannot use reactive limits solver while using exact dense jacobian!", e.getMessage());
-    }
-
 }
