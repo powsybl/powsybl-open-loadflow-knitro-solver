@@ -548,20 +548,22 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
                 // otherwise, these are bLow and bUp constraints and the term must be added
                 } else {
-                    int nmbreEqUnactivated = sortedEquationsToSolve.stream().filter(
+                    int numNotActiveEquations = sortedEquationsToSolve.stream().filter(
                             e -> !e.isActive()).toList().size();
                     int elemNum = equation.getElementNum();
                     int elemNumControlledBus = problemInstance.getElemNumControlledBus(elemNum);
                     List<Equation<AcVariableType, AcEquationType>> controlledBusEquations = sortedEquationsToSolve.stream()
                             .filter(e -> e.getElementNum() == elemNumControlledBus).toList();
-                    // the V equation
+                    // the voltage set point equation
                     Equation<AcVariableType, AcEquationType> equationV = controlledBusEquations.stream().filter(e -> e.getType() == BUS_TARGET_V).toList().getFirst();
                     int equationVId = sortedEquationsToSolve.indexOf(equationV);                                        //Index of V equation
                     int compVarBaseIndex = problemInstance.getComplementarityVarBaseIndex(equationVId);
-                    if (equationId - sortedEquationsToSolve.size() + nmbreEqUnactivated / 2 < 0) { // Q_low Constraint
+                    // bLow constraint
+                    if (equationId - sortedEquationsToSolve.size() + numNotActiveEquations / 2 < 0) {
                         double bLow = x.get(compVarBaseIndex + 2);
                         constraintValue -= bLow;
-                    } else {    // Q_up Constraint
+                    // bUp Constraint
+                    } else {
                         double bUp = x.get(compVarBaseIndex + 3);
                         constraintValue += bUp;
                     }
@@ -583,16 +585,10 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
             private final Map<Integer, Variable<AcVariableType>> indRowVariable = new LinkedHashMap<>();
 
-            private UseReactiveLimitsCallbackEvalG(
-                    JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                    List<Integer> denseConstraintIndices,
-                    List<Integer> denseVariableIndices,
-                    List<Integer> sparseConstraintIndices,
-                    List<Integer> sparseVariableIndices,
-                    LfNetwork network,
-                    EquationSystem<AcVariableType, AcEquationType> equationSystem,
-                    KnitroSolverParameters knitroParameters,
-                    int numLFVariables) {
+            private UseReactiveLimitsCallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
+                    List<Integer> denseConstraintIndices, List<Integer> denseVariableIndices, List<Integer> sparseConstraintIndices,
+                    List<Integer> sparseVariableIndices, LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                    KnitroSolverParameters knitroParameters, int numLFVariables) {
 
                 super(jacobianMatrix, denseConstraintIndices, denseVariableIndices, sparseConstraintIndices, sparseVariableIndices,
                         network, equationSystem, knitroParameters, numLFVariables);
@@ -603,8 +599,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                         e -> e.getType() == BUS_TARGET_V).toList().size();
 
                 this.numPQEq = equationSystem.getIndex().getSortedEquationsToSolve().stream().filter(
-                        e -> e.getType() == BUS_TARGET_Q ||
-                                e.getType() == BUS_TARGET_P).toList().size();
+                        e -> e.getType() == BUS_TARGET_Q || e.getType() == BUS_TARGET_P).toList().size();
 
                 List<Variable<AcVariableType>> listVar = equationSystem.getVariableSet().getVariables().stream().toList();
                 for (Variable<AcVariableType> variable : listVar) {
