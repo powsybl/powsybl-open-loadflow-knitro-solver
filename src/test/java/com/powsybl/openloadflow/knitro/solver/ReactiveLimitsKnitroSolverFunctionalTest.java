@@ -21,6 +21,8 @@ import com.powsybl.openloadflow.network.EurostagFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.CompletionException;
+
 import static com.powsybl.openloadflow.util.LoadFlowAssert.assertReactivePowerEquals;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -137,7 +139,6 @@ class ReactiveLimitsKnitroSolverFunctionalTest {
 
         // verify convergence using exact jacobian
         knitroParams.setGradientComputationMode(1);
-        parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
         result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
 
@@ -169,7 +170,6 @@ class ReactiveLimitsKnitroSolverFunctionalTest {
 
         // verify convergence using exact jacobian
         knitroParams.setGradientComputationMode(1);
-        parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
         result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
 
@@ -210,7 +210,6 @@ class ReactiveLimitsKnitroSolverFunctionalTest {
 
         // verify convergence using exact jacobian
         knitroParams.setGradientComputationMode(1);
-        parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
         result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
 
@@ -261,7 +260,6 @@ class ReactiveLimitsKnitroSolverFunctionalTest {
 
         // verify convergence using exact jacobian
         knitroParams.setGradientComputationMode(1);
-        parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
         result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
 
@@ -283,5 +281,17 @@ class ReactiveLimitsKnitroSolverFunctionalTest {
         Network network = IeeeCdfNetworkFactory.create30();
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged(), "Not Fully Converged");
+    }
+
+    @Test
+    void testExactDenseJacobianException() {
+        // configuration to run generator reactive limits Knitro solver with exact dense Jacobian computation mode
+        knitroParams.setGradientComputationMode(1)
+                .setGradientUserRoutine(1);
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
+        Network network = IeeeCdfNetworkFactory.create14();
+        CompletionException e = assertThrows(CompletionException.class, () -> loadFlowRunner.run(network, parameters));
+        assertEquals("com.powsybl.commons.PowsyblException: Cannot create generator reactive limits Knitro problem with exact dense gradient computation mode",
+                e.getMessage());
     }
 }

@@ -163,6 +163,11 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
     @Override
     protected KNProblem createKnitroProblem(VoltageInitializer voltageInitializer) {
+        if (knitroParameters.getGradientUserRoutine() == 1
+                && knitroParameters.getGradientComputationMode() == 1) {
+            throw new PowsyblException("Cannot create generator reactive limits Knitro problem with exact dense gradient computation mode");
+        }
+
         try {
             return new UseReactiveLimitsKnitroProblem(network, equationSystem, targetVector, j, knitroParameters, voltageInitializer);
         } catch (KNException e) {

@@ -106,20 +106,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
     }
 
-    /**
-     * Gets the best solution found by the solver.
-     * When the relaxed solver is called on large instances, it is possible that no solution
-     * exactly satisfying the convergence criteria has been found, yet good solutions
-     * may still be available.
-     *
-     * @param solver The Knitro solver instance.
-     * @return The best solution.
-     */
-    @Override
-    protected KNSolution getSolution(KNSolver solver) {
-        return solver.getBestFeasibleIterate();
-    }
-
     @Override
     protected void processSolution(KNSolver solver, KNSolution solution, KNProblem problemInstance) {
         super.processSolution(solver, solution, problemInstance);
