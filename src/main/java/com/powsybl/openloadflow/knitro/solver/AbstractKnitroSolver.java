@@ -143,7 +143,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
      * @param solver The Knitro solver instance.
      * @return The solution.
      */
-    protected KNSolution getSolution(KNSolver solver) {
+    protected KNSolution getSolution(KNSolver solver) throws KNException {
         return solver.getSolution();
     }
 
@@ -173,6 +173,8 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
 
         try {
             instance = createKnitroProblem(voltageInitializer);
+        } catch (PowsyblException e) {
+            throw e;
         } catch (Exception e) {
             throw new PowsyblException("Exception while trying to build Knitro Problem", e);
         }
