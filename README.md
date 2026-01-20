@@ -179,8 +179,9 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
       - `RELAXED` : the optimisation problem formulation relaxing satisfaction problem.
       - `USE_REACTIVE_LIMITS` : the optimization problem formulation relaxing satisfaction problem and integrating reactive limits in constraints.
       Note that using this solver requires disabling the `useReactiveLimits` parameter in `LoadFlowParameters`, for compatibility reasons with the way outer 
-     loops are launched in Open-Load-Flow. Doing so, the Open-Load-Flow checks that disable voltage control when the reactive power bounds are not sufficiently 
-     large are not performed, which may explain some of the differences in results between the Newton–Raphson solver and the Knitro solver. This will be addressed in a near future.
+      loops are launched in Open-Load-Flow. Doing so, the Open-Load-Flow checks that disable voltage control when the reactive power bounds are not sufficiently 
+      large (see [OLF documentation](https://powsybl.readthedocs.io/projects/powsybl-open-loadflow/en/latest/loadflow/parameters.html)) are not performed, which may explain some of the differences in results between the Newton–Raphson solver and the Knitro solver. 
+      This will be addressed in a near future.
     - Use `setKnitroSolverType` in the `KnitroLoadFlowParameters` extension.
 
 2. **Voltage Bounds**:
