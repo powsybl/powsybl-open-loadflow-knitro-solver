@@ -292,7 +292,16 @@ class UseReactiveLimitsKnitroSolverTest {
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
         Network network = IeeeCdfNetworkFactory.create14();
         CompletionException e = assertThrows(CompletionException.class, () -> loadFlowRunner.run(network, parameters));
-        assertEquals("com.powsybl.commons.PowsyblException: Cannot create generator reactive limits Knitro problem with exact dense gradient computation mode",
+        assertEquals("com.powsybl.commons.PowsyblException: Knitro generator reactive limits is incompatible with exact dense jacobian computation mode: gradientUserRoutine KnitroLoadFlowParameters should be switched to 1",
+                e.getMessage());
+    }
+
+    @Test
+    void testUseReactiveLimitsOuterLoopException() {
+        parameters.setUseReactiveLimits(true);
+        Network network = IeeeCdfNetworkFactory.create14();
+        CompletionException e = assertThrows(CompletionException.class, () -> loadFlowRunner.run(network, parameters));
+        assertEquals("com.powsybl.commons.PowsyblException: Knitro generator reactive limits and reactive limits outer loop cannot work simultaneously: useReactiveLimits LoadFlowParameter should be switched to false",
                 e.getMessage());
     }
 }

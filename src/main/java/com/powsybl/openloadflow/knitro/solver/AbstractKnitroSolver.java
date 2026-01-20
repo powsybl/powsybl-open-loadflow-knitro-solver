@@ -170,8 +170,6 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
 
         try {
             instance = createKnitroProblem(voltageInitializer);
-        } catch (PowsyblException e) {
-            throw e;
         } catch (Exception e) {
             throw new PowsyblException("Exception while trying to build Knitro Problem", e);
         }
