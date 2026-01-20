@@ -20,7 +20,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Abstract class for relaxed Knitro solvers, solving the open load flow equation system by minimizing constraint violations through relaxation.
@@ -249,57 +248,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                                                TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                                                KnitroSolverParameters knitroParameters, int numAdditionalVariables, int numAdditionalConstraints) {
             super(network, equationSystem, targetVector, jacobianMatrix, knitroParameters, numAdditionalVariables, numAdditionalConstraints);
-        }
-
-        /**
-         * Returns the sparsity pattern of the hessian matrix associated with the problem.
-         *
-         * @param nonlinearConstraintIndexes A list of the indexes of non-linear equations.
-         * @return row and column coordinates of non-zero entries in the hessian matrix.
-         */
-        protected AbstractMap.SimpleEntry<List<Integer>, List<Integer>> getHessNnzRowsAndCols(List<Integer> nonlinearConstraintIndexes) {
-            record NnzCoordinates(int iRow, int iCol) {
-            }
-
-            Set<NnzCoordinates> hessianEntries = new LinkedHashSet<>();
-
-            // Non-linear constraints contributions in the hessian matrix
-            for (int index : nonlinearConstraintIndexes) {
-                Equation<AcVariableType, AcEquationType> equation = equationSystem.getIndex().getSortedEquationsToSolve().get(index);
-                for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                    for (Variable<AcVariableType> var1 : term.getVariables()) {
-                        int i = var1.getRow();
-                        for (Variable<AcVariableType> var2 : term.getVariables()) {
-                            int j = var2.getRow();
-                            if (j >= i) {
-                                hessianEntries.add(new NnzCoordinates(i, j));
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Slacks variables contributions in the objective function
-            for (int iSlack = numberOfPowerFlowVariables; iSlack < numTotalVariables; iSlack++) {
-                hessianEntries.add(new NnzCoordinates(iSlack, iSlack));
-                if (((iSlack - numberOfPowerFlowVariables) & 1) == 0) {
-                    hessianEntries.add(new NnzCoordinates(iSlack, iSlack + 1));
-                }
-            }
-
-            // Sort the entries by row and column indices
-            hessianEntries = hessianEntries.stream()
-                    .sorted(Comparator.comparingInt(NnzCoordinates::iRow).thenComparingInt(NnzCoordinates::iCol))
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-
-            List<Integer> hessRows = new ArrayList<>();
-            List<Integer> hessCols = new ArrayList<>();
-            for (NnzCoordinates entry : hessianEntries) {
-                hessRows.add(entry.iRow());
-                hessCols.add(entry.iCol());
-            }
-
-            return new AbstractMap.SimpleEntry<>(hessRows, hessCols);
         }
 
         void addObjectiveFunction(int numPEquations, int slackPStartIndex, int numQEquations, int slackQStartIndex,

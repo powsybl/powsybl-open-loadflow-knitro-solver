@@ -19,9 +19,6 @@ import com.powsybl.openloadflow.equations.TargetVector;
 import com.powsybl.openloadflow.network.LfNetwork;
 import com.powsybl.openloadflow.network.util.VoltageInitializer;
 
-import java.util.AbstractMap;
-import java.util.List;
-
 /**
  * Relaxed Knitro solver, solving the open load flow equation system by minimizing constraint violations through relaxation.
  *
@@ -78,10 +75,6 @@ public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver {
 
             // set the representation of the Jacobian matrix (dense or sparse)
             setJacobianMatrix(activeConstraints, nonlinearConstraintIndexes);
-
-            // set the representation of the Hessian matrix
-            AbstractMap.SimpleEntry<List<Integer>, List<Integer>> hessNnz = getHessNnzRowsAndCols(nonlinearConstraintIndexes);
-            setHessNnzPattern(hessNnz.getKey(), hessNnz.getValue());
 
             // set the objective function of the optimization problem
             addObjectiveFunction(numPEquations, slackPStartIndex, numQEquations, slackQStartIndex, numVEquations, slackVStartIndex);
