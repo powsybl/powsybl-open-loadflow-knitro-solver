@@ -8,12 +8,12 @@
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.google.auto.service.AutoService;
+import com.powsybl.commons.PowsyblException;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.ac.AcLoadFlowParameters;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.ac.equations.AcVariableType;
-import com.powsybl.openloadflow.ac.outerloop.ReactiveLimitsOuterLoop;
 import com.powsybl.openloadflow.ac.solver.AcSolver;
 import com.powsybl.openloadflow.ac.solver.AcSolverFactory;
 import com.powsybl.openloadflow.ac.solver.AcSolverParameters;
@@ -22,8 +22,6 @@ import com.powsybl.openloadflow.equations.EquationVector;
 import com.powsybl.openloadflow.equations.JacobianMatrix;
 import com.powsybl.openloadflow.equations.TargetVector;
 import com.powsybl.openloadflow.network.LfNetwork;
-
-import java.util.Objects;
 
 /**
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
@@ -80,17 +78,23 @@ public class KnitroSolverFactory implements AcSolverFactory {
         return switch (knitroSolverType) {
             case STANDARD -> new KnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
             case RELAXED -> new RelaxedKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
-            case USE_REACTIVE_LIMITS -> {
-                // since reactive limits are taken into account in the Knitro solver, there is no need to activate the outer loop
-                // it is disabled to avoid different treatments for handling limits between the outer loop and the solver
-                parameters.getOuterLoops().removeIf(o -> Objects.equals(o.getName(), ReactiveLimitsOuterLoop.NAME));
-                yield new UseReactiveLimitsKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
-            }
+            case USE_REACTIVE_LIMITS -> new UseReactiveLimitsKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
         };
     }
 
     @Override
     public void checkSolverAndParameterConsistency(LoadFlowParameters loadFlowParameters, OpenLoadFlowParameters openLoadFlowParameters) {
-        // no current incompatibilities between Knitro Solver and parameters
+        KnitroLoadFlowParameters knitroLoadFlowParameters = loadFlowParameters.getExtension(KnitroLoadFlowParameters.class);
+        if (knitroLoadFlowParameters != null && knitroLoadFlowParameters.getKnitroSolverType() == KnitroSolverParameters.SolverType.USE_REACTIVE_LIMITS) {
+            // since reactive limits are taken into account in the Knitro solver, there is no need to activate the outer loop
+            if (loadFlowParameters.isUseReactiveLimits()) {
+                throw new PowsyblException("Knitro generator reactive limits and reactive limits outer loop cannot work simultaneously: useReactiveLimits LoadFlowParameter should be switched to false");
+            }
+
+            // exact dense Jacobian computation mode is not supported by Knitro generator reactive limits solver
+            if (knitroLoadFlowParameters.getGradientComputationMode() == 1 && knitroLoadFlowParameters.getGradientUserRoutine() == 1) {
+                throw new PowsyblException("Knitro generator reactive limits is incompatible with exact dense jacobian computation mode: gradientUserRoutine KnitroLoadFlowParameters should be switched to 1");
+            }
+        }
     }
 }
