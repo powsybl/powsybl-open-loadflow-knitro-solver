@@ -41,7 +41,8 @@ class ReactiveLimitsKnitroSolverFunctionalTest {
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
 
         parameters = new LoadFlowParameters()
-                .setUseReactiveLimits(true)
+                // no need to activate reactive limits outer loop as this is directly supported by use reactive limits knitro solver
+                .setUseReactiveLimits(false)
                 .setDistributedSlack(false);
 
         OpenLoadFlowParameters.create(parameters)
