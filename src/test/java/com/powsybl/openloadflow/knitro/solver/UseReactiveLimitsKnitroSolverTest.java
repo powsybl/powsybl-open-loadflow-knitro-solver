@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Yoann Anezin {@literal <yoann.anezin at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
-class ReactiveLimitsKnitroSolverFunctionalTest {
+class UseReactiveLimitsKnitroSolverTest {
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
     private KnitroLoadFlowParameters knitroParams;
@@ -120,7 +120,7 @@ class ReactiveLimitsKnitroSolverFunctionalTest {
     }
 
     /**
-     * Perturbation of the network to urge a PV-PQ switch and set the new PQ bus to the lower bound on reactive power
+     * Modification of the network to urge a PV-PQ switch and set the new PQ bus to the lower bound on reactive power
      */
     @Test
     void testReacLimEurostagQlow() {
@@ -149,7 +149,7 @@ class ReactiveLimitsKnitroSolverFunctionalTest {
     }
 
     /**
-     * Perturbation of the network to urge a PV-PQ switch and set the new PQ bus to the upper bound on reactive power
+     * Modification of the network to urge a PV-PQ switch and set the new PQ bus to the upper bound on reactive power
      */
     @Test
     void testReacLimEurostagQup() {
