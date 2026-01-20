@@ -9,10 +9,10 @@ package com.powsybl.openloadflow.knitro.solver.utils;
 
 import com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroSolverParameters;
-
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
@@ -215,4 +215,5 @@ class KnitroSolverParametersTest {
         assertEquals("KnitroSolverParameters(solverType=STANDARD, gradientComputationMode=1, gradientUserRoutine=2, hessianComputationMode=6, relativeFeasibilityStoppingCriteria=1.0E-6, absoluteFeasibilityStoppingCriteria=0.001, relativeOptimalityStoppingCriteria=1.0E-6, absoluteOptimalityStoppingCriteria=0.001, optimalityStoppingCriteria=1.0E-6, slackThreshold=1.0E-6, minRealisticVoltage=0.5, maxRealisticVoltage=1.5, alwaysUpdateNetwork=false, maxIterations=200, threadNumber=-1)",
                 parameters.toString());
     }
+
 }
