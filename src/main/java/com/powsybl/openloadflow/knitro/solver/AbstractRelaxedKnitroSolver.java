@@ -154,15 +154,15 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 name = getSlackVariableBusName(i, type);
 
                 switch (type) {
-                    case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB);
-                    case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * PerUnit.SB);
+                    case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.5f MW)", epsilon, epsilon * PerUnit.SB);
+                    case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.5f MVAr)", epsilon, epsilon * PerUnit.SB);
                     case "V" -> {
                         var bus = network.getBusById(name);
                         if (bus == null) {
                             LOGGER.warn("Bus {} not found while logging V slack.", name);
                             shouldSkip = true;
                         } else {
-                            interpretation = String.format("ΔV = %.4f p.u. (%.1f kV)", epsilon, epsilon * bus.getNominalV());
+                            interpretation = String.format("ΔV = %.4f p.u. (%.5f kV)", epsilon, epsilon * bus.getNominalV());
                         }
                     }
                     default -> interpretation = "Unknown slack type";
