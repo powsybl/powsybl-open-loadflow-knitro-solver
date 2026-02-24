@@ -81,14 +81,14 @@ public abstract class AbstractKnitroProblem extends KNProblem {
      */
     protected void initializeVariables(VoltageInitializer voltageInitializer) throws KNException {
         List<Integer> variableTypes = new ArrayList<>(Collections.nCopies(numTotalVariables, KNConstants.KN_VARTYPE_CONTINUOUS));
-        List<Double> lowerBounds = new ArrayList<>(Collections.nCopies(numTotalVariables, -KNConstants.KN_INFINITY));
+        List<Double> lowerBounds = new ArrayList<>(Collections.nCopies(numTotalVariables, -KNConstants.KN_INFINITY)); // def des slack
         List<Double> upperBounds = new ArrayList<>(Collections.nCopies(numTotalVariables, KNConstants.KN_INFINITY));
         List<Double> initialValues = new ArrayList<>(Collections.nCopies(numTotalVariables, 0.0));
 
         setVarTypes(variableTypes);
 
         // Compute initial state (V, Theta) using the given initializer
-        AcSolverUtil.initStateVector(network, equationSystem, voltageInitializer);
+        AcSolverUtil.initStateVector(network, equationSystem, voltageInitializer); // find all Vi
         for (int i = 0; i < numberOfPowerFlowVariables; i++) {
             initialValues.set(i, equationSystem.getStateVector().get(i));
         }
@@ -97,8 +97,8 @@ public abstract class AbstractKnitroProblem extends KNProblem {
         List<Variable<AcVariableType>> sortedVariables = equationSystem.getIndex().getSortedVariablesToFind();
         for (int i = 0; i < numberOfPowerFlowVariables; i++) {
             if (sortedVariables.get(i).getType() == AcVariableType.BUS_V) {
-                lowerBounds.set(i, knitroParameters.getLowerVoltageBound());
-                upperBounds.set(i, knitroParameters.getUpperVoltageBound());
+                lowerBounds.set(i, knitroParameters.getLowerVoltageBound()); // 0.5 <= Vi
+                upperBounds.set(i, knitroParameters.getUpperVoltageBound()); // Vi <= 2 dans le papier Vi<=1.5 dans les paramètres
             }
         }
 
