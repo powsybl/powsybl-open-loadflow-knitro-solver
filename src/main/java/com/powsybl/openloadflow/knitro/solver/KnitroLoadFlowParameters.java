@@ -6,16 +6,16 @@
  * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.openloadflow.knitro.solver;
-
+import java.util.Optional;
+//port com.google.common.base.Optional;
 import com.powsybl.commons.extensions.AbstractExtension;
 import com.powsybl.loadflow.LoadFlowParameters;
-
 /**
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
-public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParameters> {
+public class KnitroLoadFlowParameters<optional> extends AbstractExtension<LoadFlowParameters> {
 
     private int gradientComputationMode = KnitroSolverParameters.DEFAULT_GRADIENT_COMPUTATION_MODE;
     private int gradientUserRoutine = KnitroSolverParameters.DEFAULT_GRADIENT_USER_ROUTINE;
@@ -30,7 +30,11 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private double slackThreshold = KnitroSolverParameters.DEFAULT_SLACK_THRESHOLD;
     private KnitroSolverParameters.SolverType knitroSolverType = KnitroSolverParameters.DEFAULT_SOLVER_TYPE;
     private int threadNumber = KnitroSolverParameters.DEFAULT_THREAD_NUMBER;
-
+    private Optional<String> exportSolution = KnitroSolverParameters.DEFAULT_EXPORT_SOLUTION;
+    // exportSolution : optionnel (String | vide) = valeur par défaut. Si défini, la solution sera exportée au chemin spécifié au format Knitro. Si vide, aucun export ne sera effectué.
+    public Optional<String> getExportSolution() {
+        return this.exportSolution;
+    }
     public int getGradientComputationMode() {
         return gradientComputationMode;
     }
