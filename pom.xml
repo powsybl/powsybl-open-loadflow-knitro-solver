@@ -162,5 +162,11 @@
             <artifactId>powsybl-ieee-cdf-converter</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.opencsv</groupId>
+            <artifactId>opencsv</artifactId>
+            <version>5.7.1</version>
+        </dependency>
+
     </dependencies>
 </project>
