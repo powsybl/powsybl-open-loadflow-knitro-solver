@@ -432,7 +432,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             }
 
             @Override
-            protected double computeModifiedJacobianValue(int variableIndex, int constraintIndex) {
+            protected double computeModifiedJacobianValue(int variableIndex) {
                 if (((variableIndex - numLFVariables) & 1) == 0) {
                     // set Jacobian entry to -1.0 if slack variable is Sm
                     return -1.0;

@@ -55,7 +55,7 @@ public class KnitroSolver extends AbstractKnitroSolver {
     /**
      * Optimization problem modeling the open load-flow equation system as a feasibility problem.
      */
-    private static final class KnitroProblem extends AbstractKnitroProblem {
+    private final class KnitroProblem extends AbstractKnitroProblem {
 
         /**
          * Knitro Problem definition with:

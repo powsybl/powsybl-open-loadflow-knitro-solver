@@ -226,7 +226,7 @@ public final class KnitroCallbacks {
                         // Check if current variableIndex is a slack variable index
                         if (variableIndex >= numLFVariables) {
                             // In this case, add corresponding value
-                            value = computeModifiedJacobianValue(variableIndex, constraintIndex);
+                            value = computeModifiedJacobianValue(variableIndex);
                             // When in dense mode, the constructed index list and the index list from powsybl don't match
                         } else if (rowIndices[colStart + iRowIndices] != variableIndex) {
                             // In this case, set corresponding value to zero
@@ -253,7 +253,7 @@ public final class KnitroCallbacks {
          * Should be overridden by subclasses that modify the callbacks of Jacobian matrix
          * (e.g., to add relaxation variables in {@link AbstractRelaxedKnitroSolver.AbstractRelaxedKnitroProblem}).
          */
-        protected double computeModifiedJacobianValue(int variableIndex, int constraintIndex) {
+        protected double computeModifiedJacobianValue(int variableIndex) {
             return 0.0;
         }
 
