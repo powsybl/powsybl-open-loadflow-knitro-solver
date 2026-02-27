@@ -55,7 +55,7 @@ public class KnitroSolver extends AbstractKnitroSolver {
     /**
      * Optimization problem modeling the open load-flow equation system as a feasibility problem.
      */
-    private static final class KnitroProblem extends AbstractKnitroProblem {
+    private final class KnitroProblem extends AbstractKnitroProblem {
 
         /**
          * Knitro Problem definition with:
@@ -70,13 +70,12 @@ public class KnitroSolver extends AbstractKnitroSolver {
                               VoltageInitializer voltageInitializer,
                               KnitroSolverParameters parameters) throws KNException {
 
-            super(lfNetwork, equationSystem, targetVector, jacobianMatrix, parameters,
-                    equationSystem.getIndex().getSortedVariablesToFind().size());
+            super(lfNetwork, equationSystem, targetVector, jacobianMatrix, parameters);
 
             LOGGER.info("Defining {} variables", numberOfPowerFlowVariables);
 
             // Initialize variables
-            initializeVariables(voltageInitializer, numberOfPowerFlowVariables);
+            initializeVariables(voltageInitializer);
             LOGGER.info("Initialization of variables : type of initialization {}", voltageInitializer);
 
             // Set up the constraints of the optimization problem

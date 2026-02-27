@@ -19,6 +19,7 @@ import com.powsybl.openloadflow.network.LfNetwork;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.primitives.Doubles.toArray;
@@ -113,7 +114,7 @@ public final class KnitroCallbacks {
          * Allows modification of the constraint value.
          * Default implementation returns no modification.
          * Should be overridden by subclasses that modify the callbacks of Jacobian matrix
-         * (e.g., to add relaxation variables in {@link RelaxedKnitroSolver.RelaxedKnitroProblem}).
+         * (e.g., to add relaxation variables in {@link AbstractRelaxedKnitroSolver.AbstractRelaxedKnitroProblem}).
          *
          * @param equationId The equation ID.
          * @param equationType The equation type.
@@ -212,27 +213,30 @@ public final class KnitroCallbacks {
                 try {
                     double value;
 
-                    // Find matching (variableIndex, constraintIndex) entry in sparse column
-                    int colStart = columnStart[constraintIndex];
+                    if (constraintIndex < Arrays.stream(columnStart).count()) { // Find matching (variableIndex, constraintIndex) entry in sparse column
+                        int colStart = columnStart[constraintIndex];
 
-                    // Check if we moved to the next constraint
-                    if (currentConstraint != constraintIndex) {
-                        // In this case, restart variable tracking slacks indices to 0 and change the currently handled constraint
-                        iRowIndices = 0;
-                        currentConstraint = constraintIndex;
-                    }
+                        // Check if we moved to the next constraint
+                        if (currentConstraint != constraintIndex) {
+                            // In this case, restart variable tracking slacks indices to 0 and change the currently handled constraint
+                            iRowIndices = 0;
+                            currentConstraint = constraintIndex;
+                        }
 
-                    // Check if current variableIndex is a slack variable index
-                    if (variableIndex >= numLFVariables) {
-                        // In this case, add corresponding value
-                        value = computeModifiedJacobianValue(variableIndex, constraintIndex);
-                    // When in dense mode, the constructed index list and the index list from powsybl don't match
-                    } else if (rowIndices[colStart + iRowIndices] != variableIndex) {
-                        // In this case, set corresponding value to zero
-                        value = 0.0;
+                        // Check if current variableIndex is a slack variable index
+                        if (variableIndex >= numLFVariables) {
+                            // In this case, add corresponding value
+                            value = computeModifiedJacobianValue(variableIndex);
+                            // When in dense mode, the constructed index list and the index list from powsybl don't match
+                        } else if (rowIndices[colStart + iRowIndices] != variableIndex) {
+                            // In this case, set corresponding value to zero
+                            value = 0.0;
+                        } else {
+                            // This is the case of a LF variable with a non-zero coefficient in the Jacobian
+                            value = values[colStart + iRowIndices++];
+                        }
                     } else {
-                        // This is the case of a LF variable with a non-zero coefficient in the Jacobian
-                        value = values[colStart + iRowIndices++];
+                        value = computeAddedConstraintJacobianValue(variableIndex, constraintIndex);
                     }
 
                     jac.set(index, value);
@@ -247,9 +251,18 @@ public final class KnitroCallbacks {
         /**
          * Computes a modified Jacobian value. Default implementation returns 0.
          * Should be overridden by subclasses that modify the callbacks of Jacobian matrix
-         * (e.g., to add relaxation variables in {@link RelaxedKnitroSolver.RelaxedKnitroProblem}).
+         * (e.g., to add relaxation variables in {@link AbstractRelaxedKnitroSolver.AbstractRelaxedKnitroProblem}).
          */
-        protected double computeModifiedJacobianValue(int variableIndex, int constraintIndex) {
+        protected double computeModifiedJacobianValue(int variableIndex) {
+            return 0.0;
+        }
+
+        /**
+         * Computes the value of an added constraint. Default implementation returns 0.
+         * Should be overridden by subclasses that modify the callbacks of Jacobian matrix
+         * (e.g., to add relaxation variables in {@link UseReactiveLimitsKnitroSolver.UseReactiveLimitsKnitroProblem}).
+         */
+        protected double computeAddedConstraintJacobianValue(int variableIndex, int constraintIndex) {
             return 0.0;
         }
     }
