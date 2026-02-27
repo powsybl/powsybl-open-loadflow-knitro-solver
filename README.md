@@ -150,7 +150,9 @@ LoadFlow.run(network, parameters);
 ## Features
 
 The Knitro solver is used as a substitute for the **inner loop calculations** in the load flow process.
-The **outer loops** such as distributed slack, reactive limits, etc... operate identically as when using the Newton-Raphson method.
+The **outer loops** such as distributed slack, voltage monitoring, etc... operate identically as when using the Newton-Raphson method.
+Note that for the reactive limits outer loop case, it is run in the standard way only when the selected Knitro solver does not directly integrate reactive 
+limits into the optimization model (cf [Knitro Parameters](#knitro-parameters)).
 
 ### Configuration
 
@@ -175,6 +177,11 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
     - **Knitro Solver Types**:
       - `STANDARD (default)` : the constraint satisfaction problem formulation and a direct substitute to the Newton-Raphson solver.
       - `RELAXED` : the optimisation problem formulation relaxing satisfaction problem.
+      - `USE_REACTIVE_LIMITS` : the optimization problem formulation relaxing satisfaction problem and integrating reactive limits in constraints.
+      Note that using this solver requires disabling the `useReactiveLimits` parameter in `LoadFlowParameters`, for compatibility reasons with the way outer 
+      loops are launched in Open-Load-Flow. Doing so, the Open-Load-Flow checks that disable voltage control when the reactive power bounds are not sufficiently 
+      large (see [OLF documentation](https://powsybl.readthedocs.io/projects/powsybl-open-loadflow/en/latest/loadflow/parameters.html)) are not performed, which may explain some of the differences in results between the Newton–Raphson solver and the Knitro solver. 
+      This will be addressed in a near future.
     - Use `setKnitroSolverType` in the `KnitroLoadFlowParameters` extension.
 
 2. **Voltage Bounds**:
