@@ -156,8 +156,8 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
     protected void updateNetworkIfRequired(KNSolution solution, AcSolverStatus solverStatus) {
         if (solverStatus == AcSolverStatus.CONVERGED || knitroParameters.isAlwaysUpdateNetwork()) {
             equationSystem.getStateVector().set(toArray(solution.getX()));
-            for (Equation<AcVariableType, AcEquationType> equation : equationSystem.getEquations()) {
-                for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
+            for (SingleEquation<AcVariableType, AcEquationType> equation : equationSystem.getEquations()) {
+                for (SingleEquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
                     term.setStateVector(equationSystem.getStateVector());
                 }
             }
@@ -210,7 +210,8 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         protected final JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix;
         protected final KnitroSolverParameters knitroParameters;
         protected final int numberOfPowerFlowVariables;
-        protected List<Equation<AcVariableType, AcEquationType>> activeConstraints = new ArrayList<>();
+        protected List<SingleEquation<AcVariableType, AcEquationType>> activeConstraints = new ArrayList<>();
+        protected List<EquationArray<AcVariableType, AcEquationType>> activeConstraintsPQ = new ArrayList<>();
         protected final List<Integer> nonlinearConstraintIndexes = new ArrayList<>();
         protected final int numTotalVariables;
 
@@ -224,7 +225,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
                                         TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                                         KnitroSolverParameters knitroParameters, int numAdditionalVariables, int numAdditionalConstraints) {
             super(equationSystem.getIndex().getSortedVariablesToFind().size() + numAdditionalVariables,
-                    equationSystem.getIndex().getSortedEquationsToSolve().size() + numAdditionalConstraints);
+                    equationSystem.getIndex().getColumnCount() + numAdditionalConstraints);
             this.numberOfPowerFlowVariables = equationSystem.getIndex().getSortedVariablesToFind().size();
             this.numTotalVariables = numberOfPowerFlowVariables + numAdditionalVariables;
             this.network = network;
@@ -302,11 +303,19 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          * Separate linear and nonlinear constraints to determine which ones
          * will be evaluated through callback functions.
          */
+
+
+
         protected void setupConstraints() throws KNException {
-            activeConstraints = equationSystem.getIndex().getSortedEquationsToSolve();
+            activeConstraints = equationSystem.getIndex().getSortedSingleEquationsToSolve();
+
             int numConstraints = activeConstraints.size();
+            // Log détaillé pour déboguer
+
 
             LOGGER.info("Defining {} active constraints", numConstraints);
+            LOGGER.info("Active constraints: {}", activeConstraints);
+
 
             NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
 
@@ -318,6 +327,8 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
 
             // right hand side (targets)
             setConEqBnds(Arrays.stream(targetVector.getArray()).boxed().toList());
+            LOGGER.info("NOn-linear constraints {}", nonlinearConstraintIndexes.size());
+
         }
 
         /**
@@ -326,7 +337,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          * @param sortedEquationsToSolve Sorted list of equations to solve.
          * @param solverUtils Utilities to extract linear constraints.
          */
-        protected void addLinearConstraints(List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+        protected void addLinearConstraints(List<SingleEquation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
                                             NonLinearExternalSolverUtils solverUtils) {
 
             for (int equationId = 0; equationId < sortedEquationsToSolve.size(); equationId++) {
@@ -342,12 +353,16 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          * @param sortedEquationsToSolve List of all equations to solve.
          * @param solverUtils Utilities to extract linear constraint components.
          */
-        protected void addConstraint(int equationId, List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+        protected void addConstraint(int equationId, List<SingleEquation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
                                      NonLinearExternalSolverUtils solverUtils) {
 
-            Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
+            SingleEquation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
             AcEquationType equationType = equation.getType();
-            List<EquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
+            List<SingleEquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
+//            List<EquationArray<AcVariableType, AcEquationType>> sortedEquationArraysToSolve
+//            EquationArray<AcVariableType, AcEquationType> equationArray = sortedEquationArraysToSolve.get(equationID);
+//            AcEquationType equationArrayType = equationArray.getType();
+//            List<EquationTermArray<AcVariableType, AcEquationType>> termsArray = equationArray.getTermArrays();
 
             if (NonLinearExternalSolverUtils.isLinear(equationType, terms)) {
                 try {
@@ -391,7 +406,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          * @param sortedEquationsToSolve The list of equations to solve.
          * @param listNonLinearConsts The list of non-linear constraint ids.
          */
-        protected void setJacobianMatrix(List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> listNonLinearConsts) {
+        protected void setJacobianMatrix(List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve, List<Integer> listNonLinearConsts) {
             // Non-zero pattern : for each constraint, we detail the variables of which the constraint is a function of.
             List<Integer> listNonZerosCtsDense = new ArrayList<>();
             List<Integer> listNonZerosVarsDense = new ArrayList<>();
@@ -406,7 +421,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
                         this.setJacNnzPattern(listNonZerosCtsDense, listNonZerosVarsDense);
                     } else if (knitroParameters.getGradientUserRoutine() == 2) {
                         // Sparse method: compute Jacobian only for variables the constraints depend on.
-                        buildSparseJacobianMatrix(sortedEquationsToSolve, listNonLinearConsts,
+                        buildSparseJacobianMatrix(sortedSingleEquationsToSolve, listNonLinearConsts,
                                 listNonZerosCtsSparse, listNonZerosVarsSparse);
                         this.setJacNnzPattern(listNonZerosCtsSparse, listNonZerosVarsSparse);
                     }
@@ -457,15 +472,15 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          * @param jacobianRowIndices Output: row indices (constraints) of non-zero Jacobian entries.
          * @param jacobianColumnIndices Output: column indices (variables) of non-zero Jacobian entries.
          */
-        protected void buildSparseJacobianMatrix(List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve, List<Integer> nonLinearConstraintIds,
+        protected void buildSparseJacobianMatrix(List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve, List<Integer> nonLinearConstraintIds,
                                                  List<Integer> jacobianRowIndices, List<Integer> jacobianColumnIndices) {
 
             for (Integer constraintIndex : nonLinearConstraintIds) {
-                Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(constraintIndex);
-                List<EquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
+                SingleEquation<AcVariableType, AcEquationType> equation = sortedSingleEquationsToSolve.get(constraintIndex);
+                List<SingleEquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
                 List<Integer> listNonZerosVarsCurrentCt = new ArrayList<>();
 
-                for (EquationTerm<AcVariableType, AcEquationType> term : terms) {
+                for (SingleEquationTerm<AcVariableType, AcEquationType> term : terms) {
                     for (Variable<AcVariableType> variable : term.getVariables()) {
                         listNonZerosVarsCurrentCt.add(variable.getRow());
                     }
@@ -492,7 +507,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          * @param equation The equation.
          * @param variableIndices The variable indices list to modify.
          */
-        protected void addAdditionalJacobianVariables(int constraintIndex, Equation<AcVariableType, AcEquationType> equation,
+        protected void addAdditionalJacobianVariables(int constraintIndex, SingleEquation<AcVariableType, AcEquationType> equation,
                                                       List<Integer> variableIndices) {
             // no additional variables by default
         }

@@ -50,13 +50,13 @@ public final class KnitroCallbacks {
      */
     public static class BaseCallbackEvalFC extends KNEvalFCCallback {
 
-        protected final List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve;
+        protected final List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve;
         protected final List<Integer> nonLinearConstraintIds;
 
         public BaseCallbackEvalFC(
-                List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+                List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve,
                 List<Integer> nonLinearConstraintIds) {
-            this.sortedEquationsToSolve = sortedEquationsToSolve;
+            this.sortedSingleEquationsToSolve = sortedSingleEquationsToSolve;
             this.nonLinearConstraintIds = nonLinearConstraintIds;
         }
 
@@ -78,7 +78,7 @@ public final class KnitroCallbacks {
             int callbackConstraintIndex = 0;
 
             for (int equationId : nonLinearConstraintIds) {
-                Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
+                SingleEquation<AcVariableType, AcEquationType> equation = sortedSingleEquationsToSolve.get(equationId);
                 AcEquationType type = equation.getType();
 
                 // Ensure the constraint is non-linear
@@ -89,7 +89,7 @@ public final class KnitroCallbacks {
 
                 // Evaluate equation using the current state
                 double constraintValue = 0.0;
-                for (EquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
+                for (SingleEquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
                     term.setStateVector(currentState);
                     if (term.isActive()) {
                         constraintValue += term.eval();

@@ -57,7 +57,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
     private static final Map<Integer, Equation<AcVariableType, AcEquationType>> INDEQUNACTIVEQ = new LinkedHashMap<>();
 
     // reactive limit equations to add to the constraints to model the PV/PQ switches of generators
-    private final List<Equation<AcVariableType, AcEquationType>> equationsQBusV;
+    private final List<SingleEquation<AcVariableType, AcEquationType>> equationsQBusV;
     private final List<Integer> busesNumWithReactiveLimitEquationsToAdd;
 
     // mappings from global equation indices to local indices for the voltage target equations to duplicate
@@ -78,14 +78,14 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
         // first, we retrieve the V equations from the open load flow system, because reactive power limits are added
         // for generators that control voltage
-        List<Equation<AcVariableType, AcEquationType>> olfSortedEquations = equationSystem.getIndex().getSortedEquationsToSolve();
+        List<SingleEquation<AcVariableType, AcEquationType>> olfSortedEquations = equationSystem.getIndex().getSortedSingleEquationsToSolve();
         List<Integer> busesWithVoltageTargetEquation = olfSortedEquations.stream()
                 .filter(e -> e.getType() == AcEquationType.BUS_TARGET_V)
                 .map(e -> e.getTerms().getFirst().getElementNum())
                 .toList();
 
         // contains the reactive equations that must be added to the optimization problem constraints
-        List<Equation<AcVariableType, AcEquationType>> reactiveEquationsToAdd = new ArrayList<>();
+        List<SingleEquation<AcVariableType, AcEquationType>> reactiveEquationsToAdd = new ArrayList<>();
         // contains the buses for which reactive limit equation must be added to the constraints
         this.busesNumWithReactiveLimitEquationsToAdd = new ArrayList<>();
         for (int elementNum : busesWithVoltageTargetEquation) {
@@ -104,8 +104,8 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                         // retrieve the reactive power balance equation of the bus that controls voltage
                         // the equation is inactive in the open load flow equation system, but it will be used to evaluate the reactive power balance of the generator
                         // in the optimization problem constraints
-                        List<Equation<AcVariableType, AcEquationType>> controllerBusEquations = equationSystem.getEquations(ElementType.BUS, controllerBus.getNum());
-                        Equation<AcVariableType, AcEquationType> reactiveEquationToAdd = controllerBusEquations.stream()
+                        List<SingleEquation<AcVariableType, AcEquationType>> controllerBusEquations = equationSystem.getEquations(ElementType.BUS, controllerBus.getNum());
+                        SingleEquation<AcVariableType, AcEquationType> reactiveEquationToAdd = controllerBusEquations.stream()
                                 .filter(e -> e.getType() == BUS_TARGET_Q)
                                 .toList()
                                 .getFirst();
@@ -131,7 +131,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
         int[] vSuppCounter = {0};
         for (int i = 0; i < olfSortedEquations.size(); i++) {
             final int equationIndex = i;
-            Equation<AcVariableType, AcEquationType> equation = olfSortedEquations.get(i);
+            SingleEquation<AcVariableType, AcEquationType> equation = olfSortedEquations.get(i);
             AcEquationType type = equation.getType();
             if (Objects.requireNonNull(type) == BUS_TARGET_V) {
                 // add a vSup equation
@@ -218,7 +218,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
         // of the optimization problem
         // to model generator reactive limits, additional equations and therefore right-hand sides are necessary, and these
         // are not considered in the open load flow objects
-        private List<Equation<AcVariableType, AcEquationType>> completeEquationsToSolve;
+        private List<SingleEquation<AcVariableType, AcEquationType>> completeEquationsToSolve;
         private List<Double> completeTargetVector;
 
         /**
@@ -299,7 +299,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
         @Override
         protected void setupConstraints() throws KNException {
-            activeConstraints = equationSystem.getIndex().getSortedEquationsToSolve();
+            activeConstraints = equationSystem.getIndex().getSortedSingleEquationsToSolve();
 
             // this problem models complementarity constraints to model the PV/PQ switching of buses
             // to do this, constraints are added to the system compared to the OLF system, and therefore right-hand sides are also added
@@ -356,12 +356,12 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
          * @param equationId             Index of the equation in the list.
          */
         @Override
-        protected void addConstraint(int equationId, List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+        protected void addConstraint(int equationId, List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve,
                                      NonLinearExternalSolverUtils solverUtils) {
 
-            Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
+            SingleEquation<AcVariableType, AcEquationType> equation = sortedSingleEquationsToSolve.get(equationId);
             AcEquationType equationType = equation.getType();
-            List<EquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
+            List<SingleEquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
 
             if (equationType == BUS_TARGET_V) {
                 equation.getElement(network).ifPresent(lfElement -> {
@@ -422,7 +422,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                                     addAdditionalConstraintVariables(equationId, equationType, varVSupIndices, coefficientsVSup);
 
                                     for (int i = 0; i < varVSupIndices.size(); i++) {
-                                        int equationIndex = sortedEquationsToSolve.size() + vSuppEquationLocalIds.get(equationId);
+                                        int equationIndex = sortedSingleEquationsToSolve.size() + vSuppEquationLocalIds.get(equationId);
                                         this.addConstraintLinearPart(equationIndex, varVSupIndices.get(i), coefficientsVSup.get(i));
                                     }
                                 }
@@ -433,7 +433,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                             // if the V equation is not linear, we add the index to non-linear equations (as well as the duplicate vSup)
                         } else {
                             nonlinearConstraintIndexes.add(equationId);
-                            nonlinearConstraintIndexes.add(sortedEquationsToSolve.size() + vSuppEquationLocalIds.get(equationId));
+                            nonlinearConstraintIndexes.add(sortedSingleEquationsToSolve.size() + vSuppEquationLocalIds.get(equationId));
                         }
 
                         // the duplicated voltage equations have been specified to the Knitro problem in the previous lines
@@ -447,7 +447,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                 });
             // for other type of equations, the constraint can be added as usual
             } else {
-                super.addConstraint(equationId, sortedEquationsToSolve, solverUtils);
+           //     super.addConstraint(equationId, sortedSingleEquationsToSolve, solverUtils);
             }
         }
 
@@ -492,7 +492,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
         @Override
         protected void addAdditionalJacobianVariables(int constraintIndex,
-                                                      Equation<AcVariableType, AcEquationType> equation,
+                                                      SingleEquation<AcVariableType, AcEquationType> equation,
                                                       List<Integer> variableIndices) {
             super.addAdditionalJacobianVariables(constraintIndex, equation, variableIndices);
             int numberLFEq = completeEquationsToSolve.size() - 3 * vSuppEquationLocalIds.size();
@@ -502,11 +502,11 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             // Case of inactive Q equations, we take the V equation associated to it to get the right index used to order the equation system
             if (equationType == BUS_TARGET_Q && !equation.isActive()) {
                 int elemNumControlledBus = elemNumControlledControllerBus.get(equation.getElementNum());        // Controller bus
-                List<Equation<AcVariableType, AcEquationType>> listEqControlledBus = equationSystem             // Equations of the Controller bus
+                List<SingleEquation<AcVariableType, AcEquationType>> listEqControlledBus = equationSystem             // Equations of the Controller bus
                         .getEquations(ElementType.BUS, elemNumControlledBus);
-                Equation<AcVariableType, AcEquationType> eqVControlledBus = listEqControlledBus.stream()        // Take the one on V
+                SingleEquation<AcVariableType, AcEquationType> eqVControlledBus = listEqControlledBus.stream()        // Take the one on V
                         .filter(e -> e.getType() == BUS_TARGET_V).toList().getFirst();
-                int indexEqVAssociated = equationSystem.getIndex().getSortedEquationsToSolve().indexOf(eqVControlledBus);   // Find the index of the V equation associated
+                int indexEqVAssociated = equationSystem.getIndex().getSortedSingleEquationsToSolve().indexOf(eqVControlledBus);   // Find the index of the V equation associated
 
                 compVarStart = vSuppEquationLocalIds.get(indexEqVAssociated);
                 if (constraintIndex < numberLFEq + 2 * vSuppEquationLocalIds.size()) {
@@ -525,7 +525,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             private final UseReactiveLimitsKnitroProblem problemInstance;
 
             private UseReactiveLimitsCallbackEvalFC(UseReactiveLimitsKnitroProblem problemInstance,
-                                          List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+                                          List<SingleEquation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
                                           List<Integer> nonLinearConstraintIds) {
                 super(problemInstance, sortedEquationsToSolve, nonLinearConstraintIds);
                 this.problemInstance = problemInstance;
@@ -535,7 +535,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             protected double addModificationOfNonLinearConstraints(int equationId, AcEquationType equationType,
                                                                    List<Double> x) {
                 double constraintValue = 0;
-                Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
+                SingleEquation<AcVariableType, AcEquationType> equation = sortedSingleEquationsToSolve.get(equationId);
                 // if the equation is active, then it is treated as an open load flow constraint
                 if (equation.isActive()) {
                     // add relaxation if necessary
@@ -543,18 +543,18 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
                 // otherwise, these are bLow and bUp constraints and the term must be added
                 } else {
-                    int numNotActiveEquations = sortedEquationsToSolve.stream().filter(
+                    int numNotActiveEquations = sortedSingleEquationsToSolve.stream().filter(
                             e -> !e.isActive()).toList().size();
                     int elemNum = equation.getElementNum();
                     int elemNumControlledBus = problemInstance.getElemNumControlledBus(elemNum);
-                    List<Equation<AcVariableType, AcEquationType>> controlledBusEquations = sortedEquationsToSolve.stream()
+                    List<SingleEquation<AcVariableType, AcEquationType>> controlledBusEquations = sortedSingleEquationsToSolve.stream()
                             .filter(e -> e.getElementNum() == elemNumControlledBus).toList();
                     // the voltage set point equation
                     Equation<AcVariableType, AcEquationType> equationV = controlledBusEquations.stream().filter(e -> e.getType() == BUS_TARGET_V).toList().getFirst();
-                    int equationVId = sortedEquationsToSolve.indexOf(equationV);                                        //Index of V equation
+                    int equationVId = sortedSingleEquationsToSolve.indexOf(equationV);                                        //Index of V equation
                     int compVarBaseIndex = problemInstance.getComplementarityVarBaseIndex(equationVId);
                     // bLow constraint
-                    if (equationId - sortedEquationsToSolve.size() + numNotActiveEquations / 2 < 0) {
+                    if (equationId - sortedSingleEquationsToSolve.size() + numNotActiveEquations / 2 < 0) {
                         double bLow = x.get(compVarBaseIndex + 2);
                         constraintValue -= bLow;
                     // bUp Constraint
@@ -590,10 +590,10 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
                 this.numLFVar = equationSystem.getIndex().getSortedVariablesToFind().size();
 
-                this.numVEq = equationSystem.getIndex().getSortedEquationsToSolve().stream().filter(
+                this.numVEq = equationSystem.getIndex().getSortedSingleEquationsToSolve().stream().filter(
                         e -> e.getType() == BUS_TARGET_V).toList().size();
 
-                this.numPQEq = equationSystem.getIndex().getSortedEquationsToSolve().stream().filter(
+                this.numPQEq = equationSystem.getIndex().getSortedSingleEquationsToSolve().stream().filter(
                         e -> e.getType() == BUS_TARGET_Q || e.getType() == BUS_TARGET_P).toList().size();
 
                 List<Variable<AcVariableType>> listVar = equationSystem.getVariableSet().getVariables().stream().toList();
