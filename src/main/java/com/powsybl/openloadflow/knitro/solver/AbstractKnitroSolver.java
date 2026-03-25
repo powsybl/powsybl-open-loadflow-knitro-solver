@@ -303,19 +303,12 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          * Separate linear and nonlinear constraints to determine which ones
          * will be evaluated through callback functions.
          */
-
-
-
         protected void setupConstraints() throws KNException {
             activeConstraints = equationSystem.getIndex().getSortedSingleEquationsToSolve();
 
             int numConstraints = activeConstraints.size();
             // Log détaillé pour déboguer
-
-
             LOGGER.info("Defining {} active constraints", numConstraints);
-            LOGGER.info("Active constraints: {}", activeConstraints);
-
 
             NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
 
@@ -327,8 +320,6 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
 
             // right hand side (targets)
             setConEqBnds(Arrays.stream(targetVector.getArray()).boxed().toList());
-            LOGGER.info("NOn-linear constraints {}", nonlinearConstraintIndexes.size());
-
         }
 
         /**

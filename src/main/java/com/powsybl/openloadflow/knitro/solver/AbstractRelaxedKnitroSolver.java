@@ -69,12 +69,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         super(network, knitroParameters, equationSystem, j, targetVector, equationVector, detailedReport);
 
         List<SingleEquation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedSingleEquationsToSolve(); //.getSortedEquationsToSolve();
-        List<EquationArray<AcVariableType, AcEquationType>> sortedEquationArrays = equationSystem.getIndex().getSortedEquationArraysToSolve();
         // Count number of equations by type
-        this.numPEquations = (int) sortedEquationArrays.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_P).count();
+        this.numPEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_P).count();
         LOGGER.info("num equation P = {}", numPEquations);
-        this.numQEquations = (int) sortedEquationArrays.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count();
-        LOGGER.info("Total equation arrays: {}, Q equation arrays: {}", sortedEquationArrays.size(), numQEquations);
+        this.numQEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count();
         LOGGER.info("num equation Q = {}", numQEquations);
         this.numVEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count();
         LOGGER.info("num equation V = {}", numVEquations);
