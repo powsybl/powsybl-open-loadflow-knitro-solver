@@ -305,9 +305,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          */
         protected void setupConstraints() throws KNException {
             activeConstraints = equationSystem.getIndex().getSortedSingleEquationsToSolve();
-
             int numConstraints = activeConstraints.size();
-            // Log détaillé pour déboguer
             LOGGER.info("Defining {} active constraints", numConstraints);
 
             NonLinearExternalSolverUtils solverUtils = new NonLinearExternalSolverUtils();
@@ -350,10 +348,6 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
             SingleEquation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
             AcEquationType equationType = equation.getType();
             List<SingleEquationTerm<AcVariableType, AcEquationType>> terms = equation.getTerms();
-//            List<EquationArray<AcVariableType, AcEquationType>> sortedEquationArraysToSolve
-//            EquationArray<AcVariableType, AcEquationType> equationArray = sortedEquationArraysToSolve.get(equationID);
-//            AcEquationType equationArrayType = equationArray.getType();
-//            List<EquationTermArray<AcVariableType, AcEquationType>> termsArray = equationArray.getTermArrays();
 
             if (NonLinearExternalSolverUtils.isLinear(equationType, terms)) {
                 try {

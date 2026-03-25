@@ -68,14 +68,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                                           EquationVector<AcVariableType, AcEquationType> equationVector, boolean detailedReport) {
         super(network, knitroParameters, equationSystem, j, targetVector, equationVector, detailedReport);
 
-        List<SingleEquation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedSingleEquationsToSolve(); //.getSortedEquationsToSolve();
+        List<SingleEquation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedSingleEquationsToSolve();
         // Count number of equations by type
         this.numPEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_P).count();
-        LOGGER.info("num equation P = {}", numPEquations);
         this.numQEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count();
-        LOGGER.info("num equation Q = {}", numQEquations);
         this.numVEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count();
-        LOGGER.info("num equation V = {}", numVEquations);
 
         this.numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations);
 
@@ -207,7 +204,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             throw new PowsyblException("Variable index associated with slack variable " + type + " was not found");
         }
 
-        LfBus bus = network.getBus(equationSystem.getIndex().getSortedSingleEquationsToSolve().get(varIndex).getElementNum()); //.getElementNum());
+        LfBus bus = network.getBus(equationSystem.getIndex().getSortedSingleEquationsToSolve().get(varIndex).getElementNum());
 
         return bus.getId();
     }
