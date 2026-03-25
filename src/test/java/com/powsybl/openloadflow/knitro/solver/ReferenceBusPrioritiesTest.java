@@ -59,8 +59,7 @@ class ReferenceBusPrioritiesTest {
         parameters = new LoadFlowParameters()
                 .setReadSlackBus(true)
                 .setUseReactiveLimits(false)
-                .setDistributedSlack(true)
-                .setConnectedComponentMode(LoadFlowParameters.ConnectedComponentMode.ALL);
+                .setDistributedSlack(true).setComponentMode(LoadFlowParameters.ComponentMode.ALL_CONNECTED);
         parametersExt = OpenLoadFlowParameters.create(parameters)
                 .setReferenceBusSelectionMode(ReferenceBusSelectionMode.GENERATOR_REFERENCE_PRIORITY)
                 .setAcSolverType(KnitroSolverFactory.NAME);
