@@ -68,8 +68,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                                           EquationVector<AcVariableType, AcEquationType> equationVector, boolean detailedReport) {
         super(network, knitroParameters, equationSystem, j, targetVector, equationVector, detailedReport);
 
-        List<Equation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedEquationsToSolve();
-
+        List<SingleEquation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedSingleEquationsToSolve();
         // Count number of equations by type
         this.numPEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_P).count();
         this.numQEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count();
@@ -205,7 +204,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             throw new PowsyblException("Variable index associated with slack variable " + type + " was not found");
         }
 
-        LfBus bus = network.getBus(equationSystem.getIndex().getSortedEquationsToSolve().get(varIndex).getElementNum());
+        LfBus bus = network.getBus(equationSystem.getIndex().getSortedSingleEquationsToSolve().get(varIndex).getElementNum());
 
         return bus.getId();
     }
@@ -334,7 +333,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         @Override
         protected void addAdditionalJacobianVariables(int constraintIndex,
-                                                      Equation<AcVariableType, AcEquationType> equation,
+                                                      SingleEquation<AcVariableType, AcEquationType> equation,
                                                       List<Integer> variableIndices) {
             AcEquationType equationType = equation.getType();
             // get slack variable local index (within its equation type)
@@ -396,7 +395,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             private final AbstractRelaxedKnitroProblem problemInstance;
 
             RelaxedCallbackEvalFC(AbstractRelaxedKnitroProblem problemInstance,
-                                  List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+                                  List<SingleEquation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
                                   List<Integer> nonLinearConstraintIds) {
                 super(sortedEquationsToSolve, nonLinearConstraintIds);
                 this.problemInstance = problemInstance;

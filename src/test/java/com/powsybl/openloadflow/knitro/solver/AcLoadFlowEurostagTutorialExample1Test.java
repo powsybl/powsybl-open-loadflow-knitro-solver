@@ -347,7 +347,7 @@ class AcLoadFlowEurostagTutorialExample1Test {
 
         LoadFlow.Runner loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
         LoadFlowParameters parameters = new LoadFlowParameters();
-        parameters.setConnectedComponentMode(LoadFlowParameters.ConnectedComponentMode.ALL)
+        parameters.setComponentMode(LoadFlowParameters.ComponentMode.ALL_CONNECTED)
                 .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
 
@@ -382,7 +382,7 @@ class AcLoadFlowEurostagTutorialExample1Test {
 
         LoadFlow.Runner loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
         LoadFlowParameters parameters = new LoadFlowParameters();
-        parameters.setConnectedComponentMode(LoadFlowParameters.ConnectedComponentMode.ALL)
+        parameters.setComponentMode(LoadFlowParameters.ComponentMode.ALL_CONNECTED)
                 .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
 
