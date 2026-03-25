@@ -62,7 +62,7 @@
     <properties>
         <java.version>21</java.version>
         <powsybl-core.version>7.1.2</powsybl-core.version>
-        <powsybl-open-loadflow.version>2.1.1</powsybl-open-loadflow.version>
+        <powsybl-open-loadflow.version>2.1.1-not-vectorized</powsybl-open-loadflow.version>
         <knitro-interfaces.version>15.1.0</knitro-interfaces.version>
         <jna.version>5.17.0</jna.version>
     </properties>
