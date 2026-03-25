@@ -447,7 +447,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                 });
             // for other type of equations, the constraint can be added as usual
             } else {
-           //     super.addConstraint(equationId, sortedSingleEquationsToSolve, solverUtils);
+                super.addConstraint(equationId, sortedSingleEquationsToSolve, solverUtils);
             }
         }
 
