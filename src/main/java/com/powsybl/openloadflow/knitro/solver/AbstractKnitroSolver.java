@@ -211,7 +211,6 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         protected final KnitroSolverParameters knitroParameters;
         protected final int numberOfPowerFlowVariables;
         protected List<SingleEquation<AcVariableType, AcEquationType>> activeConstraints = new ArrayList<>();
-        protected List<EquationArray<AcVariableType, AcEquationType>> activeConstraintsPQ = new ArrayList<>();
         protected final List<Integer> nonlinearConstraintIndexes = new ArrayList<>();
         protected final int numTotalVariables;
 
