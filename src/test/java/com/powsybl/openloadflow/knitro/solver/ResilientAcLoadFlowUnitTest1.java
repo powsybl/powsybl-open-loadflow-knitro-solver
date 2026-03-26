@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 public class ResilientAcLoadFlowUnitTest1 {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ResilientAcLoadFlowUnitTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ResilientAcLoadFlowUnitTest1.class);
     private static final double DEFAULT_TOLERANCE = 1e-1;
     private static final double BASE_100MVA = 100.0;
     private static final boolean EXPORT = false;
