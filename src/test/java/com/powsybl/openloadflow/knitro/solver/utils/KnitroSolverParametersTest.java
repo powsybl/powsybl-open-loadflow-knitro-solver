@@ -7,19 +7,28 @@
  */
 package com.powsybl.openloadflow.knitro.solver.utils;
 
+import com.google.common.jimfs.Configuration;
+import com.google.common.jimfs.Jimfs;
+import com.powsybl.commons.config.InMemoryPlatformConfig;
+import com.powsybl.commons.config.MapModuleConfig;
+import com.powsybl.commons.test.AbstractSerDeTest;
+import com.powsybl.loadflow.LoadFlowParameters;
+import com.powsybl.loadflow.json.JsonLoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroSolverParameters;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import java.io.IOException;
+import java.nio.file.FileSystem;
 
+import static com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParameters.*;
+import static org.junit.jupiter.api.Assertions.*;
 /**
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
-class KnitroSolverParametersTest {
+class KnitroSolverParametersTest extends AbstractSerDeTest {
 
     @Test
     void testGradientComputationMode() {
@@ -216,4 +225,27 @@ class KnitroSolverParametersTest {
                 parameters.toString());
     }
 
+    @Test
+    void testUpdateParametersFromPlatformConfig() {
+        LoadFlowParameters parameters = new LoadFlowParameters();
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
+
+        assertEquals(KnitroSolverParameters.DEFAULT_SOLVER_TYPE, knitroLoadFlowParameters.getKnitroSolverType());
+        assertEquals(KnitroSolverParameters.DEFAULT_GRADIENT_COMPUTATION_MODE, knitroLoadFlowParameters.getGradientComputationMode());
+        assertEquals(KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND, knitroLoadFlowParameters.getLowerVoltageBound());
+
+        FileSystem fileSystem = Jimfs.newFileSystem(Configuration.unix());
+        InMemoryPlatformConfig platformConfig = new InMemoryPlatformConfig(fileSystem);
+
+        MapModuleConfig moduleConfig = platformConfig.createModuleConfig(MODULE_SPECIFIC_PARAMETERS);
+        moduleConfig.setStringProperty(GRADIENT_COMPUTATION_MODE_PARAM_NAME, String.valueOf(2));
+        moduleConfig.setStringProperty(LOWER_VOLTAGE_BOUND_PARAM_NAME, String.valueOf(2.0));
+        moduleConfig.setStringProperty(SOLVER_TYPE_PARAM_NAME, KnitroSolverParameters.SolverType.RELAXED.name());
+        knitroLoadFlowParameters.update(platformConfig);
+
+        assertEquals(2, knitroLoadFlowParameters.getGradientComputationMode());
+        assertEquals(KnitroSolverParameters.SolverType.RELAXED, knitroLoadFlowParameters.getKnitroSolverType());
+        assertEquals(2.0, knitroLoadFlowParameters.getLowerVoltageBound());
+    }
 }
