@@ -13,12 +13,10 @@ import com.powsybl.commons.config.InMemoryPlatformConfig;
 import com.powsybl.commons.config.MapModuleConfig;
 import com.powsybl.commons.test.AbstractSerDeTest;
 import com.powsybl.loadflow.LoadFlowParameters;
-import com.powsybl.loadflow.json.JsonLoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroSolverParameters;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.nio.file.FileSystem;
 
 import static com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParameters.*;
