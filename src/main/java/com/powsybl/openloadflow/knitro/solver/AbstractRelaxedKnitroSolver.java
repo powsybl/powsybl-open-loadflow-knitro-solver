@@ -104,13 +104,53 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         int qCounter = 0;
         int vCounter = 0;
 
+        // MAP GAMMA : VL in kV and the corresponding gamma
+        voltageLevelGammaMap = new HashMap<Double,Double>();
+        voltageLevelGammaMap.put(63.0, 28.0);
+        voltageLevelGammaMap.put(150.0, 40.0); // FAUSSE VALEUR, A CHANGER
+        voltageLevelGammaMap.put(225.0, 123.0);
+        voltageLevelGammaMap.put(400.0, 356.5);
+
+        OMEGA_V_1_MAP = new HashMap<Integer, Double>();
+        OMEGA_V_2_MAP = new HashMap<Integer, Double >();
+        System.out.println("NUMBER OF V EQU "+ numVEquations);
+
         for (int i = 0; i < sortedEquations.size(); i++) {
             AcEquationType type = sortedEquations.get(i).getType();
 
             switch (type) {
                 case BUS_TARGET_P -> pEquationLocalIds.put(i, pCounter++);
                 case BUS_TARGET_Q -> qEquationLocalIds.put(i, qCounter++);
-                case BUS_TARGET_V -> vEquationLocalIds.put(i, vCounter++);
+                case BUS_TARGET_V ->{
+
+                        // Set WEIGHT_V_1 and WEIGHT_V_2 based on the nominal voltage of the bus and the corresponding gamma
+                    String vl_id = sortedEquations.get(i).getElement(network).get().getId();
+                              //  sortedEquations.get(i).getElementNum();
+                    LfBus vl_id_2 = network.getBus(sortedEquations.get(i).getElementNum());
+                   // LfBus bus = network.getBus(sortedEquations.get(i).getElementNum()).getNominalV();
+                    System.out.println("VL ID : " + vl_id +"  Equation num : " + i);
+                    System.out.println("VL ID 2 : " + vl_id_2.getId() + "  Nominal V : " + vl_id_2.getNominalV());
+                    double gamma = 0.0;
+
+                    if (vl_id_2.getNominalV()<=85.0){
+                        gamma = voltageLevelGammaMap.get(63.0);
+                    }
+                    else if (vl_id_2.getNominalV()> 85.0 && vl_id_2.getNominalV() <=200){
+                        gamma = voltageLevelGammaMap.get(150.0);
+                    }
+                    else if (vl_id_2.getNominalV()> 200 && vl_id_2.getNominalV() <=350){
+                        gamma = voltageLevelGammaMap.get(225.0);
+                    }
+                    else if (vl_id_2.getNominalV()> 350){
+                        gamma = voltageLevelGammaMap.get(400.0);
+                    }
+
+                    OMEGA_V_1_MAP.put(vCounter, gamma); // for each index of V  I have the correspo,ding gamma
+                    OMEGA_V_2_MAP.put(vCounter, vl_id_2.getNominalV());
+                    System.out.println("for v indices "+ vCounter + " GAMMA = "+ OMEGA_V_1_MAP.get(vCounter));
+                    vEquationLocalIds.put(i, vCounter++);
+
+                }
                 default -> {
                     // Other equation types don't require slack variables
                 }
