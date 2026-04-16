@@ -410,6 +410,41 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             }
         }
 
+        void addSlackObjectiveTerms_typeV(int numEquations, int slackStartIdx, HashMap weight,
+                                    List<Integer> quadRows, List<Integer> quadCols, List<Double> quadCoefs,
+                                    List<Integer> linIndexes, List<Double> linCoefs) {
+            for (int i = 0; i < numEquations; i++) {
+                int idxSm = slackStartIdx + 2 * i; // negative slack variable index
+                int idxSp = slackStartIdx + 2 * i + 1; // positive slack variable index
+
+                // Add quadratic terms: weight * (sp^2 + sm^2 - 2 * sp * sm)
+
+                // add first quadratic term : weight * sp^2
+                quadRows.add(idxSp);
+                quadCols.add(idxSp);
+                quadCoefs.add((double) weight.get(i)*eta*5);
+
+                // add second quadratic term : weight * sm^2
+                quadRows.add(idxSm);
+                quadCols.add(idxSm);
+                quadCoefs.add((double) weight.get(i)*eta*5);
+
+                // add third quadratic term : weight * (- 2 * sp * sm)
+                quadRows.add(idxSp);
+                quadCols.add(idxSm);
+                quadCoefs.add(-2 * (double) weight.get(i)*eta*5);
+
+                // Add linear terms: weight * lambda * (sp + sm)
+
+                // add first linear term : weight * lambda * sp
+                linIndexes.add(idxSp);
+                linCoefs.add((double) weight.get(i)*eta);
+
+                // add second linear term : weight * lambda * sm
+                linIndexes.add(idxSm);
+                linCoefs.add((double) weight.get(i)*eta);
+            }
+        }
         @Override
         protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds,
                                                      List<Double> initialValues) {
