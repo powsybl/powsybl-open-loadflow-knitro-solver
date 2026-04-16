@@ -36,15 +36,23 @@ import java.util.*;
 public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelaxedKnitroSolver.class);
+    private static final double BASE_100MVA = 100.0;    // Penalty weights in the objective function
+    protected static double WEIGHT_P_1;
+    protected static final double WEIGHT_Q_1 = 1.0;
+    protected static double WEIGHT_V_1;
+    protected static double WEIGHT_P_2;
+    protected static double WEIGHT_Q_2;
+    protected static double WEIGHT_V_2;
 
-    // Penalty weights in the objective function
+    protected static final double P_seuil = 100.0; // MW
+    protected static final double Q_seuil = 100.0; // MW
+    protected static final double eta = 0.1;
+
+    // Weights of the linear in the objective function
+    protected static final double WEIGHT_ABSOLUTE_PENAL = 1.0;
     protected static final double WEIGHT_P_PENAL = 1.0;
     protected static final double WEIGHT_Q_PENAL = 1.0;
     protected static final double WEIGHT_V_PENAL = 1.0;
-
-    // Weights of the linear in the objective function
-    protected static final double WEIGHT_ABSOLUTE_PENAL = 3.0;
-
     // Total number of variables (including power flow and slack variables)
     protected int numSlackVariables;
 
@@ -62,6 +70,12 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     protected final Map<Integer, Integer> pEquationLocalIds;
     protected final Map<Integer, Integer> qEquationLocalIds;
     protected final Map<Integer, Integer> vEquationLocalIds;
+
+    // Mapping of gamma : each Voltage Level is assign to a gamma depending on its nominal voltage
+    protected HashMap<Double, Double> voltageLevelGammaMap;
+    protected HashMap<Integer,Double> OMEGA_V_1_MAP;
+    protected HashMap<Integer, Double> OMEGA_V_2_MAP;
+
 
     protected AbstractRelaxedKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                           JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
