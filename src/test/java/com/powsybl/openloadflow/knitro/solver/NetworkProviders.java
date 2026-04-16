@@ -36,17 +36,17 @@ public final class NetworkProviders {
         Path fileNameRte6515 = Path.of(DATA_DIR, RTE6515_INSTANCE);
         Path fileNameRte1888 = Path.of(DATA_DIR, RTE1888_INSTANCE);
         return Stream.of(
-                new NetworkPair(Network.read(fileNameRte1888).getNetwork(), Network.read(fileNameRte1888).getNetwork(), "rte1888"),
-                new NetworkPair(Network.read(fileNameRte6515).getNetwork(), Network.read(fileNameRte6515).getNetwork(), "rte6515")
+                new NetworkPair(Network.read(fileNameRte1888).getNetwork(), Network.read(fileNameRte1888).getNetwork(),  Network.read(fileNameRte1888).getNetwork(), "rte1888"),
+                new NetworkPair(Network.read(fileNameRte6515).getNetwork(), Network.read(fileNameRte6515).getNetwork(),  Network.read(fileNameRte6515).getNetwork(),"rte6515")
         );
     }
 
     public static Stream<NetworkPair> provideI3ENetworks() {
         return Stream.of(
-                new NetworkPair(IeeeCdfNetworkFactory.create14(), IeeeCdfNetworkFactory.create14(), "ieee14"),
-                new NetworkPair(IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), "ieee30"),
-                new NetworkPair(IeeeCdfNetworkFactory.create118(), IeeeCdfNetworkFactory.create118(), "ieee118"),
-                new NetworkPair(IeeeCdfNetworkFactory.create300(), IeeeCdfNetworkFactory.create300(), "ieee300")
+                new NetworkPair(IeeeCdfNetworkFactory.create14(), IeeeCdfNetworkFactory.create14(), IeeeCdfNetworkFactory.create14(),"ieee14"),
+                new NetworkPair(IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(),"ieee30"),
+                new NetworkPair(IeeeCdfNetworkFactory.create118(), IeeeCdfNetworkFactory.create118(), IeeeCdfNetworkFactory.create118(), "ieee118"),
+                new NetworkPair(IeeeCdfNetworkFactory.create300(), IeeeCdfNetworkFactory.create300(), IeeeCdfNetworkFactory.create300(), "ieee300")
         );
     }
 
@@ -120,7 +120,7 @@ public final class NetworkProviders {
         }
     }
 
-    public record NetworkPair(Network rknNetwork, Network nrNetwork, String baseFilename) {
+    public record NetworkPair(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename) {
 
     }
 }
