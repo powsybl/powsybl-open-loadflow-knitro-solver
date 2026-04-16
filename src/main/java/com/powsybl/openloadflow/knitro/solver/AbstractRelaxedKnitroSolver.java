@@ -156,6 +156,25 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 }
             }
         }
+        System.out.println(vEquationLocalIds);
+        System.out.println(OMEGA_V_1_MAP);
+        System.out.println(OMEGA_V_2_MAP);
+
+        // Weight P
+        WEIGHT_P_1 = knitroParameters.getOmegaP1();
+        double DeltaP = DeltaP(network, this.knitroParameters.getLosses());
+        double activeGeneration = activeGeneration(network, this.knitroParameters.getLosses());
+        if (DeltaP == 0){
+            throw new PowsyblException("DIVISION PAR ZERO: DeltaP is equal to 0, cannot compute WEIGHT_P_1. Please check that the network has non-zero active power generation and load, and/or adjust the losses parameter.");
+        }
+        WEIGHT_P_1 = activeGeneration/(10*DeltaP);
+
+        WEIGHT_P_2 = WEIGHT_P_1 *BASE_100MVA / (2*P_seuil);
+
+        // Weight Q
+        WEIGHT_Q_2 = WEIGHT_Q_1 * BASE_100MVA / (2*Q_seuil);
+
+        //WEIGHT V
     }
 
     @Override
@@ -282,6 +301,35 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             penalty += weight * WEIGHT_ABSOLUTE_PENAL * (sp + sm); // Linear terms
         }
         return penalty;
+    }
+
+    private double DeltaP(LfNetwork network, double losses) {
+        double activeGeneration = (double)0.0F;
+        double reactiveGeneration = (double)0.0F;
+        double activeLoad = (double)0.0F;
+        double reactiveLoad = (double)0.0F;
+
+        for(LfBus b : network.getBuses()) {
+            activeGeneration += b.getGenerationTargetP() * (double)100.0F;
+            reactiveGeneration += b.getGenerationTargetQ() * (double)100.0F;
+            activeLoad += b.getLoadTargetP() * (double)100.0F;
+            reactiveLoad += b.getLoadTargetQ() * (double)100.0F;
+        }
+        return Math.abs(activeGeneration - activeLoad - losses); //minus total Losses
+    }
+    private double activeGeneration(LfNetwork network, double losses) {
+        double activeGeneration = (double)0.0F;
+        double reactiveGeneration = (double)0.0F;
+        double activeLoad = (double)0.0F;
+        double reactiveLoad = (double)0.0F;
+
+        for(LfBus b : network.getBuses()) {
+            activeGeneration += b.getGenerationTargetP() * (double)100.0F;
+            reactiveGeneration += b.getGenerationTargetQ() * (double)100.0F;
+            activeLoad += b.getLoadTargetP() * (double)100.0F;
+            reactiveLoad += b.getLoadTargetQ() * (double)100.0F;
+        }
+        return activeGeneration; //minus total Losses
     }
 
     /**
