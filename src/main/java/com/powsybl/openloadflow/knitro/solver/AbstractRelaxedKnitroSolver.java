@@ -321,8 +321,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
             double diff = sp - sm;
-            penalty += weight * (diff * diff); // Quadratic terms
-            penalty += weight * WEIGHT_ABSOLUTE_PENAL * (sp + sm); // Linear terms
+            penalty += weight.get(i) * (diff * diff) / 2; // Quadratic terms
+            penalty += ETA * weight.get(i) * (sp + sm); // Linear terms
         }
         return penalty;
     }
