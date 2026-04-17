@@ -363,9 +363,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             List<Double> linCoefs = new ArrayList<>(); // list of indexes of the coefficient a
 
             // add slack penalty terms, for each slack type, of the form: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
-            addSlackObjectiveTerms(numPEquations, slackPStartIndex, AbstractRelaxedKnitroSolver.WEIGHT_P_PENAL, AbstractRelaxedKnitroSolver.WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numQEquations, slackQStartIndex, AbstractRelaxedKnitroSolver.WEIGHT_Q_PENAL, AbstractRelaxedKnitroSolver.WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numVEquations, slackVStartIndex, AbstractRelaxedKnitroSolver.WEIGHT_V_PENAL, AbstractRelaxedKnitroSolver.WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numPEquations, slackPStartIndex, AbstractRelaxedKnitroSolver.WEIGHT_P_2, AbstractRelaxedKnitroSolver.WEIGHT_P_1, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numQEquations, slackQStartIndex, AbstractRelaxedKnitroSolver.WEIGHT_Q_2, AbstractRelaxedKnitroSolver.WEIGHT_Q_1, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTermTypeV(numVEquations, slackVStartIndex, omegaVMap, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
 
             setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
             setObjectiveLinearPart(linIndexes, linCoefs);
@@ -402,17 +402,19 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
                 // add first linear term : weight * lambda * sp
                 linIndexes.add(idxSp);
-                linCoefs.add(lambda * weight);
+                linCoefs.add(lambda);
 
                 // add second linear term : weight * lambda * sm
                 linIndexes.add(idxSm);
-                linCoefs.add(lambda * weight);
+                linCoefs.add(lambda);
             }
         }
 
-        void addSlackObjectiveTerms_typeV(int numEquations, int slackStartIdx, HashMap weight,
-                                    List<Integer> quadRows, List<Integer> quadCols, List<Double> quadCoefs,
-                                    List<Integer> linIndexes, List<Double> linCoefs) {
+        void addSlackObjectiveTermTypeV(int numEquations, int slackStartIdx, HashMap weight,
+                                        List<Integer> quadRows, List<Integer> quadCols, List<Double> quadCoefs,
+                                        List<Integer> linIndexes, List<Double> linCoefs) {
+// Dans AbstractRelaxedKnitroSolver.java, à l'intérieur de addSlackObjectiveTermTypeV
+
             for (int i = 0; i < numEquations; i++) {
                 int idxSm = slackStartIdx + 2 * i; // negative slack variable index
                 int idxSp = slackStartIdx + 2 * i + 1; // positive slack variable index
@@ -422,27 +424,27 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 // add first quadratic term : weight * sp^2
                 quadRows.add(idxSp);
                 quadCols.add(idxSp);
-                quadCoefs.add((double) weight.get(i)*eta*5);
+                quadCoefs.add((double) weight.get(i) / 2);
 
                 // add second quadratic term : weight * sm^2
                 quadRows.add(idxSm);
                 quadCols.add(idxSm);
-                quadCoefs.add((double) weight.get(i)*eta*5);
+                quadCoefs.add((double) weight.get(i) / 2);
 
                 // add third quadratic term : weight * (- 2 * sp * sm)
                 quadRows.add(idxSp);
                 quadCols.add(idxSm);
-                quadCoefs.add(-2 * (double) weight.get(i)*eta*5);
+                quadCoefs.add(-2 * (double) weight.get(i) / 2);
 
                 // Add linear terms: weight * lambda * (sp + sm)
 
                 // add first linear term : weight * lambda * sp
                 linIndexes.add(idxSp);
-                linCoefs.add((double) weight.get(i)*eta);
+                linCoefs.add((double) weight.get(i) * ETA);
 
                 // add second linear term : weight * lambda * sm
                 linIndexes.add(idxSm);
-                linCoefs.add((double) weight.get(i)*eta);
+                linCoefs.add((double) weight.get(i) * ETA);
             }
         }
         @Override
