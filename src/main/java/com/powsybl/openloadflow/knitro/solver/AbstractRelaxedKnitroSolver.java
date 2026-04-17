@@ -104,9 +104,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         int vCounter = 0;
 
         // MAP GAMMA : VL in kV and the corresponding gamma
-        voltageLevelGammaMap = new HashMap<Double,Double>();
+        voltageLevelGammaMap = new HashMap<Double, Double>();
         voltageLevelGammaMap.put(63.0, 28.0);
-        voltageLevelGammaMap.put(150.0, 40.0); // FAUSSE VALEUR, A CHANGER
+        voltageLevelGammaMap.put(150.0, 100.45);
         voltageLevelGammaMap.put(225.0, 123.0);
         voltageLevelGammaMap.put(400.0, 356.5);
 
@@ -131,7 +131,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                     omegaV2Map.put(vCounter, vlInfo.getNominalV());
                     System.out.println("for v indices " + vCounter + " GAMMA = " + omegaVMap.get(vCounter));
                     vEquationLocalIds.put(i, vCounter++);
-
                 }
                 default -> {
                     // Other equation types don't require slack variables
@@ -162,7 +161,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("OMEGA Q1 {}", WEIGHT_Q_1);
         LOGGER.info("OMEGA Q2 {}", WEIGHT_Q_2);
 
-        //WEIGHT V
     }
 
     protected double getGammaValues(LfBus vlInfo) {
@@ -192,9 +190,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         logSlackValues("V", slackVStartIndex, numVEquations, x);
 
         // ========== Penalty Computation ==========
-        double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, WEIGHT_P_PENAL);
-        double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, WEIGHT_Q_PENAL);
-        double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, WEIGHT_V_PENAL);
+        double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, WEIGHT_P_1, WEIGHT_P_2);
+        double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, WEIGHT_Q_1, WEIGHT_Q_2);
+        double penaltyV = computeSlackPenaltyTypeV(x, slackVStartIndex, numVEquations, omegaVMap);
         double totalPenalty = penaltyP + penaltyQ + penaltyV;
 
         LOGGER.info("==== Slack penalty details ====");
@@ -220,7 +218,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      */
     protected void logSlackValues(String type, int startIndex, int count, List<Double> x) {
         LOGGER.debug("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
-
+        int countslackP = 0;
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
@@ -235,7 +233,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 name = getSlackVariableBusName(i, type);
 
                 switch (type) {
-                    case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB);
+                    case "P" -> {
+                        interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB);
+                        countslackP++;
+                    }
                     case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * PerUnit.SB);
                     case "V" -> {
                         var bus = network.getBusById(name);
@@ -257,6 +258,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             String msg = String.format("Slack %s[ %s ] → Sm = %.4f, Sp = %.4f → %s", type, name, sm, sp, interpretation);
             LOGGER.debug(msg);
         }
+        LOGGER.info("Number of  P slack variable: {}", countslackP);
     }
 
     /**
@@ -297,10 +299,23 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param x          The variable values as returned by solver.
      * @param startIndex The start index of slack variables associated to the given type.
      * @param count      The maximum number of slack variables associated to the given type.
-     * @param weight     The weight inf front of the given slack variables terms
+     * @param weight1    The weight in front of the given slack variables terms (L1)
+     * @param weight2    The weight in front of the given slack variables terms (L2)
      * @return The total penalty associated to the slack variables type.
      */
-    double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight) {
+    double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight1, double weight2) {
+        double penalty = 0.0;
+        for (int i = 0; i < count; i++) {
+            double sm = x.get(startIndex + 2 * i);
+            double sp = x.get(startIndex + 2 * i + 1);
+            double diff = sp - sm;
+            penalty += weight2 * (diff * diff); // Quadratic terms
+            penalty += weight1 * (sp + sm); // Linear terms
+        }
+        return penalty;
+    }
+
+    double computeSlackPenaltyTypeV(List<Double> x, int startIndex, int count, HashMap<Integer, Double> weight) {
         double penalty = 0.0;
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
@@ -445,6 +460,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 linCoefs.add((double) weight.get(i) * ETA);
             }
         }
+
         @Override
         protected void initializeCustomizedVariables(List<Double> lowerBounds, List<Double> upperBounds,
                                                      List<Double> initialValues) {
