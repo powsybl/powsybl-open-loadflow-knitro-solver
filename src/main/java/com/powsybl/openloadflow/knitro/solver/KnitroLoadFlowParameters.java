@@ -12,6 +12,9 @@ import com.powsybl.commons.config.PlatformConfig;
 import com.powsybl.commons.extensions.AbstractExtension;
 import com.powsybl.loadflow.LoadFlowParameters;
 
+import java.util.Map;
+import java.util.Optional;
+
 /**
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
@@ -249,6 +252,36 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
                 config.getOptionalIntProperty(THREAD_NUMBER_PARAM_NAME)
                     .ifPresent(this::setThreadNumber);
             });
+        return this;
+    }
+
+    public KnitroLoadFlowParameters update(Map<String, String> properties) {
+        Optional.ofNullable(properties.get(GRADIENT_COMPUTATION_MODE_PARAM_NAME))
+            .ifPresent(prop -> this.setGradientComputationMode(Integer.parseInt(prop)));
+        Optional.ofNullable(properties.get(GRADIENT_USER_ROUTINE_PARAM_NAME))
+            .ifPresent(prop -> this.setGradientUserRoutine(Integer.parseInt(prop)));
+        Optional.ofNullable(properties.get(HESSIAN_COMPUTATION_MODE_PARAM_NAME))
+            .ifPresent(prop -> this.setHessianComputationMode(Integer.parseInt(prop)));
+        Optional.ofNullable(properties.get(LOWER_VOLTAGE_BOUND_PARAM_NAME))
+            .ifPresent(prop -> this.setLowerVoltageBound(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(UPPER_VOLTAGE_BOUND_PARAM_NAME))
+            .ifPresent(prop -> this.setUpperVoltageBound(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(MAX_ITERATIONS_PARAM_NAME))
+            .ifPresent(prop -> this.setMaxIterations(Integer.parseInt(prop)));
+        Optional.ofNullable(properties.get(RELATIVE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME))
+            .ifPresent(prop -> this.setRelConvEps(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME))
+            .ifPresent(prop -> this.setAbsConvEps(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(RELATIVE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME))
+            .ifPresent(prop -> this.setRelOptEps(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME))
+            .ifPresent(prop -> this.setAbsConvEps(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(SLACK_THRESHOLD_PARAM_NAME))
+            .ifPresent(prop -> this.setSlackThreshold(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(SOLVER_TYPE_PARAM_NAME))
+            .ifPresent(prop -> this.setKnitroSolverType(KnitroSolverParameters.SolverType.valueOf(prop)));
+        Optional.ofNullable(properties.get(THREAD_NUMBER_PARAM_NAME))
+            .ifPresent(prop -> this.setThreadNumber(Integer.parseInt(prop)));
         return this;
     }
 

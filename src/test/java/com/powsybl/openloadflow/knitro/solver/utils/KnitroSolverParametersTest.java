@@ -18,6 +18,8 @@ import com.powsybl.openloadflow.knitro.solver.KnitroSolverParameters;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.FileSystem;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParameters.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -241,6 +243,27 @@ class KnitroSolverParametersTest extends AbstractSerDeTest {
         moduleConfig.setStringProperty(LOWER_VOLTAGE_BOUND_PARAM_NAME, String.valueOf(2.0));
         moduleConfig.setStringProperty(SOLVER_TYPE_PARAM_NAME, KnitroSolverParameters.SolverType.RELAXED.name());
         knitroLoadFlowParameters.update(platformConfig);
+
+        assertEquals(2, knitroLoadFlowParameters.getGradientComputationMode());
+        assertEquals(KnitroSolverParameters.SolverType.RELAXED, knitroLoadFlowParameters.getKnitroSolverType());
+        assertEquals(2.0, knitroLoadFlowParameters.getLowerVoltageBound());
+    }
+
+    @Test
+    void testUpdateParametersFromMap() {
+        LoadFlowParameters parameters = new LoadFlowParameters();
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
+
+        assertEquals(KnitroSolverParameters.DEFAULT_SOLVER_TYPE, knitroLoadFlowParameters.getKnitroSolverType());
+        assertEquals(KnitroSolverParameters.DEFAULT_GRADIENT_COMPUTATION_MODE, knitroLoadFlowParameters.getGradientComputationMode());
+        assertEquals(KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND, knitroLoadFlowParameters.getLowerVoltageBound());
+
+        Map<String, String> properties = new HashMap<>();
+        properties.put(GRADIENT_COMPUTATION_MODE_PARAM_NAME, String.valueOf(2));
+        properties.put(LOWER_VOLTAGE_BOUND_PARAM_NAME, String.valueOf(2.0));
+        properties.put(SOLVER_TYPE_PARAM_NAME, KnitroSolverParameters.SolverType.RELAXED.name());
+        knitroLoadFlowParameters.update(properties);
 
         assertEquals(2, knitroLoadFlowParameters.getGradientComputationMode());
         assertEquals(KnitroSolverParameters.SolverType.RELAXED, knitroLoadFlowParameters.getKnitroSolverType());
