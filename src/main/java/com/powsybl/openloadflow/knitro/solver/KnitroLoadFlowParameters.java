@@ -275,7 +275,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
         Optional.ofNullable(properties.get(RELATIVE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME))
             .ifPresent(prop -> this.setRelOptEps(Double.parseDouble(prop)));
         Optional.ofNullable(properties.get(ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME))
-            .ifPresent(prop -> this.setAbsConvEps(Double.parseDouble(prop)));
+            .ifPresent(prop -> this.setAbsOptEps(Double.parseDouble(prop)));
         Optional.ofNullable(properties.get(SLACK_THRESHOLD_PARAM_NAME))
             .ifPresent(prop -> this.setSlackThreshold(Double.parseDouble(prop)));
         Optional.ofNullable(properties.get(SOLVER_TYPE_PARAM_NAME))
