@@ -44,9 +44,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     protected static double WEIGHT_Q_2;
     protected static double WEIGHT_V_2;
 
-    protected static final double P_seuil = 100.0; // MW
-    protected static final double Q_seuil = 100.0; // MW
-    protected static final double eta = 0.1;
+    protected static final double PSEUIL = 100.0; // MW
+    protected static final double QSEUIL = 100.0; // MW
+    protected static final double ETA = 0.1;
 
     // Weights of the linear in the objective function
     protected static final double WEIGHT_ABSOLUTE_PENAL = 1.0;
@@ -73,9 +73,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     // Mapping of gamma : each Voltage Level is assign to a gamma depending on its nominal voltage
     protected HashMap<Double, Double> voltageLevelGammaMap;
-    protected HashMap<Integer,Double> OMEGA_V_1_MAP;
-    protected HashMap<Integer, Double> OMEGA_V_2_MAP;
-
+    protected HashMap<Integer, Double> omegaVMap;
+    protected HashMap<Integer, Double> omegaV2Map; // Valeur non nécessaire normalemnt
 
     protected AbstractRelaxedKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                           JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
@@ -111,43 +110,26 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         voltageLevelGammaMap.put(225.0, 123.0);
         voltageLevelGammaMap.put(400.0, 356.5);
 
-        OMEGA_V_1_MAP = new HashMap<Integer, Double>();
-        OMEGA_V_2_MAP = new HashMap<Integer, Double >();
-        System.out.println("NUMBER OF V EQU "+ numVEquations);
+        omegaVMap = new HashMap<Integer, Double>();
+        omegaV2Map = new HashMap<Integer, Double >();
 
         for (int i = 0; i < sortedEquations.size(); i++) {
             AcEquationType type = sortedEquations.get(i).getType();
+            double gammaValue = 0.0;
 
             switch (type) {
                 case BUS_TARGET_P -> pEquationLocalIds.put(i, pCounter++);
                 case BUS_TARGET_Q -> qEquationLocalIds.put(i, qCounter++);
-                case BUS_TARGET_V ->{
-
-                        // Set WEIGHT_V_1 and WEIGHT_V_2 based on the nominal voltage of the bus and the corresponding gamma
-                    String vl_id = sortedEquations.get(i).getElement(network).get().getId();
-                              //  sortedEquations.get(i).getElementNum();
-                    LfBus vl_id_2 = network.getBus(sortedEquations.get(i).getElementNum());
-                   // LfBus bus = network.getBus(sortedEquations.get(i).getElementNum()).getNominalV();
-                    System.out.println("VL ID : " + vl_id +"  Equation num : " + i);
-                    System.out.println("VL ID 2 : " + vl_id_2.getId() + "  Nominal V : " + vl_id_2.getNominalV());
-                    double gamma = 0.0;
-
-                    if (vl_id_2.getNominalV()<=85.0){
-                        gamma = voltageLevelGammaMap.get(63.0);
+                case BUS_TARGET_V -> {
+                    // Set WEIGHT_V_1 and WEIGHT_V_2 based on the nominal voltage of the bus and the corresponding gamma
+                    LfBus vlInfo = network.getBus(sortedEquations.get(i).getElementNum());
+                    gammaValue = getGammaValues(vlInfo);
+                    if (gammaValue == 0.0 || Double.isNaN(gammaValue) || Double.isInfinite(gammaValue)) {
+                        throw new PowsyblException("Gamma value is zero for bus " + vlInfo.getId() + " with nominal voltage " + vlInfo.getNominalV() + " kV. Please check the voltage level gamma mapping.");
                     }
-                    else if (vl_id_2.getNominalV()> 85.0 && vl_id_2.getNominalV() <=200){
-                        gamma = voltageLevelGammaMap.get(150.0);
-                    }
-                    else if (vl_id_2.getNominalV()> 200 && vl_id_2.getNominalV() <=350){
-                        gamma = voltageLevelGammaMap.get(225.0);
-                    }
-                    else if (vl_id_2.getNominalV()> 350){
-                        gamma = voltageLevelGammaMap.get(400.0);
-                    }
-
-                    OMEGA_V_1_MAP.put(vCounter, gamma); // for each index of V  I have the correspo,ding gamma
-                    OMEGA_V_2_MAP.put(vCounter, vl_id_2.getNominalV());
-                    System.out.println("for v indices "+ vCounter + " GAMMA = "+ OMEGA_V_1_MAP.get(vCounter));
+                    omegaVMap.put(vCounter, getGammaValues(vlInfo)); // for each index of V  I have the corresponding gamma
+                    omegaV2Map.put(vCounter, vlInfo.getNominalV());
+                    System.out.println("for v indices " + vCounter + " GAMMA = " + omegaVMap.get(vCounter));
                     vEquationLocalIds.put(i, vCounter++);
 
                 }
@@ -156,25 +138,46 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 }
             }
         }
-        System.out.println(vEquationLocalIds);
-        System.out.println(OMEGA_V_1_MAP);
-        System.out.println(OMEGA_V_2_MAP);
+//        System.out.println(vEquationLocalIds);
+//        System.out.println(omegaVMap);
 
         // Weight P
-        WEIGHT_P_1 = knitroParameters.getOmegaP1();
-        double DeltaP = DeltaP(network, this.knitroParameters.getLosses());
-        double activeGeneration = activeGeneration(network, this.knitroParameters.getLosses());
-        if (DeltaP == 0){
+        // Un objet exsite dans la classe LF network balanceReport mais renvoie un void
+        // Le calcul doit être refait
+        double activeGeneration = activeGeneration(network);
+        double deltaP = deltaP(network, activeGeneration, this.knitroParameters.getLosses());
+        if (deltaP == 0 || Double.isNaN(deltaP)) {
             throw new PowsyblException("DIVISION PAR ZERO: DeltaP is equal to 0, cannot compute WEIGHT_P_1. Please check that the network has non-zero active power generation and load, and/or adjust the losses parameter.");
         }
-        WEIGHT_P_1 = activeGeneration/(10*DeltaP);
+        WEIGHT_P_1 = activeGeneration / (10 * deltaP);
 
-        WEIGHT_P_2 = WEIGHT_P_1 *BASE_100MVA / (2*P_seuil);
+        WEIGHT_P_2 = WEIGHT_P_1 * BASE_100MVA / (2 * PSEUIL);
 
         // Weight Q
-        WEIGHT_Q_2 = WEIGHT_Q_1 * BASE_100MVA / (2*Q_seuil);
+        WEIGHT_Q_2 = WEIGHT_Q_1 * BASE_100MVA / (2 * QSEUIL);
+        LOGGER.info("acitve gen {}", activeGeneration);
+        LOGGER.info("Delta P {}", deltaP);
+        LOGGER.info("OMEGA P1 {}", WEIGHT_P_1);
+        LOGGER.info("OMEGA P2 {}", WEIGHT_P_2);
+        LOGGER.info("OMEGA Q1 {}", WEIGHT_Q_1);
+        LOGGER.info("OMEGA Q2 {}", WEIGHT_Q_2);
 
         //WEIGHT V
+    }
+
+    protected double getGammaValues(LfBus vlInfo) {
+        double gamma = 0.0;
+        if (vlInfo.getNominalV() <= 85.0) {
+            gamma = voltageLevelGammaMap.get(63.0);
+        } else if (vlInfo.getNominalV() > 85.0 && vlInfo.getNominalV() <= 200) {
+            gamma = voltageLevelGammaMap.get(150.0);
+        } else if (vlInfo.getNominalV() > 200 && vlInfo.getNominalV() <= 350) {
+            gamma = voltageLevelGammaMap.get(225.0);
+        } else if (vlInfo.getNominalV() > 350) {
+            gamma = voltageLevelGammaMap.get(400.0);
+        }
+        LOGGER.info("VL ID [" + vlInfo.getId() + "]  Nominal V : " + vlInfo.getNominalV() + ";  gamma : " + gamma);
+        return gamma;
     }
 
     @Override
@@ -199,6 +202,12 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("Penalty Q = {}", penaltyQ);
         LOGGER.info("Penalty V = {}", penaltyV);
         LOGGER.info("Total penalty = {}", totalPenalty);
+        LOGGER.info("Total LOSES DC (ABSTRACT)in MW = {}", this.knitroParameters.getLosses());
+        LOGGER.info("OMEGA P1 {}", WEIGHT_P_1);
+        LOGGER.info("OMEGA P2 {}", WEIGHT_P_2);
+        LOGGER.info("OMEGA Q1 {}", WEIGHT_Q_1);
+        LOGGER.info("OMEGA Q2 {}", WEIGHT_Q_2);
+
     }
 
     /**
@@ -303,31 +312,20 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         return penalty;
     }
 
-    private double DeltaP(LfNetwork network, double losses) {
-        double activeGeneration = (double)0.0F;
-        double reactiveGeneration = (double)0.0F;
-        double activeLoad = (double)0.0F;
-        double reactiveLoad = (double)0.0F;
+    private double deltaP(LfNetwork network, double activeGeneration, double losses) {
+        double activeLoad = (double) 0.0F;
 
-        for(LfBus b : network.getBuses()) {
-            activeGeneration += b.getGenerationTargetP() * (double)100.0F;
-            reactiveGeneration += b.getGenerationTargetQ() * (double)100.0F;
-            activeLoad += b.getLoadTargetP() * (double)100.0F;
-            reactiveLoad += b.getLoadTargetQ() * (double)100.0F;
+        for (LfBus b : network.getBuses()) {
+            activeLoad += b.getLoadTargetP() * (double) 100.0F;
         }
         return Math.abs(activeGeneration - activeLoad - losses); //minus total Losses
     }
-    private double activeGeneration(LfNetwork network, double losses) {
-        double activeGeneration = (double)0.0F;
-        double reactiveGeneration = (double)0.0F;
-        double activeLoad = (double)0.0F;
-        double reactiveLoad = (double)0.0F;
 
-        for(LfBus b : network.getBuses()) {
-            activeGeneration += b.getGenerationTargetP() * (double)100.0F;
-            reactiveGeneration += b.getGenerationTargetQ() * (double)100.0F;
-            activeLoad += b.getLoadTargetP() * (double)100.0F;
-            reactiveLoad += b.getLoadTargetQ() * (double)100.0F;
+    private double activeGeneration(LfNetwork network) {
+        double activeGeneration = (double) 0.0F;
+
+        for (LfBus b : network.getBuses()) {
+            activeGeneration += b.getGenerationTargetP() * (double) 100.0F;
         }
         return activeGeneration; //minus total Losses
     }
