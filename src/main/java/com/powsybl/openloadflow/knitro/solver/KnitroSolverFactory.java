@@ -63,8 +63,8 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 .setAbsOptEps(knitroLoadFlowParameters.getAbsOptEps())
                 .setSlackThreshold(knitroLoadFlowParameters.getSlackThreshold())
                 .setSolverType(knitroLoadFlowParameters.getKnitroSolverType())
-                .setThreadNumber(knitroLoadFlowParameters.getThreadNumber());
-
+                .setThreadNumber(knitroLoadFlowParameters.getThreadNumber())
+                .setLosses(knitroLoadFlowParameters.getLosses());
         }
         return knitroSolverParameters;
     }
