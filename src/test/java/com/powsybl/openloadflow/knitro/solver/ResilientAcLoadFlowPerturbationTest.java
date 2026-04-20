@@ -1,16 +1,19 @@
 package com.powsybl.openloadflow.knitro.solver;
 
+import com.powsybl.iidm.network.Line;
 import com.powsybl.iidm.network.Network;
+import com.powsybl.iidm.network.Terminal;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.math.matrix.SparseMatrixFactory;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
+import com.powsybl.openloadflow.dc.equations.DcApproximationType;
 import com.powsybl.openloadflow.network.SlackBusSelectionMode;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-//import org.junit.jupiter.api.Test;
+//import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -24,9 +27,10 @@ import org.slf4j.LoggerFactory;
 //import java.nio.file.Path;
 
 //import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR;
+import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR;
 //import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR_BUS_BREAKER;
-//import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.HU_INSTANCE;
-//import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.ES_INSTANCE;
+import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.HU_INSTANCE;
+import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.ES_INSTANCE;
 
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
@@ -36,6 +40,7 @@ public class ResilientAcLoadFlowPerturbationTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResilientAcLoadFlowPerturbationTest.class);
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
+    private static final String DC_TEST = "DC_TEST";
     private static final String VOLTAGE_PERTURBATION = "voltage-perturbation";
     private static final String ACTIVE_POWER_PERTURBATION = "active-perturbation";
     private static final String REACTIVE_POWER_PERTURBATION = "reactive-perturbation";
@@ -49,23 +54,19 @@ public class ResilientAcLoadFlowPerturbationTest {
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new SparseMatrixFactory()));
         parameters = new LoadFlowParameters()
                 .setUseReactiveLimits(false)
-                .setDistributedSlack(false);
+                .setDistributedSlack(false)
+                .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
+
     }
 
     private void configureSolver(String solver) {
-        OpenLoadFlowParameters.create(parameters)
-                .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
-                .setAcSolverType(solver);
-        if (DC_test.equals(solver)) {
-            LoadFlowParameters dcParameters = new LoadFlowParameters()
-                    .setUseReactiveLimits(false)
-                    .setDistributedSlack(false)
-                    .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
-            OpenLoadFlowParameters.create(dcParameters)
-                    .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
-                    .setAcSolverType(NR)
-                    .setDcApproximationType(DcApproximationType.IGNORE_G);
 
+        OpenLoadFlowParameters.create(parameters)
+                    .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
+                    .setAcSolverType(solver);
+//        } else if (DC_TEST.equals(solver)) {
+//
+            // .setDcApproximationType(DcApproximationType.IGNORE_G); Should it be included to really compute a DC LF ?
         if (RKN.equals(solver)) {
             KnitroLoadFlowParameters knitroParams = new KnitroLoadFlowParameters();
             // Set the Knitro solver type to RELAXED
@@ -75,7 +76,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         }
     }
 
-    private void compareResilience(Network rknNetwork, Network nrNetwork, String baseFilename, String perturbationType) {
+    private void compareResilience(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename, String perturbationType) {
         // Newton-Raphson
         configureSolver(NR);
         LoadFlowResult resultNR = loadFlowRunner.run(nrNetwork, parameters);
@@ -89,13 +90,13 @@ public class ResilientAcLoadFlowPerturbationTest {
 
         // DC Load Flow
         LoadFlowParameters dcParameters = new LoadFlowParameters()
-                    .setUseReactiveLimits(false)
-                    .setDistributedSlack(false)
-                    .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
+                .setUseReactiveLimits(false)
+                .setDistributedSlack(false)
+                .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
         OpenLoadFlowParameters.create(dcParameters)
-                    .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
-                    .setAcSolverType(NR)
-                    .setDcApproximationType(DcApproximationType.IGNORE_G);
+                .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
+                .setAcSolverType(NR)
+                .setDcApproximationType(DcApproximationType.IGNORE_R);
         LoadFlowResult resultDC = loadFlowRunner.run(dcNetwork, parameters);
         boolean isConvergedDC = resultDC.isFullyConverged();
         LOGGER.info("==== Test Information ====");
