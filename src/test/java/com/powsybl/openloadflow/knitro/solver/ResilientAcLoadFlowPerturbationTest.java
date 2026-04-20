@@ -204,7 +204,6 @@ public class ResilientAcLoadFlowPerturbationTest {
 
     @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on HU networks: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideNodeBreakerHUNetworks")
-    @Disabled("Temporarily disabled")
     void testVoltagePerturbationOnHUData(NetworkPair pair) {
         String baseFilename = pair.baseFilename();
 
