@@ -37,6 +37,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     public double getLosses() {
         return losses;
     }
+
     public KnitroLoadFlowParameters setLosses(double losses) {
         this.losses = losses;
         return this;
@@ -50,7 +51,6 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
 //        this.omega_P1 = omega_P1;
 //        return this;
 //    }
-
 
     public int getGradientComputationMode() {
         return gradientComputationMode;

@@ -23,10 +23,7 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import com.powsybl.openloadflow.knitro.solver.NetworkProviders.NetworkPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-//import java.nio.file.Path;
-
-//import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR;
+import java.nio.file.Path;
 import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR;
 //import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.CONFIDENTIAL_DATA_DIR_BUS_BREAKER;
 import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.HU_INSTANCE;
