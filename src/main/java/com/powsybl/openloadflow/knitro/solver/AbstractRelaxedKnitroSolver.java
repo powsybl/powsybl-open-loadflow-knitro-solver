@@ -46,11 +46,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     protected static final double QSEUIL = 100.0; // MW
     protected static final double ETA = 0.1;
 
-    // Weights of the linear in the objective function
-    protected static final double WEIGHT_ABSOLUTE_PENAL = 1.0;
-    protected static final double WEIGHT_P_PENAL = 1.0;
-    protected static final double WEIGHT_Q_PENAL = 1.0;
-    protected static final double WEIGHT_V_PENAL = 1.0;
     // Total number of variables (including power flow and slack variables)
     protected int numSlackVariables;
 
