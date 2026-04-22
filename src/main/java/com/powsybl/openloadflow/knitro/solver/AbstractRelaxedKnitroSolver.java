@@ -184,6 +184,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("OMEGA P2 {}", WEIGHT_P_2);
         LOGGER.info("OMEGA Q1 {}", WEIGHT_Q_1);
         LOGGER.info("OMEGA Q2 {}", WEIGHT_Q_2);
+        LOGGER.info("OME GA GAMMA {}", omegaVMap);
 
     }
 
