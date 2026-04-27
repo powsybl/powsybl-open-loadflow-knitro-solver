@@ -38,7 +38,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final SolverType DEFAULT_SOLVER_TYPE = SolverType.STANDARD;
     public static final int DEFAULT_THREAD_NUMBER = -1;
     public static final double DEFAULT_OMEGA_P1 = 1.0; //
-    public static final double DEFAULT_DC_LOSSES = 0.0;
+    public static final double DEFAULT_DC_LOSSES = 10.0; // MW
 
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
 
