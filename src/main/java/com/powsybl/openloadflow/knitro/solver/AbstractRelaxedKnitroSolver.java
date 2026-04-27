@@ -145,11 +145,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         double gamma = 0.0;
         if (vlInfo.getNominalV() <= 85.0) {
             gamma = voltageLevelGammaMap.get(63.0);
-        } else if (vlInfo.getNominalV() > 85.0 && vlInfo.getNominalV() <= 200) {
+        } else if (vlInfo.getNominalV() > 85.0 && vlInfo.getNominalV() <= 200.0) {
             gamma = voltageLevelGammaMap.get(150.0);
-        } else if (vlInfo.getNominalV() > 200 && vlInfo.getNominalV() <= 350) {
+        } else if (vlInfo.getNominalV() > 200.0 && vlInfo.getNominalV() <= 350.0) {
             gamma = voltageLevelGammaMap.get(225.0);
-        } else if (vlInfo.getNominalV() > 350) {
+        } else if (vlInfo.getNominalV() > 350.0) {
             gamma = voltageLevelGammaMap.get(400.0);
         }
         return gamma;
