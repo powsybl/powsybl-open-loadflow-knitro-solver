@@ -116,9 +116,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                     LfBus vlInfo = network.getBus(sortedEquations.get(i).getElementNum());
                     gammaValue = getGammaValues(vlInfo);
                     if (gammaValue == 0.0 || Double.isNaN(gammaValue) || Double.isInfinite(gammaValue)) {
-                        throw new PowsyblException("Gamma value is zero for bus " + vlInfo.getId() + " with nominal voltage " + vlInfo.getNominalV() + " kV. Please check the voltage level gamma mapping.");
+                        throw new PowsyblException("Gamma value is not define for bus " + vlInfo.getId() + " with nominal voltage " + vlInfo.getNominalV() + " kV. Please check the voltage level gamma mapping.");
                     }
-                    omegaVMap.put(vCounter, getGammaValues(vlInfo)); // for each index of V  I have the corresponding gamma
+                    omegaVMap.put(vCounter, gammaValue); // for each index of V  I have the corresponding gamma
                     vEquationLocalIds.put(i, vCounter++);
                 }
                 default -> {
