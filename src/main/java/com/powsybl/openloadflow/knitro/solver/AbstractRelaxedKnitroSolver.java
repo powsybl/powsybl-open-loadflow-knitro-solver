@@ -179,12 +179,12 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("Total penalty = {}", totalPenalty);
 
         // Weight use in the objective function
-        LOGGER.info("Total LOSES DC (ABSTRACT)in MW = {}", this.knitroParameters.getLosses());
+        LOGGER.info("Total LOSSES DC (ABSTRACT) =  {} MW", this.knitroParameters.getLosses());
         LOGGER.info("OMEGA P1 {}", WEIGHT_P_1);
         LOGGER.info("OMEGA P2 {}", WEIGHT_P_2);
         LOGGER.info("OMEGA Q1 {}", WEIGHT_Q_1);
         LOGGER.info("OMEGA Q2 {}", WEIGHT_Q_2);
-        LOGGER.info("OME GA GAMMA {}", omegaVMap);
+        LOGGER.info("OMEGA GAMMA {}", omegaVMap);
 
     }
 
@@ -387,7 +387,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         /**
          * Adds quadratic and linear terms related to slack variables of type P and Q  to the objective function.
          */
-        void addSlackObjectiveTerms(int numEquations, int slackStartIdx, double weight, double lambda,
+        void addSlackObjectiveTerms(int numEquations, int slackStartIdx, double weight2, double weight1,
                                     List<Integer> quadRows, List<Integer> quadCols, List<Double> quadCoefs,
                                     List<Integer> linIndexes, List<Double> linCoefs) {
             for (int i = 0; i < numEquations; i++) {
@@ -399,27 +399,27 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 // add first quadratic term : weight * sp^2
                 quadRows.add(idxSp);
                 quadCols.add(idxSp);
-                quadCoefs.add(weight);
+                quadCoefs.add(weight2);
 
                 // add second quadratic term : weight * sm^2
                 quadRows.add(idxSm);
                 quadCols.add(idxSm);
-                quadCoefs.add(weight);
+                quadCoefs.add(weight2);
 
                 // add third quadratic term : weight * (- 2 * sp * sm)
                 quadRows.add(idxSp);
                 quadCols.add(idxSm);
-                quadCoefs.add(-2 * weight);
+                quadCoefs.add(-2 * weight2);
 
                 // Add linear terms: weight * lambda * (sp + sm)
 
                 // add first linear term : weight * lambda * sp
                 linIndexes.add(idxSp);
-                linCoefs.add(lambda);
+                linCoefs.add(weight1);
 
                 // add second linear term : weight * lambda * sm
                 linIndexes.add(idxSm);
-                linCoefs.add(lambda);
+                linCoefs.add(weight1);
             }
         }
 
