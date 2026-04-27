@@ -44,7 +44,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     protected static final double P_THRESHOLD = 100.0; // MW
     protected static final double Q_THRESHOLD = 100.0; // MW
-    protected static final double ETA = 0.1;
+    protected static final double GAMMA_FACTOR = 0.1;
 
     // Total number of variables (including power flow and slack variables)
     protected int numSlackVariables;
