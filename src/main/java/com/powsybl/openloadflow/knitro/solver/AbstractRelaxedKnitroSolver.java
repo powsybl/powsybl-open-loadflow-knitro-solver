@@ -42,8 +42,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     protected static double WEIGHT_P_2;
     protected static double WEIGHT_Q_2;
 
-    protected static final double PSEUIL = 100.0; // MW
-    protected static final double QSEUIL = 100.0; // MW
+    protected static final double P_THRESHOLD = 100.0; // MW
+    protected static final double Q_THRESHOLD = 100.0; // MW
     protected static final double ETA = 0.1;
 
     // Total number of variables (including power flow and slack variables)
@@ -135,10 +135,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
 
         WEIGHT_P_1 = activeGeneration / (10 * deltaP);
-        WEIGHT_P_2 = WEIGHT_P_1 * BASE_100MVA / (2 * PSEUIL);
+        WEIGHT_P_2 = WEIGHT_P_1 * BASE_100MVA / (2 * P_THRESHOLD);
 
         // Weight Q
-        WEIGHT_Q_2 = WEIGHT_Q_1 * BASE_100MVA / (2 * QSEUIL);
+        WEIGHT_Q_2 =  WEIGHT_Q_1 * BASE_100MVA / (2 * Q_THRESHOLD);
     }
 
     protected double getGammaValues(LfBus vlInfo) {
