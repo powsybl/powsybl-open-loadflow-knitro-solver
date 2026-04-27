@@ -128,8 +128,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
 
         // Weight P
-        double activeGeneration = activeGeneration(network);
-        double deltaP = deltaP(network, activeGeneration, this.knitroParameters.getLosses());
+        double activeGeneration = computeActiveGeneration(network);
+        double deltaP = computeDeltaP(network, activeGeneration, this.knitroParameters.getLosses());
         if (deltaP == 0 || Double.isNaN(deltaP)) {
             throw new PowsyblException("DIVIDED BY ZERO: DeltaP is equal to 0, cannot compute WEIGHT_P_1. Please check that the network has non-zero active power generation and load, and/or adjust the losses parameter.");
         }
@@ -321,7 +321,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param losses            The approximated losses computed by a DC LoadF
      * @return Delta P
      */
-    private double deltaP(LfNetwork network, double activeGeneration, double losses) {
+    private double computeDeltaP(LfNetwork network, double activeGeneration, double losses) {
         double activeLoad = (double) 0.0F;
 
         for (LfBus b : network.getBuses()) {
@@ -336,7 +336,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param network           LfNetwork
      * @return The total active power generation in the network
      */
-    private double activeGeneration(LfNetwork network) {
+    private double computeActiveGeneration(LfNetwork network) {
         double activeGeneration = (double) 0.0F;
 
         for (LfBus b : network.getBuses()) {
