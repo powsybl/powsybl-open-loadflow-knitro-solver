@@ -134,11 +134,12 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             throw new PowsyblException("DIVIDED BY ZERO: DeltaP is equal to 0, cannot compute WEIGHT_P_1. Please check that the network has non-zero active power generation and load, and/or adjust the losses parameter.");
         }
 
-        WEIGHT_P_1 = activeGeneration / (10 * deltaP);
-        WEIGHT_P_2 = WEIGHT_P_1 * BASE_100MVA / (2 * P_THRESHOLD);
+        // Weight P
+        WEIGHT_P_1 = getWeightP1(activeGeneration, deltaP);
+        WEIGHT_P_2 = getWeightP2();
 
         // Weight Q
-        WEIGHT_Q_2 =  WEIGHT_Q_1 * BASE_100MVA / (2 * Q_THRESHOLD);
+        WEIGHT_Q_2 = getWeightQ2();
     }
 
     protected double getGammaValues(LfBus vlInfo) {
@@ -153,6 +154,18 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             gamma = voltageLevelGammaMap.get(400.0);
         }
         return gamma;
+    }
+
+    private static double getWeightP1(double activeGeneration, double deltaP) {
+        return WEIGHT_P_1 = activeGeneration / (10 * deltaP);
+    }
+
+    private static double getWeightP2() {
+        return WEIGHT_P_1 * BASE_100MVA / (2 * P_THRESHOLD);
+    }
+
+    private static double getWeightQ2() {
+        return WEIGHT_Q_1 * BASE_100MVA / (2 * Q_THRESHOLD);
     }
 
     @Override
