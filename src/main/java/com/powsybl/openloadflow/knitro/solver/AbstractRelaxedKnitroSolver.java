@@ -193,12 +193,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         // Weight use in the objective function
         LOGGER.info("Total LOSSES DC (ABSTRACT) =  {} MW", this.knitroParameters.getLosses());
-        LOGGER.info("OMEGA P1 {}", WEIGHT_P_1);
-        LOGGER.info("OMEGA P2 {}", WEIGHT_P_2);
-        LOGGER.info("OMEGA Q1 {}", WEIGHT_Q_1);
-        LOGGER.info("OMEGA Q2 {}", WEIGHT_Q_2);
-        LOGGER.info("OMEGA GAMMA {}", omegaVMap);
-
+        LOGGER.info("Weight P1 = {}", WEIGHT_P_1);
+        LOGGER.info("Weight P2 = {}", WEIGHT_P_2);
+        LOGGER.info("Weight Q1 = {}", WEIGHT_Q_1);
+        LOGGER.info("Weight Q2 = {}", WEIGHT_Q_2);
+        LOGGER.info("Weight gamma map :  {}", omegaVMap);
     }
 
     /**
