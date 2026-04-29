@@ -43,15 +43,6 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
         return this;
     }
 
-   // public double getOmegaP1() {
-//        return omega_P1;
-//    }
-
-//    public KnitroLoadFlowParameters setOmegaP1(double omega_P1) {
-//        this.omega_P1 = omega_P1;
-//        return this;
-//    }
-
     public int getGradientComputationMode() {
         return gradientComputationMode;
     }
