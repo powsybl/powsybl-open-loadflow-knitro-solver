@@ -37,7 +37,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
     public static final SolverType DEFAULT_SOLVER_TYPE = SolverType.STANDARD;
     public static final int DEFAULT_THREAD_NUMBER = -1;
-    public static final double DEFAULT_OMEGA_P1 = 1.0; //
+    //public static final double DEFAULT_OMEGA_P1 = 1.0; //
     public static final double DEFAULT_DC_LOSSES = 10.0; // MW
 
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
@@ -78,16 +78,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     private int threadNumber = DEFAULT_THREAD_NUMBER; // Specifies the number of threads used by the solver. -1 lets the solver decide
 
-    private double omgaP1 = DEFAULT_OMEGA_P1;
-
-    public double getOmegaP1() {
-        return omgaP1;
-    }
-
-    public KnitroSolverParameters setOmegaP1(double omegaP1) {
-        this.omgaP1 = omegaP1;
-        return this;
-    }
 
     private double losses = DEFAULT_DC_LOSSES;
 
