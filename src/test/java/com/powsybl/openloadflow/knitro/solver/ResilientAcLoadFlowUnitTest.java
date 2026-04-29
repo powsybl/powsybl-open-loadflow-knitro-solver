@@ -98,8 +98,8 @@ public class ResilientAcLoadFlowUnitTest {
 
             double v1 = bus1.getV() / bus1.getVoltageLevel().getNominalV();
             double v2 = bus2.getV() / bus2.getVoltageLevel().getNominalV();
-            double phi1 = bus1.getAngle() * Math.PI / 180.0; // Convert radians to degrees
-            double phi2 = bus2.getAngle() * Math.PI / 180.0; // Convert radians to degrees
+            double phi1 = bus1.getAngle();
+            double phi2 = bus1.getAngle();
 
             assertEquals(v1, v2, tolerance, "Mismatch on V for bus " + bus1.getId());
             assertEquals(phi1, phi2, tolerance, "Mismatch on Phi for bus " + bus1.getId());

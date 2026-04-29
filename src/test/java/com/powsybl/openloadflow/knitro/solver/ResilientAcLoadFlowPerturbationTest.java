@@ -1,5 +1,7 @@
 package com.powsybl.openloadflow.knitro.solver;
 
+import com.powsybl.commons.report.ReportNode;
+import com.powsybl.iidm.network.Bus;
 import com.powsybl.iidm.network.Line;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.Terminal;
@@ -9,10 +11,15 @@ import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.math.matrix.SparseMatrixFactory;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
+import com.powsybl.openloadflow.dc.DcLoadFlowEngine;
+import com.powsybl.openloadflow.dc.DcLoadFlowParameters;
+import com.powsybl.openloadflow.dc.DcLoadFlowResult;
 import com.powsybl.openloadflow.dc.equations.DcApproximationType;
-import com.powsybl.openloadflow.network.SlackBusSelectionMode;
+import com.powsybl.openloadflow.graph.NaiveGraphConnectivityFactory;
+import com.powsybl.openloadflow.network.*;
+import com.powsybl.openloadflow.network.impl.LfNetworkLoaderImpl;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -93,15 +100,41 @@ public class ResilientAcLoadFlowPerturbationTest {
         assumeFalse(isConvergedNR && !isFailedNR, baseFilename + ": NR should not converge");
 
         // DC Load Flow
-        configureDcSolver();
-        LoadFlowResult resultDC = loadFlowRunner.run(dcNetwork, parameters);
-        boolean isConvergedDC = resultDC.isFullyConverged();
+        //
+        //configureDcSolver();
+
+        LoadFlowParameters lf = new LoadFlowParameters()
+                .setDistributedSlack(false)
+                .setUseReactiveLimits(false)
+                .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
+
+        OpenLoadFlowParameters olf = OpenLoadFlowParameters.create(lf)
+                .setDcApproximationType(DcApproximationType.IGNORE_G)
+                .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED);
+
+        DcLoadFlowParameters dcParameters =
+                OpenLoadFlowParameters.createDcParameters(
+                        dcNetwork,
+                        lf,
+                        olf,
+                        new SparseMatrixFactory(),
+                        new NaiveGraphConnectivityFactory<>(LfElement::getNum),
+                        false
+                );
+        List<DcLoadFlowResult> resultsDC =
+                DcLoadFlowEngine.run(dcNetwork, new LfNetworkLoaderImpl(), dcParameters, ReportNode.NO_OP);
+
+        boolean dcOk = resultsDC.stream().anyMatch(DcLoadFlowResult::isSuccess);
+
+       // LoadFlowResult resultDC = loadFlowRunner.run(dcNetwork, dcParameters);
+       // boolean isConvergedDC = resultDC.isFullyConverged();
         LOGGER.info("==== Test Information ====");
         LOGGER.info("Algorithm : NR with DC approximation");
         LOGGER.info("Type : {}", perturbationType);
         LOGGER.info("Network name : {}", baseFilename);
-        //This line assures that the Losses values are computed and non null
-        assertTrue(isConvergedDC, baseFilename + ": DC load flow should converge");
+        assertTrue(dcOk, baseFilename + ": DC load flow should converge");
+
+
         this.losses = calculateDcLosses(dcNetwork); // Set the parameters losses so that the RKN RELAXED solver can acces it
         LOGGER.info("Calculated DC losses: {} MW", this.losses);
 
@@ -124,6 +157,8 @@ public class ResilientAcLoadFlowPerturbationTest {
         PerturbationFactory.VoltagePerturbation perturbation = PerturbationFactory.getVoltagePerturbation(nrNetwork);
         PerturbationFactory.applyVoltagePerturbation(rknNetwork, perturbation, rPU, xPU, alpha);
         PerturbationFactory.applyVoltagePerturbation(nrNetwork, perturbation, rPU, xPU, alpha);
+        PerturbationFactory.applyVoltagePerturbation(dcNetwork, perturbation, rPU, xPU, alpha);
+        System.out.println("PERTURBATION" + perturbation);
         compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, VOLTAGE_PERTURBATION);
     }
 
@@ -142,24 +177,75 @@ public class ResilientAcLoadFlowPerturbationTest {
     }
 
     private double calculateDcLosses(Network dcNetwork) {
-        double totalLosses = 0.0;
+// older version to keep in case
+//        double totalLosses = 0.0;
+//        for (Line line : dcNetwork.getLines()) {
+//            Terminal terminal1 = line.getTerminal1();
+//            double p1 = terminal1.getP(); // MW injected at terminal
+//            double r = line.getR(); // Ohms
+//            if (r == 0) {
+//                continue;
+//            } else if (Double.isNaN(p1)) {
+//                LOGGER.warn("Line {}: P1 is NaN, skipping loss calculation for this line", line.getId());
+//                continue;
+//            }
+//            double vnom1 = terminal1.getVoltageLevel().getNominalV(); // kV
+//            double loss = r * (Math.abs(p1) * Math.abs(p1)) / (vnom1 * vnom1);
+//            totalLosses += loss;
+//        }
+//
+//        LOGGER.info("Total losses: " + totalLosses);
+//        return totalLosses;
+        double total = 0.0;
+
         for (Line line : dcNetwork.getLines()) {
-            Terminal terminal1 = line.getTerminal1();
-            double p1 = terminal1.getP(); // MW injected at terminal
-            double r = line.getR(); // Ohms
-            if (r == 0) {
-                continue;
-            } else if (Double.isNaN(p1)) {
-                LOGGER.warn("Line {}: P1 is NaN, skipping loss calculation for this line", line.getId());
+            Terminal b1 = line.getTerminal1(); //.getBusBreakerView().getBus();
+            Bus b2 = line.getTerminal2().getBusBreakerView().getBus();
+            LOGGER.debug("bus 1 "+b1);
+            if (b1 == null || b2 == null) {
+                LOGGER.warn("no busses ");
                 continue;
             }
-            double vnom1 = terminal1.getVoltageLevel().getNominalV(); // kV
-            double loss = r * (Math.abs(p1) * Math.abs(p1)) / (vnom1 * vnom1);
-            totalLosses += loss;
-        }
+            Terminal t1 = line.getTerminal1();
+            Bus b3 = t1.getBusBreakerView().getBus();
+            System.out.println("bus=" + (b3 == null ? "null" : b3.getId())
+                    + " angle=" + (b3 == null ? "null" : b3.getAngle()));
+            double a1 = b1.getBusBreakerView().getBus().getAngle();
+            double a2 = b2.getAngle();
+            if (Double.isNaN(a1) || Double.isNaN(a2)) {
+                LOGGER.warn("no angles"+a1 + a2);
+                continue;
+            }
+            double sBaseMva = 100.0;
 
-        LOGGER.info("Total losses: " + totalLosses);
-        return totalLosses;
+            double vBaseKv = b1.getVoltageLevel().getNominalV();
+            double zBaseOhm = (vBaseKv * vBaseKv) / sBaseMva;
+
+            double xPu = line.getX() / zBaseOhm;
+            double rPu = line.getR() / zBaseOhm;
+
+            double dThetaRad = Math.toRadians(a1 - b2.getAngle());
+
+            double pPu = dThetaRad / xPu;
+            double lossPu = rPu * pPu * pPu;
+            double lossMw = lossPu * sBaseMva;
+
+
+            if (!Double.isFinite(rPu) || !Double.isFinite(xPu) || xPu == 0.0) {
+                LOGGER.warn("xPU = 0 ");
+                continue;
+            }
+
+            if (!Double.isFinite(vBaseKv) || vBaseKv == 0.0) {
+                LOGGER.warn("vnom = 0");
+                continue;
+            }
+
+            total += lossMw;
+
+            }
+
+        return total;
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on IEEE networks: {0}")
