@@ -334,10 +334,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @return Delta P
      */
     private double computeDeltaP(LfNetwork network, double activeGeneration, double losses) {
-        double activeLoad = (double) 0.0F;
+        double activeLoad = (double) 0.0;
 
         for (LfBus b : network.getBuses()) {
-            activeLoad += b.getLoadTargetP() * (double) 100.0F;
+            activeLoad += b.getLoadTargetP() * (double) 100.0;
         }
         return Math.abs(activeGeneration - activeLoad - losses); //minus total Losses
     }
@@ -349,10 +349,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @return The total active power generation in the network
      */
     private double computeActiveGeneration(LfNetwork network) {
-        double activeGeneration = (double) 0.0F;
+        double activeGeneration = (double) 0.0;
 
         for (LfBus b : network.getBuses()) {
-            activeGeneration += b.getGenerationTargetP() * (double) 100.0F;
+            activeGeneration += b.getGenerationTargetP() * (double) 100.0;
         }
         return activeGeneration;
     }
