@@ -7,6 +7,7 @@ import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.math.matrix.SparseMatrixFactory;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
+import com.powsybl.openloadflow.ac.solver.NewtonRaphsonStoppingCriteriaType;
 import com.powsybl.openloadflow.network.SlackBusSelectionMode;
 import org.junit.jupiter.api.BeforeEach;
 //import org.junit.jupiter.api.Disabled;
@@ -27,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class ResilientAcLoadFlowUnitTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResilientAcLoadFlowUnitTest.class);
-    private static final double DEFAULT_TOLERANCE = 1e-2;
+    private static final double DEFAULT_TOLERANCE = 1e-3;
     private static final double BASE_100MVA = 100.0;
     private static final boolean EXPORT = false;
     private static final String RKN = "KNITRO";
@@ -48,7 +49,11 @@ public class ResilientAcLoadFlowUnitTest {
         OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
                 .setAcSolverType(solver)
-                .setLowImpedanceThreshold(1.0e-5);
+                .setNewtonRaphsonStoppingCriteriaType(NewtonRaphsonStoppingCriteriaType.PER_EQUATION_TYPE_CRITERIA)
+                .setMaxAngleMismatch(1e-3)
+                .setMaxActivePowerMismatch(1e-3)
+                .setMaxReactivePowerMismatch(1e-3)
+                .setMaxVoltageMismatch(1e-3);
 
         if (RKN.equals(solver)) {
             KnitroLoadFlowParameters knitroParams = new KnitroLoadFlowParameters();
