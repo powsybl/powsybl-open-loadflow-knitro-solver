@@ -136,75 +136,25 @@ public class ResilientAcLoadFlowPerturbationTest {
     }
 
     private double calculateDcLosses(Network dcNetwork) {
-// older version to keep in case
-//        double totalLosses = 0.0;
-//        for (Line line : dcNetwork.getLines()) {
-//            Terminal terminal1 = line.getTerminal1();
-//            double p1 = terminal1.getP(); // MW injected at terminal
-//            double r = line.getR(); // Ohms
-//            if (r == 0) {
-//                continue;
-//            } else if (Double.isNaN(p1)) {
-//                LOGGER.warn("Line {}: P1 is NaN, skipping loss calculation for this line", line.getId());
-//                continue;
-//            }
-//            double vnom1 = terminal1.getVoltageLevel().getNominalV(); // kV
-//            double loss = r * (Math.abs(p1) * Math.abs(p1)) / (vnom1 * vnom1);
-//            totalLosses += loss;
-//        }
-//
-//        LOGGER.info("Total losses: " + totalLosses);
-//        return totalLosses;
-        double total = 0.0;
+        double totalLosses = 0.0;
 
         for (Line line : dcNetwork.getLines()) {
-            Terminal b1 = line.getTerminal1(); //.getBusBreakerView().getBus();
-            Bus b2 = line.getTerminal2().getBusBreakerView().getBus();
-            LOGGER.debug("bus 1 "+b1);
-            if (b1 == null || b2 == null) {
-                LOGGER.warn("no busses ");
+            Terminal terminal1 = line.getTerminal1();
+            double p1 = terminal1.getP(); // MW injected at terminal
+            double r = line.getR(); // Ohms
+            if (r == 0) {
+                continue;
+            } else if (Double.isNaN(p1)) {
+                LOGGER.warn("Line {}: P1 is NaN, skipping loss calculation for this line", line.getId());
                 continue;
             }
-            Terminal t1 = line.getTerminal1();
-            Bus b3 = t1.getBusBreakerView().getBus();
-            System.out.println("bus=" + (b3 == null ? "null" : b3.getId())
-                    + " angle=" + (b3 == null ? "null" : b3.getAngle()));
-            double a1 = b1.getBusBreakerView().getBus().getAngle();
-            double a2 = b2.getAngle();
-            if (Double.isNaN(a1) || Double.isNaN(a2)) {
-                LOGGER.warn("no angles"+a1 + a2);
-                continue;
-            }
-            double sBaseMva = 100.0;
+            double vnom1 = terminal1.getVoltageLevel().getNominalV(); // kV
+            double loss = r * (Math.abs(p1) * Math.abs(p1)) / (vnom1 * vnom1);
+            totalLosses += loss;
+        }
 
-            double vBaseKv = b1.getVoltageLevel().getNominalV();
-            double zBaseOhm = (vBaseKv * vBaseKv) / sBaseMva;
-
-            double xPu = line.getX() / zBaseOhm;
-            double rPu = line.getR() / zBaseOhm;
-
-            double dThetaRad = Math.toRadians(a1 - b2.getAngle());
-
-            double pPu = dThetaRad / xPu;
-            double lossPu = rPu * pPu * pPu;
-            double lossMw = lossPu * sBaseMva;
-
-
-            if (!Double.isFinite(rPu) || !Double.isFinite(xPu) || xPu == 0.0) {
-                LOGGER.warn("xPU = 0 ");
-                continue;
-            }
-
-            if (!Double.isFinite(vBaseKv) || vBaseKv == 0.0) {
-                LOGGER.warn("vnom = 0");
-                continue;
-            }
-
-            total += lossMw;
-
-            }
-
-        return total;
+        LOGGER.info("Total DC losses: " + totalLosses);
+        return totalLosses;
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on IEEE networks: {0}")
