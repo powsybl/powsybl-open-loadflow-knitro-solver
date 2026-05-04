@@ -1,6 +1,6 @@
 package com.powsybl.openloadflow.knitro.solver;
 
-import com.powsybl.commons.report.ReportNode;
+//import com.powsybl.commons.report.ReportNode;
 import com.powsybl.iidm.network.Bus;
 import com.powsybl.iidm.network.Line;
 import com.powsybl.iidm.network.Network;
@@ -11,13 +11,13 @@ import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.math.matrix.SparseMatrixFactory;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
-import com.powsybl.openloadflow.dc.DcLoadFlowEngine;
-import com.powsybl.openloadflow.dc.DcLoadFlowParameters;
-import com.powsybl.openloadflow.dc.DcLoadFlowResult;
-import com.powsybl.openloadflow.dc.equations.DcApproximationType;
-import com.powsybl.openloadflow.graph.NaiveGraphConnectivityFactory;
+//import com.powsybl.openloadflow.dc.DcLoadFlowEngine;
+//import com.powsybl.openloadflow.dc.DcLoadFlowParameters;
+//import com.powsybl.openloadflow.dc.DcLoadFlowResult;
+//import com.powsybl.openloadflow.dc.equations.DcApproximationType;
+//import com.powsybl.openloadflow.graph.NaiveGraphConnectivityFactory;
 import com.powsybl.openloadflow.network.*;
-import com.powsybl.openloadflow.network.impl.LfNetworkLoaderImpl;
+//import com.powsybl.openloadflow.network.impl.LfNetworkLoaderImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
