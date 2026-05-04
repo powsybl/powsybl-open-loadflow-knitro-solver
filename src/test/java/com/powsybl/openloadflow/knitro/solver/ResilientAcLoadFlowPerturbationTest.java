@@ -52,13 +52,6 @@ public class ResilientAcLoadFlowPerturbationTest {
                 .setUseReactiveLimits(false)
                 .setDistributedSlack(false)
                 .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
-
-    }
-
-    @AfterEach
-    void tearDown() {
-        loadFlowRunner = null;
-        parameters = null;
     }
 
     private void configureSolver(String solver) {
@@ -76,17 +69,6 @@ public class ResilientAcLoadFlowPerturbationTest {
         }
     }
 
-    private void configureDcSolver() {
-        LoadFlowParameters dcParameters = new LoadFlowParameters()
-                .setUseReactiveLimits(false)
-                .setDistributedSlack(false)
-                .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
-        OpenLoadFlowParameters.create(dcParameters)
-                .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
-                .setAcSolverType(NR)
-                .setDcApproximationType(DcApproximationType.IGNORE_R);
-    }
-
     private void compareResilience(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename, String perturbationType) {
         // Newton-Raphson
         configureSolver(NR);
@@ -100,42 +82,17 @@ public class ResilientAcLoadFlowPerturbationTest {
         assumeFalse(isConvergedNR && !isFailedNR, baseFilename + ": NR should not converge");
 
         // DC Load Flow
-        //
-        //configureDcSolver();
-
-        LoadFlowParameters lf = new LoadFlowParameters()
-                .setDistributedSlack(false)
-                .setUseReactiveLimits(false)
-                .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
-
-        OpenLoadFlowParameters olf = OpenLoadFlowParameters.create(lf)
-                .setDcApproximationType(DcApproximationType.IGNORE_G)
-                .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED);
-
-        DcLoadFlowParameters dcParameters =
-                OpenLoadFlowParameters.createDcParameters(
-                        dcNetwork,
-                        lf,
-                        olf,
-                        new SparseMatrixFactory(),
-                        new NaiveGraphConnectivityFactory<>(LfElement::getNum),
-                        false
-                );
-        List<DcLoadFlowResult> resultsDC =
-                DcLoadFlowEngine.run(dcNetwork, new LfNetworkLoaderImpl(), dcParameters, ReportNode.NO_OP);
-
-        boolean dcOk = resultsDC.stream().anyMatch(DcLoadFlowResult::isSuccess);
-
-       // LoadFlowResult resultDC = loadFlowRunner.run(dcNetwork, dcParameters);
-       // boolean isConvergedDC = resultDC.isFullyConverged();
+        LoadFlowParameters dcParameters = new LoadFlowParameters()
+                .setDc(true);
+        LoadFlowResult resultsDC = LoadFlow.run(dcNetwork, dcParameters);
+        boolean isConvergedDC = resultsDC.isFullyConverged();
         LOGGER.info("==== Test Information ====");
         LOGGER.info("Algorithm : NR with DC approximation");
         LOGGER.info("Type : {}", perturbationType);
         LOGGER.info("Network name : {}", baseFilename);
-        assertTrue(dcOk, baseFilename + ": DC load flow should converge");
+        assertTrue(isConvergedDC, baseFilename + ": DC load flow should converge");
 
-
-        this.losses = calculateDcLosses(dcNetwork); // Set the parameters losses so that the RKN RELAXED solver can acces it
+        this.losses = calculateDcLosses(dcNetwork);
         LOGGER.info("Calculated DC losses: {} MW", this.losses);
 
         // Knitro Resilient
@@ -166,6 +123,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         String targetLoadID = PerturbationFactory.getActivePowerPerturbation(nrNetwork);
         PerturbationFactory.applyActivePowerPerturbation(rknNetwork, targetLoadID, alpha);
         PerturbationFactory.applyActivePowerPerturbation(nrNetwork, targetLoadID, alpha);
+        PerturbationFactory.applyActivePowerPerturbation(dcNetwork, targetLoadID, alpha);
         compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, ACTIVE_POWER_PERTURBATION);
     }
 
@@ -173,6 +131,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         PerturbationFactory.ReactivePowerPerturbation perturbation = PerturbationFactory.getReactivePowerPerturbation(nrNetwork);
         PerturbationFactory.applyReactivePowerPerturbation(rknNetwork, perturbation, targetQ);
         PerturbationFactory.applyReactivePowerPerturbation(nrNetwork, perturbation, targetQ);
+        PerturbationFactory.applyReactivePowerPerturbation(dcNetwork, perturbation, targetQ);
         compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, REACTIVE_POWER_PERTURBATION);
     }
 
