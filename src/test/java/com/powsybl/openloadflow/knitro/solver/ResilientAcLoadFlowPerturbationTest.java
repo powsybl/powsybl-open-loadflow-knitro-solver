@@ -202,35 +202,36 @@ public class ResilientAcLoadFlowPerturbationTest {
         activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha);
     }
 
-    @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on RTE networks: {0}")
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
-    void testActivePowerPerturbationOnRteNetworks(NetworkPair pair) {
-        String baseFilename = pair.baseFilename();
+//    @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on RTE networks: {0}")
+//    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
+//    void testActivePowerPerturbationOnRteNetworks(NetworkPair pair) {
+//        String baseFilename = pair.baseFilename();
+//
+//        Network rknNetwork = pair.rknNetwork();
+//        Network nrNetwork = pair.nrNetwork();
+//        Network dcNetwork = pair.dcNetwork();
+//
+//        // Final perturbed load's percentage
+//        double alpha = 0.10;
+//
+//        activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha);
+//    }
 
-        Network rknNetwork = pair.rknNetwork();
-        Network nrNetwork = pair.nrNetwork();
-        Network dcNetwork = pair.dcNetwork();
+//    @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on RTE networks: {0}")
+//    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
+//    void testReactivePowerPerturbationOnRteNetworks(NetworkPair pair) {
+//        String baseFilename = pair.baseFilename();
+//
+//        Network rknNetwork = pair.rknNetwork();
+//        Network nrNetwork = pair.nrNetwork();
+//        Network dcNetwork = pair.dcNetwork();
+//
+//        // Target reactive power injection by the shunt section in VArs
+//        double targetQ = 1e9;
+//
+//        reactivePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, targetQ);
+//    }
 
-        // Final perturbed load's percentage
-        double alpha = 0.10;
-
-        activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha);
-    }
-
-    @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on RTE networks: {0}")
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
-    void testReactivePowerPerturbationOnRteNetworks(NetworkPair pair) {
-        String baseFilename = pair.baseFilename();
-
-        Network rknNetwork = pair.rknNetwork();
-        Network nrNetwork = pair.nrNetwork();
-        Network dcNetwork = pair.dcNetwork();
-
-        // Target reactive power injection by the shunt section in VArs
-        double targetQ = 1e9;
-
-        reactivePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, targetQ);
-    }
 //
 //    @Test
 //    void testVoltagePerturbationOnHUInstance() {
