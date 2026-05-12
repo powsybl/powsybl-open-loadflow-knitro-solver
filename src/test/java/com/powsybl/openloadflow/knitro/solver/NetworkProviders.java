@@ -16,6 +16,10 @@ import java.util.stream.Stream;
 public final class NetworkProviders {
     public static final String DEFAULT_OUTPUT_DIR = "./Outputs/";
 
+    private NetworkProviders() {
+        throw new UnsupportedOperationException("Utility Class");
+    }
+
     public static Stream<NetworkPair> provideI3ENetworks() {
         return Stream.of(
                 new NetworkPair(IeeeCdfNetworkFactory.create14(), IeeeCdfNetworkFactory.create14(), IeeeCdfNetworkFactory.create14(), "ieee14"),
