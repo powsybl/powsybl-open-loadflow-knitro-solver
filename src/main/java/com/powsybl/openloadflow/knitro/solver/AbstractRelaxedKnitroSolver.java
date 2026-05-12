@@ -159,7 +159,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     }
 
     private static double getWeightP1(double activeGeneration, double deltaP) {
-        return WEIGHT_P_1 = activeGeneration / (10 * deltaP);
+        return WEIGHT_P_1 = Math.min(activeGeneration / (10 * deltaP), 1000);
     }
 
     private static double getWeightP2() {
