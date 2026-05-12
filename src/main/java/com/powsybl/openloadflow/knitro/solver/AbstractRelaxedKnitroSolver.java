@@ -96,11 +96,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         int vCounter = 0;
 
         // MAP GAMMA : VL in kV and the corresponding gamma
-        voltageLevelGammaMap = new HashMap<Double, Double>();
-        voltageLevelGammaMap.put(63.0, 28.0);
-        voltageLevelGammaMap.put(150.0, 100.45);
-        voltageLevelGammaMap.put(225.0, 123.0);
-        voltageLevelGammaMap.put(400.0, 356.5);
+        voltageLevelGammaMap = new HashMap<>();
+        voltageLevelGammaMap.put(72.5, 39.55);
+        voltageLevelGammaMap.put(145.0, 100.45);
+        voltageLevelGammaMap.put(245.0, 212.18);
+        voltageLevelGammaMap.put(420.0, 458.30);
 
         omegaVMap = new HashMap<Integer, Double>();
 
@@ -145,13 +145,13 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     protected double getGammaValues(LfBus vlInfo) {
         double gamma = 0.0;
         if (vlInfo.getNominalV() <= 85.0) {
-            gamma = voltageLevelGammaMap.get(63.0);
+            gamma = voltageLevelGammaMap.get(72.5);
         } else if (vlInfo.getNominalV() > 85.0 && vlInfo.getNominalV() <= 200.0) {
-            gamma = voltageLevelGammaMap.get(150.0);
+            gamma = voltageLevelGammaMap.get(145.0);
         } else if (vlInfo.getNominalV() > 200.0 && vlInfo.getNominalV() <= 350.0) {
-            gamma = voltageLevelGammaMap.get(225.0);
+            gamma = voltageLevelGammaMap.get(245.0);
         } else if (vlInfo.getNominalV() > 350.0) {
-            gamma = voltageLevelGammaMap.get(400.0);
+            gamma = voltageLevelGammaMap.get(420.0);
         }
         return gamma;
     }
@@ -197,7 +197,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("Weight P2 = {}", WEIGHT_P_2);
         LOGGER.info("Weight Q1 = {}", WEIGHT_Q_1);
         LOGGER.info("Weight Q2 = {}", WEIGHT_Q_2);
-        LOGGER.info("Weight gamma map :  {}", omegaVMap);
+        LOGGER.info("Gamma values :" + omegaVMap.entrySet().stream()
+                .collect(Collectors.groupingBy(Map.Entry::getValue, Collectors.counting()))
+                .entrySet().stream()
+                .map(e -> e.getValue() + " x " + e.getKey())
+                .collect(Collectors.joining(", ")));
     }
 
     /**
