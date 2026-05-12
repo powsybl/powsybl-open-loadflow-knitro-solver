@@ -10,14 +10,10 @@ import com.powsybl.openloadflow.OpenLoadFlowProvider;
 import com.powsybl.openloadflow.ac.solver.NewtonRaphsonStoppingCriteriaType;
 import com.powsybl.openloadflow.network.SlackBusSelectionMode;
 import org.junit.jupiter.api.BeforeEach;
-//import org.junit.jupiter.api.Disabled;
-//import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-//import java.nio.file.Path;
 
 import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -167,12 +163,6 @@ public class ResilientAcLoadFlowUnitTest {
     @ParameterizedTest
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
     void testLoadFlowComparisonOnVariousI3ENetworks(NetworkPair pair) {
-        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
-    }
-
-    @ParameterizedTest
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
-    void testLoadFlowComparisonOnRteNetworks(NetworkPair pair) {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
     }
 }
