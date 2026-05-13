@@ -149,7 +149,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     }
 
     private static double getWeightP1(double activeGeneration, double deltaP) {
-        return WEIGHT_P_1 = Math.min(activeGeneration / (10 * deltaP), 1000);
+        WEIGHT_P_1 = Math.min(activeGeneration / (10 * deltaP), 1000);
+        return WEIGHT_P_1;
     }
 
     @Override
@@ -176,14 +177,18 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("Total penalty = {}", totalPenalty);
 
         // Weight use in the objective function
-        LOGGER.info("Total LOSSES DC (ABSTRACT) =  {} MW", this.knitroParameters.getLosses());
+        LOGGER.info("Total LOSSES DC =  {} MW", this.knitroParameters.getLosses());
         LOGGER.info("Weight P1 = {}", WEIGHT_P_1);
         LOGGER.info("Weight Q1 = {}", WEIGHT_Q_1);
-        LOGGER.info("Gamma values :" + omegaVMap.entrySet().stream()
-                .collect(Collectors.groupingBy(Map.Entry::getValue, Collectors.counting()))
-                .entrySet().stream()
-                .map(e -> e.getValue() + " x " + e.getKey())
-                .collect(Collectors.joining(", ")));
+        if (LOGGER.isInfoEnabled()) {
+            String gammaStr = omegaVMap.entrySet().stream()
+                    .collect(Collectors.groupingBy(Map.Entry::getValue, Collectors.counting()))
+                    .entrySet().stream()
+                    .map(e -> String.format("%d x %s", e.getValue(), e.getKey()))
+                    .collect(Collectors.joining(", "));
+
+            LOGGER.info(String.format("Gamma values : %s", gammaStr));
+        }
     }
 
     /**
@@ -210,9 +215,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 name = getSlackVariableBusName(i, type);
 
                 switch (type) {
-                    case "P" -> {
-                        interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB);
-                    }
+                    case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB);
                     case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * PerUnit.SB);
                     case "V" -> {
                         var bus = network.getBusById(name);
@@ -293,7 +296,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param x          The variable values as returned by solver.
      * @param startIndex The start index of slack variables associated to the given type.
      * @param count      The maximum number of slack variables associated to the given type.
-     * @param weight    The weight in front of the given slack variables terms : omegaV depending on the coltage level of the bus
+     * @param weight    The weight in front of the given slack variables terms : omegaV depending on the voltage level of the bus
      * @return The total penalty associated to the slack variables type.
      */
     double computeSlackPenaltyTypeV(List<Double> x, int startIndex, int count, HashMap<Integer, Double> weight) {
@@ -310,7 +313,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * Calculates Delta P = |Pgen - Pload - Losses|
      *
      * @param network           LfNetwork
-     * @param activeGeneration  The total active power genreation in the network
+     * @param activeGeneration  The total active power generation in the network
      * @param losses            The approximated losses computed by a DC LoadF
      * @return Delta P
      */

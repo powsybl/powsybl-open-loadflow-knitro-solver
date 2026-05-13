@@ -24,13 +24,11 @@ import org.slf4j.LoggerFactory;
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 
-public class ResilientAcLoadFlowPerturbationTest {
+class ResilientAcLoadFlowPerturbationTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResilientAcLoadFlowPerturbationTest.class);
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
     private static final String VOLTAGE_PERTURBATION = "voltage-perturbation";
-    private static final String ACTIVE_POWER_PERTURBATION = "active-perturbation";
-    private static final String REACTIVE_POWER_PERTURBATION = "reactive-perturbation";
     private static final boolean EXPORT = false;
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
@@ -113,7 +111,7 @@ public class ResilientAcLoadFlowPerturbationTest {
 
         for (Line line : dcNetwork.getLines()) {
             Terminal terminal1 = line.getTerminal1();
-            double p1 = terminal1.getP(); // MW injected at terminal
+            double p1 = terminal1.getP(); // MW
             double r = line.getR(); // Ohms
             if (r == 0) {
                 continue;

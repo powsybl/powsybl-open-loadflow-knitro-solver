@@ -30,10 +30,8 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private double slackThreshold = KnitroSolverParameters.DEFAULT_SLACK_THRESHOLD;
     private KnitroSolverParameters.SolverType knitroSolverType = KnitroSolverParameters.DEFAULT_SOLVER_TYPE;
     private int threadNumber = KnitroSolverParameters.DEFAULT_THREAD_NUMBER;
-    private static final double BASE_100MVA = 100.0;
     private double losses = KnitroSolverParameters.DEFAULT_DC_LOSSES;
 
-    //private double omega_P1 = KnitroLoadFlowParameters.DEFAULT_OMEGA_P1;
     public double getLosses() {
         return losses;
     }
