@@ -77,19 +77,6 @@
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>templating-maven-plugin</artifactId>
             </plugin>
-<!--            <plugin>-->
-<!--                <groupId>org.apache.maven.plugins</groupId>-->
-<!--                <artifactId>maven-surefire-plugin</artifactId>-->
-<!--                <version>3.5.2</version>-->
-<!--                <configuration>-->
-<!--                    &lt;!&ndash; Un seul fork à la fois pour éviter les conflits de licence concurrents &ndash;&gt;-->
-<!--                    <forkCount>1</forkCount>-->
-<!--                    &lt;!&ndash; Ne pas réutiliser le processus pour garantir un environnement propre &ndash;&gt;-->
-<!--                    <reuseForks>false</reuseForks>-->
-<!--                    &lt;!&ndash; Rediriger stdout vers un fichier pour éviter la corruption du canal binaire &ndash;&gt;-->
-<!--                    <redirectTestOutputToFile>true</redirectTestOutputToFile>-->
-<!--                </configuration>-->
-<!--            </plugin>-->
         </plugins>
         <pluginManagement>
             <plugins>
@@ -103,19 +90,6 @@
                         </classpathDependencyExcludes>
                     </configuration>
                 </plugin>
-<!--                <plugin>-->
-<!--                    <groupId>org.apache.maven.plugins</groupId>-->
-<!--                    <artifactId>maven-surefire-plugin</artifactId>-->
-<!--                    <version>3.5.2</version>-->
-<!--                    <configuration>-->
-<!--                        &lt;!&ndash; Un seul fork à la fois pour éviter les conflits de licence concurrents &ndash;&gt;-->
-<!--                        <forkCount>1</forkCount>-->
-<!--                        &lt;!&ndash; Ne pas réutiliser le processus pour garantir un environnement propre &ndash;&gt;-->
-<!--                        <reuseForks>false</reuseForks>-->
-<!--                        &lt;!&ndash; Rediriger stdout vers un fichier pour éviter la corruption du canal binaire &ndash;&gt;-->
-<!--                        <redirectTestOutputToFile>true</redirectTestOutputToFile>-->
-<!--                    </configuration>-->
-<!--                </plugin>-->
             </plugins>
         </pluginManagement>
     </build>
