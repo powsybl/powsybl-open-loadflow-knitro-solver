@@ -164,7 +164,7 @@ class UseReactiveLimitsKnitroSolverTest {
         TwoWindingsTransformer ngen2Nhv1 = network.getTwoWindingsTransformer("NGEN2_NHV1");
         TwoWindingsTransformer nhv2Nload = network.getTwoWindingsTransformer("NHV2_NLOAD");
 
-        //assertReactivePowerEquals(-280, gen.getTerminal());
+        assertReactivePowerEquals(-280, gen.getTerminal());
         assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
         assertReactivePowerEquals(100, ngen2Nhv1.getTerminal1());
         assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
@@ -174,7 +174,7 @@ class UseReactiveLimitsKnitroSolverTest {
         result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
 
-        //assertReactivePowerEquals(-280, gen.getTerminal());
+        assertReactivePowerEquals(-280, gen.getTerminal());
         assertReactivePowerEquals(-100, gen2.getTerminal()); // GEN is correctly limited to 100 MVar
         assertReactivePowerEquals(100, ngen2Nhv1.getTerminal1());
         assertReactivePowerEquals(-200, nhv2Nload.getTerminal2());
