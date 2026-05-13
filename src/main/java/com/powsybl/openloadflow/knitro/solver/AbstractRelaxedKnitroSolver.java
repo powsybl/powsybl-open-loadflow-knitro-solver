@@ -98,7 +98,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         voltageLevelGammaMap.put(245.0, 212.18);
         voltageLevelGammaMap.put(420.0, 458.30);
 
-        omegaVMap = new HashMap<Integer, Double>();
+        omegaVMap = new HashMap<>();
 
         for (int i = 0; i < sortedEquations.size(); i++) {
             AcEquationType type = sortedEquations.get(i).getType();
