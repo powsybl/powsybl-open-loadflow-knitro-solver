@@ -1,0 +1,3 @@
+busId;type;slackValue_pu;slackValue;gen;controlevoltage;transfo;shunt;load;load_violation;gen_violation
+VL2_0;V;-0.025754;-3.399494;B2-G;VoltageControl(type=GENERATOR, controlledBus='VL2_0', controllerElements=[VL2_0], mergeStatus=MAIN, mergedDependentVoltageControlsSize=0);;;VL2_0_load;0;0
+VL6_0;V;0.026357;3.479183;;VoltageControl(type=GENERATOR, controlledBus='VL6_0', controllerElements=[VL8_0], mergeStatus=MAIN, mergedDependentVoltageControlsSize=0);;;;0;0
