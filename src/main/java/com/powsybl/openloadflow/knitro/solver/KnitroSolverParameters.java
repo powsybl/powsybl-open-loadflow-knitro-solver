@@ -35,7 +35,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final double DEFAULT_SLACK_THRESHOLD = Math.pow(10, -6);
     public static final StateVectorScalingMode DEFAULT_STATE_VECTOR_SCALING_MODE = StateVectorScalingMode.NONE;
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
-    public static final SolverType DEFAULT_SOLVER_TYPE = SolverType.STANDARD;
+    public static final SolverType DEFAULT_SOLVER_TYPE = SolverType.RELAXED;
     public static final int DEFAULT_THREAD_NUMBER = -1;
 
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
