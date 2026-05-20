@@ -61,7 +61,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     protected final Map<Integer, Integer> vEquationLocalIds;
 
     // Mapping of gamma : each Voltage Level is assign to a gamma depending on its nominal voltage
-    protected static HashMap<Double, Double> voltageLevelGammaMap;
+    protected HashMap<Double, Double> voltageLevelGammaMap;
     protected HashMap<Integer, Double> weightVMap;
 
     protected AbstractRelaxedKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
