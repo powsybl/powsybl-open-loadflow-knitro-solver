@@ -31,7 +31,7 @@ import com.powsybl.openloadflow.network.LfNetwork;
 @AutoService(AcSolverFactory.class)
 public class KnitroSolverFactory implements AcSolverFactory {
 
-    public static final String NAME = "KNITRO";
+    public static final String NAME = "RELAXED";
 
     @Override
     public String getName() {
