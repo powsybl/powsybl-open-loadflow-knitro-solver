@@ -31,7 +31,7 @@ import com.powsybl.openloadflow.network.LfNetwork;
 @AutoService(AcSolverFactory.class)
 public class KnitroSolverFactory implements AcSolverFactory {
 
-    public static final String NAME = "RELAXED";
+    public static final String NAME = "KNITRO";
 
     @Override
     public String getName() {
@@ -76,7 +76,7 @@ public class KnitroSolverFactory implements AcSolverFactory {
         KnitroSolverParameters knitroSolverParameters = (KnitroSolverParameters) parameters.getAcSolverParameters();
         KnitroSolverParameters.SolverType knitroSolverType = knitroSolverParameters.getSolverType();
         return switch (knitroSolverType) {
-            case STANDARD -> new KnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
+            case STANDARD -> new RelaxedKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
             case RELAXED -> new RelaxedKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
             case USE_REACTIVE_LIMITS -> new UseReactiveLimitsKnitroSolver(network, knitroSolverParameters, equationSystem, j, targetVector, equationVector, parameters.isDetailedReport());
         };
