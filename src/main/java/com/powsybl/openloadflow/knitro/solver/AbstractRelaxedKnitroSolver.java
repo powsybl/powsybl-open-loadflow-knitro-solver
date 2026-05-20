@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
 public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelaxedKnitroSolver.class);
-    protected static double WEIGHT_P_1;
+    protected double weightP1;
     protected static final double WEIGHT_Q_1 = 1.0;
     protected static final double GAMMA_FACTOR = 0.1;
 
@@ -61,8 +61,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     protected final Map<Integer, Integer> vEquationLocalIds;
 
     // Mapping of gamma : each Voltage Level is assign to a gamma depending on its nominal voltage
-    protected HashMap<Double, Double> voltageLevelGammaMap;
-    protected HashMap<Integer, Double> omegaVMap;
+    protected static HashMap<Double, Double> voltageLevelGammaMap;
+    protected HashMap<Integer, Double> weightVMap;
 
     protected AbstractRelaxedKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                           JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
@@ -98,7 +98,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         voltageLevelGammaMap.put(245.0, 212.18);
         voltageLevelGammaMap.put(420.0, 458.30);
 
-        omegaVMap = new HashMap<>();
+        weightVMap = new HashMap<>();
 
         for (int i = 0; i < sortedEquations.size(); i++) {
             AcEquationType type = sortedEquations.get(i).getType();
@@ -114,7 +114,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                     if (gammaValue == 0.0 || Double.isNaN(gammaValue) || Double.isInfinite(gammaValue)) {
                         throw new PowsyblException("Gamma value is not define for bus " + vlInfo.getId() + " with nominal voltage " + vlInfo.getNominalV() + " kV. Please check the voltage level gamma mapping.");
                     }
-                    omegaVMap.put(vCounter, gammaValue); // for each index of V  I have the corresponding gamma
+                    weightVMap.put(vCounter, gammaValue); // for each index of V  I have the corresponding gamma
                     vEquationLocalIds.put(i, vCounter++);
                 }
                 default -> {
@@ -127,11 +127,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         double activeGeneration = computeActiveGeneration(network);
         double deltaP = computeDeltaP(network, activeGeneration, this.knitroParameters.getLosses());
         if (deltaP == 0 || Double.isNaN(deltaP)) {
-            throw new PowsyblException("DIVIDED BY ZERO: DeltaP is equal to 0, cannot compute WEIGHT_P_1. Please check that the network has non-zero active power generation and load, and/or adjust the losses parameter.");
+            throw new PowsyblException("DIVIDED BY ZERO: DeltaP is equal to 0, cannot compute weightP1. Please check that the network has non-zero active power generation and load, and/or adjust the losses parameter.");
         }
 
         // Weight P
-        WEIGHT_P_1 = getWeightP1(activeGeneration, deltaP);
+        weightP1 = getWeightP1(activeGeneration, deltaP);
     }
 
     protected double getGammaValues(LfBus vlInfo) {
@@ -148,9 +148,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         return gamma;
     }
 
-    private static double getWeightP1(double activeGeneration, double deltaP) {
-        WEIGHT_P_1 = Math.min(activeGeneration / (10 * deltaP), 1000);
-        return WEIGHT_P_1;
+    private double getWeightP1(double activeGeneration, double deltaP) {
+        weightP1 = Math.min(activeGeneration / (10 * deltaP), 1000);
+        return weightP1;
     }
 
     @Override
@@ -165,9 +165,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         logSlackValues("V", slackVStartIndex, numVEquations, x);
 
         // ========== Penalty Computation ==========
-        double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, WEIGHT_P_1);
+        double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, weightP1);
         double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, WEIGHT_Q_1);
-        double penaltyV = computeSlackPenaltyTypeV(x, slackVStartIndex, numVEquations, omegaVMap);
+        double penaltyV = computeSlackPenaltyTypeV(x, slackVStartIndex, numVEquations, weightVMap);
         double totalPenalty = penaltyP + penaltyQ + penaltyV;
 
         LOGGER.info("==== Slack penalty details ====");
@@ -178,10 +178,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         // Weight use in the objective function
         LOGGER.info("Total LOSSES DC =  {} MW", this.knitroParameters.getLosses());
-        LOGGER.info("Weight P1 = {}", WEIGHT_P_1);
+        LOGGER.info("Weight P1 = {}", weightP1);
         LOGGER.info("Weight Q1 = {}", WEIGHT_Q_1);
         if (LOGGER.isInfoEnabled()) {
-            String gammaStr = omegaVMap.entrySet().stream()
+            String gammaStr = weightVMap.entrySet().stream()
                     .collect(Collectors.groupingBy(Map.Entry::getValue, Collectors.counting()))
                     .entrySet().stream()
                     .map(e -> String.format("%d x %s", e.getValue(), e.getKey()))
@@ -367,9 +367,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             List<Double> linCoefs = new ArrayList<>(); // list of indexes of the coefficient a
 
             // add slack penalty terms, for each slack type, of the form: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
-            addSlackObjectiveTerms(numPEquations, slackPStartIndex, AbstractRelaxedKnitroSolver.WEIGHT_P_1, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numPEquations, slackPStartIndex, weightP1, linIndexes, linCoefs);
             addSlackObjectiveTerms(numQEquations, slackQStartIndex, AbstractRelaxedKnitroSolver.WEIGHT_Q_1, linIndexes, linCoefs);
-            addSlackObjectiveTermTypeV(numVEquations, slackVStartIndex, omegaVMap, linIndexes, linCoefs);
+            addSlackObjectiveTermTypeV(numVEquations, slackVStartIndex, weightVMap, linIndexes, linCoefs);
 
             setObjectiveLinearPart(linIndexes, linCoefs);
         }
