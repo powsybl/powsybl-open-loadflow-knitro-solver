@@ -123,7 +123,7 @@ class ResilientAcLoadFlowPerturbationTest {
             double loss = r * (Math.abs(p1) * Math.abs(p1)) / (vnom1 * vnom1);
             totalLosses += loss;
         }
-        LOGGER.info("Total DC losses: " + totalLosses);
+        LOGGER.info("Total DC losses: {}", totalLosses);
         return totalLosses;
     }
 
