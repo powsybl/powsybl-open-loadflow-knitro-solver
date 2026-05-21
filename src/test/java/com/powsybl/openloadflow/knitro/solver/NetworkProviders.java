@@ -17,7 +17,7 @@ import java.util.stream.Stream;
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 public final class NetworkProviders {
-    public static final String DATA_DIR = "data";
+    public static final String DATA_DIR = "data/data_confidential";
     public static final String CONFIDENTIAL_DATA_DIR = "../../data_confidential/";
     public static final String CONFIDENTIAL_DATA_DIR_BUS_BREAKER = "../../data_confidential_bus_breaker/";
     public static final String DEFAULT_OUTPUT_DIR = "./Outputs/";
