@@ -130,8 +130,8 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
         return maxKnitroIterations;
     }
 
-    public KnitroLoadFlowParameters setMaxKnitroIterations(int maxIterations) {
-        if (maxIterations < 0) {
+    public KnitroLoadFlowParameters setMaxKnitroIterations(int maxKnitroIterations) {
+        if (maxKnitroIterations < 0) {
             throw new IllegalArgumentException("Max iterations parameter must be greater than 0");
         }
         this.maxKnitroIterations = maxKnitroIterations;
