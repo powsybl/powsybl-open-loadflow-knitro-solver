@@ -27,7 +27,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final int DEFAULT_HESSIAN_COMPUTATION_MODE = 6; // Specifies how the Hessian matrix is computed. 6 means that the Hessian is approximated using the L-BFGS method, which is a quasi-Newton method.
     public static final double DEFAULT_LOWER_VOLTAGE_BOUND = 0.5; // Lower bound for voltage magnitude
     public static final double DEFAULT_UPPER_VOLTAGE_BOUND = 1.5; // Upper bound for voltage magnitude
-    public static final int DEFAULT_MAX_ITERATIONS = 200;
+    public static final int DEFAULT_MAX_KNITRO_ITERATIONS = 200;
     public static final double DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA = Math.pow(10, -6);
     public static final double DEFAULT_ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA = Math.pow(10, -3);
     public static final double DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA = Math.pow(10, -6);
@@ -61,7 +61,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     private boolean alwaysUpdateNetwork = ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
 
-    private int maxIterations = DEFAULT_MAX_ITERATIONS;
+    private int maxKnitroIterations = DEFAULT_MAX_KNITRO_ITERATIONS;
 
     private double relConvEps = DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA;
 
@@ -206,12 +206,12 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return this;
     }
 
-    public int getMaxIterations() {
-        return maxIterations;
+    public int getMaxKnitroIterations() {
+        return maxKnitroIterations;
     }
 
-    public KnitroSolverParameters setMaxIterations(int maxIterations) {
-        this.maxIterations = maxIterations;
+    public KnitroSolverParameters setMaxKnitroIterations(int maxKnitroIterations) {
+        this.maxKnitroIterations = maxKnitroIterations;
         return this;
     }
 
@@ -300,7 +300,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
                 ", minRealisticVoltage=" + lowerVoltageBound +
                 ", maxRealisticVoltage=" + upperVoltageBound +
                 ", alwaysUpdateNetwork=" + alwaysUpdateNetwork +
-                ", maxIterations=" + maxIterations +
+                ", maxIterations=" + maxKnitroIterations +
                 ", threadNumber=" + threadNumber +
                 ')';
     }

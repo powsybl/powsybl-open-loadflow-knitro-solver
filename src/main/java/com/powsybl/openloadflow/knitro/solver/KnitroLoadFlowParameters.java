@@ -29,7 +29,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private int hessianComputationMode = KnitroSolverParameters.DEFAULT_HESSIAN_COMPUTATION_MODE;
     private double lowerVoltageBound = KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND;
     private double upperVoltageBound = KnitroSolverParameters.DEFAULT_UPPER_VOLTAGE_BOUND;
-    private int maxIterations = KnitroSolverParameters.DEFAULT_MAX_ITERATIONS;
+    private int maxKnitroIterations = KnitroSolverParameters.DEFAULT_MAX_KNITRO_ITERATIONS;
     private double relConvEps = KnitroSolverParameters.DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA;
     private double absConvEps = KnitroSolverParameters.DEFAULT_ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA;
     private double relOptEps = KnitroSolverParameters.DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA;
@@ -44,7 +44,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     public static final String HESSIAN_COMPUTATION_MODE_PARAM_NAME = "hessianComputationMode";
     public static final String LOWER_VOLTAGE_BOUND_PARAM_NAME = "lowerVoltageBound";
     public static final String UPPER_VOLTAGE_BOUND_PARAM_NAME = "upperVoltageBound";
-    public static final String MAX_ITERATIONS_PARAM_NAME = "maxIterations";
+    public static final String MAX_KNITRO_ITERATIONS_PARAM_NAME = "maxKnitroIterations";
     public static final String RELATIVE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME = "relativeFeasibilityStoppingCriteria";
     public static final String ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME = "absoluteFeasibilityStoppingCriteria";
     public static final String RELATIVE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME = "relativeOptimalityStoppingCriteria";
@@ -126,15 +126,15 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
         return this;
     }
 
-    public int getMaxIterations() {
-        return maxIterations;
+    public int getMaxKnitroIterations() {
+        return maxKnitroIterations;
     }
 
-    public KnitroLoadFlowParameters setMaxIterations(int maxIterations) {
+    public KnitroLoadFlowParameters setMaxKnitroIterations(int maxIterations) {
         if (maxIterations < 0) {
             throw new IllegalArgumentException("Max iterations parameter must be greater than 0");
         }
-        this.maxIterations = maxIterations;
+        this.maxKnitroIterations = maxKnitroIterations;
         return this;
     }
 
@@ -246,8 +246,8 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
                             .ifPresent(this::setLowerVoltageBound);
                     config.getOptionalDoubleProperty(UPPER_VOLTAGE_BOUND_PARAM_NAME)
                             .ifPresent(this::setUpperVoltageBound);
-                    config.getOptionalIntProperty(MAX_ITERATIONS_PARAM_NAME)
-                            .ifPresent(this::setMaxIterations);
+                    config.getOptionalIntProperty(MAX_KNITRO_ITERATIONS_PARAM_NAME)
+                            .ifPresent(this::setMaxKnitroIterations);
                     config.getOptionalDoubleProperty(RELATIVE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME)
                             .ifPresent(this::setRelConvEps);
                     config.getOptionalDoubleProperty(ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME)
@@ -279,8 +279,8 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
                 .ifPresent(prop -> this.setLowerVoltageBound(Double.parseDouble(prop)));
         Optional.ofNullable(properties.get(UPPER_VOLTAGE_BOUND_PARAM_NAME))
                 .ifPresent(prop -> this.setUpperVoltageBound(Double.parseDouble(prop)));
-        Optional.ofNullable(properties.get(MAX_ITERATIONS_PARAM_NAME))
-                .ifPresent(prop -> this.setMaxIterations(Integer.parseInt(prop)));
+        Optional.ofNullable(properties.get(MAX_KNITRO_ITERATIONS_PARAM_NAME))
+                .ifPresent(prop -> this.setMaxKnitroIterations(Integer.parseInt(prop)));
         Optional.ofNullable(properties.get(RELATIVE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME))
                 .ifPresent(prop -> this.setRelConvEps(Double.parseDouble(prop)));
         Optional.ofNullable(properties.get(ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME))
