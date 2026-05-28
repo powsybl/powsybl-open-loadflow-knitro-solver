@@ -52,6 +52,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     public static final String SLACK_THRESHOLD_PARAM_NAME = "slackThreshold";
     public static final String SOLVER_TYPE_PARAM_NAME = "solverType";
     public static final String THREAD_NUMBER_PARAM_NAME = "threadNumber";
+    public static final String LOSSES_NAME = "losses";
 
     public double getLosses() {
         return losses;
@@ -261,6 +262,8 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
                             .ifPresent(this::setKnitroSolverType);
                     config.getOptionalIntProperty(THREAD_NUMBER_PARAM_NAME)
                             .ifPresent(this::setThreadNumber);
+                    config.getOptionalIntProperty(LOSSES_NAME)
+                            .ifPresent(this::setLosses);
                 });
         return this;
     }
@@ -292,6 +295,8 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
                 .ifPresent(prop -> this.setKnitroSolverType(KnitroSolverParameters.SolverType.valueOf(prop)));
         Optional.ofNullable(properties.get(THREAD_NUMBER_PARAM_NAME))
                 .ifPresent(prop -> this.setThreadNumber(Integer.parseInt(prop)));
+        Optional.ofNullable(properties.get(LOSSES_NAME))
+                .ifPresent(prop -> this.setLosses(Double.parseDouble(prop)));
         return this;
     }
 }
