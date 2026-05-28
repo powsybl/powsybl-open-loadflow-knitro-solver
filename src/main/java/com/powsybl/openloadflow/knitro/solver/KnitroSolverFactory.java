@@ -60,7 +60,7 @@ public class KnitroSolverFactory implements AcSolverFactory {
                     .setHessianComputationMode(knitroLoadFlowParameters.getHessianComputationMode())
                     .setLowerVoltageBound(knitroLoadFlowParameters.getLowerVoltageBound())
                     .setUpperVoltageBound(knitroLoadFlowParameters.getUpperVoltageBound())
-                    .setMaxIterations(knitroLoadFlowParameters.getMaxIterations())
+                    .setMaxKnitroIterations(knitroLoadFlowParameters.getMaxKnitroIterations())
                     .setRelConvEps(knitroLoadFlowParameters.getRelConvEps())
                     .setAbsConvEps(knitroLoadFlowParameters.getAbsConvEps())
                     .setRelOptEps(knitroLoadFlowParameters.getRelOptEps())

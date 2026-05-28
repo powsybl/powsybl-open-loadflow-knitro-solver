@@ -91,13 +91,13 @@ class KnitroSolverParametersTest extends AbstractSerDeTest {
     void testMaxIterationsIntegrity() {
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
         // check default max iterations value
-        assertEquals(200, knitroLoadFlowParameters.getMaxIterations());
+        assertEquals(200, knitroLoadFlowParameters.getMaxKnitroIterations());
 
         // set other value
-        knitroLoadFlowParameters.setMaxIterations(400);
-        assertEquals(400, knitroLoadFlowParameters.getMaxIterations());
+        knitroLoadFlowParameters.setMaxKnitroIterations(400);
+        assertEquals(400, knitroLoadFlowParameters.getMaxKnitroIterations());
 
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setMaxIterations(-1));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setMaxKnitroIterations(-1));
         assertEquals("Max iterations parameter must be greater than 0", e.getMessage());
     }
 
