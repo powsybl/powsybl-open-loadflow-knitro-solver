@@ -11,7 +11,6 @@ import com.powsybl.openloadflow.ac.solver.AcSolverParameters;
 import com.powsybl.openloadflow.ac.solver.LineSearchStateVectorScaling;
 import com.powsybl.openloadflow.ac.solver.MaxVoltageChangeStateVectorScaling;
 import com.powsybl.openloadflow.ac.solver.StateVectorScalingMode;
-import org.tukaani.xz.check.None;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -41,11 +40,8 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final int DEFAULT_THREAD_NUMBER = -1;
     public static final double DEFAULT_DC_LOSSES = 10.0; // MW
 
-    //private static Optional None;
     public static Optional<String> DEFAULT_EXPORT_SOLUTION = Optional.empty(); // Whether to export the solution of the optimization problem in
     private Optional<String> exportSolution = DEFAULT_EXPORT_SOLUTION;
-
-    // removed unused/incorrect None field to avoid null Optional and NPEs
 
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
 
@@ -95,7 +91,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
         this.losses = losses;
         return this;
     }
-
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -312,11 +307,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
                 ", maxIterations=" + maxIterations +
                 ", threadNumber=" + threadNumber +
                 ')';
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        return super.equals(obj);
     }
 
     public Optional<String> getExportSolution() {
