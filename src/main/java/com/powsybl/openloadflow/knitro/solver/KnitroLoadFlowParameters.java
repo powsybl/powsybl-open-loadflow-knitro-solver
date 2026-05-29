@@ -15,6 +15,7 @@ import com.powsybl.loadflow.LoadFlowParameters;
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
+
 public class KnitroLoadFlowParameters<optional> extends AbstractExtension<LoadFlowParameters> {
 
     private int gradientComputationMode = KnitroSolverParameters.DEFAULT_GRADIENT_COMPUTATION_MODE;
@@ -31,10 +32,11 @@ public class KnitroLoadFlowParameters<optional> extends AbstractExtension<LoadFl
     private KnitroSolverParameters.SolverType knitroSolverType = KnitroSolverParameters.DEFAULT_SOLVER_TYPE;
     private int threadNumber = KnitroSolverParameters.DEFAULT_THREAD_NUMBER;
     private Optional<String> exportSolution = KnitroSolverParameters.DEFAULT_EXPORT_SOLUTION;
-    // exportSolution : optionnel (String | vide) = valeur par défaut. Si défini, la solution sera exportée au chemin spécifié au format Knitro. Si vide, aucun export ne sera effectué.
+
     public Optional<String> getExportSolution() {
         return this.exportSolution;
     }
+
     public int getGradientComputationMode() {
         return gradientComputationMode;
     }

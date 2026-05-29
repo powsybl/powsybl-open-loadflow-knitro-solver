@@ -6,7 +6,6 @@ import com.powsybl.iidm.network.*;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -19,10 +18,6 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
  */
 public final class PerturbationFactory {
     private static final double BASE_100MVA = 100.0;
-
-//    private PerturbationFactory() {
-//
-//    }
 
     /**
      * Finds all possible voltage perturbations of a network until a maximum number is reached.
@@ -191,7 +186,7 @@ public final class PerturbationFactory {
      * @param network The network to perturb.
      * @return A possible active power perturbation.
      */
-    public static String getActivePowerPerturbation(Network network, int loadIndex) {
+    public static String getActivePowerPerturbation(Network network) {
         Optional<Bus> targetBusOp = network.getBusBreakerView()
                 .getBusStream()
                 .filter(bus -> bus.getLoadStream().findAny().isPresent())
@@ -204,18 +199,18 @@ public final class PerturbationFactory {
         Optional<Load> targetLoadOp = targetBus.getLoadStream().filter(load -> load.getP0() > 0.0).findAny();
     //    Optional<Load> targetLoadOP = Optional.ofNullable(targetBus.getLoadStream().filter(load -> load.getP0() > 0.0).toList().get(loadIndex));
       //  assumeFalse(targetLoadOp.isEmpty());
-//        System.out.println("Target possibility ------------------" );
-
-        List<Load> targetLoadPossibility = network.getBusBreakerView()
-                .getBusStream()
-                .filter(bus -> bus.getLoadStream().anyMatch(load -> load.getP0() > 0.0))
-                .flatMap(Bus::getLoadStream)
-                .filter(load -> load.getP0() > 0.0)
-                .toList();
-        Load second_loadPossibility = targetLoadPossibility.get(loadIndex);
-        System.out.println(targetLoadPossibility);
-        System.out.println(second_loadPossibility.getId());
-        return targetLoadPossibility.get(loadIndex).getId();
+////        System.out.println("Target possibility ------------------" );
+//
+//        List<Load> targetLoadPossibility = network.getBusBreakerView()
+//                .getBusStream()
+//                .filter(bus -> bus.getLoadStream().anyMatch(load -> load.getP0() > 0.0))
+//                .flatMap(Bus::getLoadStream)
+//                .filter(load -> load.getP0() > 0.0)
+//                .toList();
+////        Load second_loadPossibility = targetLoadPossibility.get(loadIndex);
+//        System.out.println(targetLoadPossibility);
+//        System.out.println(second_loadPossibility.getId());
+        return targetLoadOp.get().getId();
     }
 
     /**
