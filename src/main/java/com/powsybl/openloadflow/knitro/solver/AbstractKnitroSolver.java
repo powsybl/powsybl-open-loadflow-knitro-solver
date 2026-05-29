@@ -387,7 +387,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         /**
          * Configures the Jacobian matrix for the Knitro problem, using either a dense or sparse representation.
          *
-         * @param sortedEquationsToSolve The list of equations to solve.
+         * @param sortedSingleEquationsToSolve The list of equations to solve.
          * @param listNonLinearConsts The list of non-linear constraint ids.
          */
         protected void setJacobianMatrix(List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve, List<Integer> listNonLinearConsts) {
@@ -451,7 +451,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          * Builds the sparse Jacobian matrix by identifying non-zero entries for each non-linear constraint.
          * Can be overridden by subclasses to include additional variables (e.g., slack variables).
          *
-         * @param sortedEquationsToSolve Ordered list of equations to solve.
+         * @param sortedSingleEquationsToSolve Ordered list of equations to solve.
          * @param nonLinearConstraintIds Indices of non-linear constraints within the sorted equation list.
          * @param jacobianRowIndices Output: row indices (constraints) of non-zero Jacobian entries.
          * @param jacobianColumnIndices Output: column indices (variables) of non-zero Jacobian entries.

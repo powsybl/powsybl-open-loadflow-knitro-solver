@@ -39,6 +39,8 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
     public static final SolverType DEFAULT_SOLVER_TYPE = SolverType.STANDARD;
     public static final int DEFAULT_THREAD_NUMBER = -1;
+    public static final double DEFAULT_DC_LOSSES = 10.0; // MW
+
     //private static Optional None;
     public static Optional<String> DEFAULT_EXPORT_SOLUTION = Optional.empty(); // Whether to export the solution of the optimization problem in
     private Optional<String> exportSolution = DEFAULT_EXPORT_SOLUTION;
@@ -82,6 +84,18 @@ public class KnitroSolverParameters implements AcSolverParameters {
     private SolverType solverType = DEFAULT_SOLVER_TYPE;
 
     private int threadNumber = DEFAULT_THREAD_NUMBER; // Specifies the number of threads used by the solver. -1 lets the solver decide
+
+    private double losses = DEFAULT_DC_LOSSES;
+
+    public double getLosses() {
+        return losses;
+    }
+
+    public KnitroSolverParameters setLosses(double losses) {
+        this.losses = losses;
+        return this;
+    }
+
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
