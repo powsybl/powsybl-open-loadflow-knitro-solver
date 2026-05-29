@@ -30,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RelaxedKnitroSolverConvergenceTest {
     private Network network;
-    private Network network2;
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
     private KnitroLoadFlowParameters knitroParams;
@@ -48,7 +47,7 @@ class RelaxedKnitroSolverConvergenceTest {
                 .setAcSolverType(KnitroSolverFactory.NAME);
 
         knitroParams = new KnitroLoadFlowParameters();
-        knitroParams.setKnitroSolverType(KnitroSolverParameters.SolverType.RELAXED);// RELAXED --> slack variables ?
+        knitroParams.setKnitroSolverType(KnitroSolverParameters.SolverType.RELAXED);
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
 
         // Create a short circuit situation on IEEE14 network between buses B1 and B5
@@ -117,7 +116,6 @@ class RelaxedKnitroSolverConvergenceTest {
         assertTrue(isConvergedRKN, "RKN should converge");
     }
 
-
     @Test
     void testConvergenceWithOuterLoopsOnI3E14() {
         parameters.setUseReactiveLimits(true)
@@ -126,49 +124,4 @@ class RelaxedKnitroSolverConvergenceTest {
         boolean isConvergedRKN = resultRKN.isFullyConverged();
         assertTrue(isConvergedRKN, "RKN should converge");
     }
-
-    @Test
-    void testDiscovery() {// normal d'avoir les même valeur car les infos sotn stocker dans les slacks variables
-        network2 = IeeeCdfNetworkFactory.create14();
-        System.out.println("identité (==) : " + (network == network2));
-        //  System.out.println("equals() : " + network.equals(network2));
-        System.out.println("###################################################");
-        //network2= IeeeCdfNetworkFactory.create14();
-        //  SingleLineDiagram.draw(network, "N", "/tmp/n.svg");
-        for (Generator gen : network.getGenerators()) {
-            System.out.println(gen.getId() + "  " +gen.getTargetP() + "  " + gen.isVoltageRegulatorOn()+" ");
-        }
-        for (Load load : network.getLoads()) {
-            System.out.println(load.getId() +"  "+ load.getType()+ " "+ load.getQ0() +"  " + load.getP0() +" "+ load.getModel());
-        };
-//        for (Bus bus : network2.getBusView().getBuses()) {
-//            System.out.println(bus.getId() + "   " + bus.getVoltageLevel().getNominalV() + "   " + bus.getV());
-//        }
-        System.out.println("Bus view");
-        for (Bus bus : network.getBusView().getBuses()) {
-            System.out.println(bus.getId() + "   " );
-
-        }
-        System.out.println("###################################################");
-    }
-
-
-
-    @Test
-    void testNew() {
-        // Apply voltage mismatch and remote control to regulating generator
-        network.getGenerator("B1-G").setTargetV(143.1 - 6) // choisi après avoir run et vu que ca convergait pas ?
-                .setVoltageRegulatorOn(true);
-//            //    .setRegulatingTerminal(t5);
-// Ou bien rajouter un generator à bus 5  parce que la c'est au pif
-        network.getGenerator("B2-G").setTargetV(131.04 + 6)
-                .setVoltageRegulatorOn(true);
-//        network.getBusView().getBus("B5").setV(137.7 - 6);
-//        network.getBusView().getBus("B1").setV(143.1 + 6);
-        LoadFlowResult resultRKN = loadFlowRunner.run(network, parameters);
-        boolean isConvergedRKN = resultRKN.isFullyConverged();
-        assertTrue(isConvergedRKN, "RKN should converge");
-    }
-    
-
 }
