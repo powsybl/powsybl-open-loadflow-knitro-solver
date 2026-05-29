@@ -26,7 +26,6 @@ import com.powsybl.openloadflow.knitro.solver.NetworkProviders.NetworkPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
@@ -38,7 +37,7 @@ public class ResilientAcLoadFlowPerturbationTest {
     private static final String VOLTAGE_PERTURBATION = "voltage-perturbation";
     private static final String ACTIVE_POWER_PERTURBATION = "active-perturbation";
     private static final String REACTIVE_POWER_PERTURBATION = "reactive-perturbation";
-    private static final String EXPORT_CSV = "Slack_info/" ;
+    private static final String EXPORT_CSV = "Slack_info/";
     private static final boolean EXPORT = true;
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
@@ -65,7 +64,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         }
     }
 
-    private void compareResilience(Network rknNetwork, Network nrNetwork, String baseFilename, String perturbationType,String test) {
+    private void compareResilience(Network rknNetwork, Network nrNetwork, String baseFilename, String perturbationType, String test) {
         // Path to export Slack info CSV
         Path path = Path.of(test, baseFilename);
         Path filePath = path.resolve(baseFilename + "_" + perturbationType);
@@ -104,25 +103,25 @@ public class ResilientAcLoadFlowPerturbationTest {
 
     }
 
-    private void voltagePerturbationTest(Network rknNetwork, Network nrNetwork, String baseFilename, double rPU, double xPU, double alpha,String test) {
+    private void voltagePerturbationTest(Network rknNetwork, Network nrNetwork, String baseFilename, double rPU, double xPU, double alpha, String test) {
         PerturbationFactory.VoltagePerturbation perturbation = PerturbationFactory.getVoltagePerturbation(nrNetwork);
         PerturbationFactory.applyVoltagePerturbation(rknNetwork, perturbation, rPU, xPU, alpha);
         PerturbationFactory.applyVoltagePerturbation(nrNetwork, perturbation, rPU, xPU, alpha);
-        compareResilience(rknNetwork, nrNetwork, baseFilename, VOLTAGE_PERTURBATION,test);
+        compareResilience(rknNetwork, nrNetwork, baseFilename, VOLTAGE_PERTURBATION, test);
     }
 
     private void activePowerPerturbationTest(Network rknNetwork, Network nrNetwork, String baseFilename, double alpha, String test) {
         String targetLoadID = PerturbationFactory.getActivePowerPerturbation(nrNetwork);
         PerturbationFactory.applyActivePowerPerturbation(rknNetwork, targetLoadID, alpha);
         PerturbationFactory.applyActivePowerPerturbation(nrNetwork, targetLoadID, alpha);
-        compareResilience(rknNetwork, nrNetwork, baseFilename, ACTIVE_POWER_PERTURBATION,test);
+        compareResilience(rknNetwork, nrNetwork, baseFilename, ACTIVE_POWER_PERTURBATION, test);
     }
 
     private void reactivePowerPerturbationTest(Network rknNetwork, Network nrNetwork, String baseFilename, double targetQ, String test) {
         PerturbationFactory.ReactivePowerPerturbation perturbation = PerturbationFactory.getReactivePowerPerturbation(nrNetwork);
         PerturbationFactory.applyReactivePowerPerturbation(rknNetwork, perturbation, targetQ);
         PerturbationFactory.applyReactivePowerPerturbation(nrNetwork, perturbation, targetQ);
-        compareResilience(rknNetwork, nrNetwork, baseFilename, REACTIVE_POWER_PERTURBATION,test);
+        compareResilience(rknNetwork, nrNetwork, baseFilename, REACTIVE_POWER_PERTURBATION, test);
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on IEEE networks: {0}")
@@ -138,7 +137,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         double xPU = 1e-5;
         // Voltage Mismatch
         double alpha = 0.95;
-        voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha,test);
+        voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha, test);
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on RTE networks: {0}")
@@ -154,7 +153,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         double xPU = 1e-5;
         // Voltage Mismatch
         double alpha = 0.95;
-        voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha,test);
+        voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha, test);
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on various IEEE networks: {0}")
@@ -167,21 +166,8 @@ public class ResilientAcLoadFlowPerturbationTest {
         String test = EXPORT_CSV + "test_active_power_IEEE";
         // Final perturbed load's percentage
         double alpha = 0.1;
-        activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha,test);
+        activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha, test);
 
-    }
-
-    @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on various IEEE networks: {0}")
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
-    void correction_nonconvKN_IEEE(NetworkPair pair){
-        String baseFilename = pair.baseFilename();
-        Network rknNetwork = pair.rknNetwork();
-        Network nrNetwork = pair.nrNetwork();
-        String test = EXPORT_CSV + "test_active_power_BL_ieee";
-
-        // Final perturbed load's percentage
-        double alpha = 0.1;
-        activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename+"_load", alpha, test);
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on RTE networks: {0}")
@@ -197,7 +183,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         double xPU = 1e-5;
         // Voltage Mismatch
         double alpha = 0.95;
-        voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha,test);
+        voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha, test);
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on RTE networks: {0}")
@@ -211,7 +197,7 @@ public class ResilientAcLoadFlowPerturbationTest {
         // Final perturbed load's percentage
         double alpha = 0.30;
 
-        activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha,test);
+        activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha, test);
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on RTE networks: {0}")
@@ -227,6 +213,6 @@ public class ResilientAcLoadFlowPerturbationTest {
         // Target reactive power injection by the shunt section in VArs
         double targetQ = 1e9;
 
-        reactivePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, targetQ,test);
+        reactivePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, targetQ, test);
     }
 }
