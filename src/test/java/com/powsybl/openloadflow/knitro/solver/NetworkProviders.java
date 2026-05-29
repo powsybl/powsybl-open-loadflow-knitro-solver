@@ -2,8 +2,6 @@ package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.ieeecdf.converter.IeeeCdfNetworkFactory;
 import com.powsybl.iidm.network.Network;
-import com.powsybl.iidm.network.TopologyKind;
-import com.powsybl.iidm.network.VoltageLevel;
 import com.powsybl.iidm.serde.XMLExporter;
 
 import java.nio.file.Files;
@@ -27,12 +25,16 @@ public final class NetworkProviders {
     public static final String RTE6515_INSTANCE = "rte6515.xiidm";
     public static final String RTE1888_INSTANCE = "rte1888.xiidm";
 
+    private NetworkProviders() {
+        throw new UnsupportedOperationException("Utility Class");
+    }
+
     public static Stream<NetworkPair> provideRteNetworks() {
-      //  Path fileNameRte6515 = Path.of(DATA_DIR, RTE6515_INSTANCE);
+        Path fileNameRte6515 = Path.of(DATA_DIR, RTE6515_INSTANCE);
         Path fileNameRte1888 = Path.of(DATA_DIR, RTE1888_INSTANCE);
         return Stream.of(
-                new NetworkPair(Network.read(fileNameRte1888).getNetwork(), Network.read(fileNameRte1888).getNetwork(), "rte1888")//,
-       //         new NetworkPair(Network.read(fileNameRte6515).getNetwork(), Network.read(fileNameRte6515).getNetwork(), "rte6515")
+                new NetworkPair(Network.read(fileNameRte1888).getNetwork(), Network.read(fileNameRte1888).getNetwork(), "rte1888"),
+                new NetworkPair(Network.read(fileNameRte6515).getNetwork(), Network.read(fileNameRte6515).getNetwork(), "rte6515")
         );
     }
 
@@ -80,39 +82,6 @@ public final class NetworkProviders {
         properties.put(XMLExporter.VERSION, "1.12");
         Path path = Path.of(DEFAULT_OUTPUT_DIR, name);
         network.write("XIIDM", properties, path);
-    }
-
-    public static void exportNetworkAsBusBreakerTopology(Path initPath, Path endPath) {
-        Network network = Network.read(initPath).getNetwork();
-        for (VoltageLevel vl : network.getVoltageLevels()) {
-            vl.convertToTopology(TopologyKind.BUS_BREAKER);
-        }
-        Properties exportParameters = new Properties();
-        exportParameters.put(XMLExporter.TOPOLOGY_LEVEL, "BUS_BREAKER");
-        network.write("XIIDM", exportParameters, endPath);
-    }
-
-    public static void convertNodeBreakerDataToBusBreaker(String nodeBreakerDir, String busBreakerDir, String initFileName) {
-        Path initRoot = Path.of(nodeBreakerDir);
-        Path endRoot = Path.of(busBreakerDir);
-
-        try (Stream<Path> pathStream = Files.list(initRoot)) {
-            pathStream.filter(Files::isDirectory)
-                    .map(subDir -> subDir.resolve(initFileName))
-                    .filter(Files::exists)
-                    .forEach(initFile -> {
-                        try {
-                            Path relativePath = initRoot.relativize(initFile);
-                            Path outputFile = endRoot.resolve(relativePath);
-                            Files.createDirectories(outputFile.getParent());
-                            exportNetworkAsBusBreakerTopology(initFile, outputFile);
-                        } catch (Exception e) {
-                            throw new RuntimeException("Failed to convert the files", e);
-                        }
-                    });
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to load HU real network cases", e);
-        }
     }
 
     public record NetworkPair(Network rknNetwork, Network nrNetwork, String baseFilename) {
