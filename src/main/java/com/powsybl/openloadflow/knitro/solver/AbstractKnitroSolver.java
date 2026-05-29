@@ -79,6 +79,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
         solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
+        solver.setParam(KNConstants.KN_PARAM_OUTMODE, 1);
         solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, knitroParameters.getThreadNumber());
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, OPTTOL={}, MAXIT={}",
@@ -113,20 +114,6 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         try {
             LOGGER.info("Feasibility violation    = {}", solver.getAbsFeasError());
             LOGGER.info("Optimality violation     = {}", solver.getAbsOptError());
-
-//            LOGGER.debug("Optimal x");
-//            for (int i = 0; i < solution.getX().size(); i++) {
-//                LOGGER.debug(" x[{}] = {}", i, solution.getX().get(i));
-//            }
-//            LOGGER.debug("Optimal constraint values (with corresponding multiplier)");
-//            List<Double> constraintValues = solver.getConstraintValues();
-//            for (int i = 0; i < problemInstance.getNumCons(); i++) {
-//                LOGGER.debug(" c[{}] = {} (lambda = {} )", i, constraintValues.get(i), solution.getLambda().get(i));
-//            }
-//            LOGGER.debug("Constraint violation");
-//            for (int i = 0; i < problemInstance.getNumCons(); i++) {
-//                LOGGER.debug(" violation[{}] = {} ", i, solver.getConViol(i));
-//            }
         } catch (KNException e) {
             LOGGER.warn("Failed to get some solution details", e);
         }
