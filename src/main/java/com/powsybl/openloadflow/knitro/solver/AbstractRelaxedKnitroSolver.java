@@ -66,7 +66,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     // Mapping of the slack variabel and info
     private final ArrayList<SlackVariableInfo> slackContributions = new ArrayList<>();
 
-
     protected AbstractRelaxedKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                           JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
                                           EquationVector<AcVariableType, AcEquationType> equationVector, boolean detailedReport) {
@@ -150,9 +149,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                     .filter(si -> si.genViolation == 1)
                     .count();
             LOGGER.info("Total number of bus affected = {}", affectedBus);
-            LOGGER.info("Total number of load violation {}",loadViolations);
-            LOGGER.info("Total number of generator violation {}",genViolations);
-            LOGGER.info("Percentage of affected bus = {} %", String.format("%.2f",100.0 * affectedBus / network.getBuses().size()));
+            LOGGER.info("Total number of load violation {}", loadViolations);
+            LOGGER.info("Total number of generator violation {}", genViolations);
+            LOGGER.info("Percentage of affected bus = {} %", String.format("%.2f", 100.0 * affectedBus / network.getBuses().size()));
 
             List<String> csvLines = new ArrayList<>();
             csvLines.add("busId;type;slackValue_pu;slackValue;gen;controlevoltage;transfo;shunt;load;load_violation;gen_violation");
@@ -168,16 +167,16 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 String gens = si.generators == null ? "" : si.generators.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(";"));
                 String controlers = si.voltageControls == null ? "" : si.voltageControls.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(";"));
                 int loadViolation = si.loadViolation == 1 ? 1 : 0;
-                int genViolation = si.genViolation == 1 ? 1: 0;
+                int genViolation = si.genViolation == 1 ? 1 : 0;
                 String transfo = si.transformers == null ? "" : si.transformers.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(";"));
                 String shunt = si.shunts == null ? "" : si.shunts.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(";"));
                 String loads = si.loads == null ? "" : si.loads.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(";"));
                 csvLines.add(String.format("%s;%s;%.6f;%.6f;%s;%s;%s;%s;%s;%s;%s", si.busId, si.type, si.slackValuepu, si.slackValue, gens, controlers, transfo, shunt, loads, loadViolation, genViolation));
             }
-            List<String> optim_info = new ArrayList<>();
-            optim_info.add(String.format("total_penalty;penaltyP;penaltyQ;penaltyV;status;iterations"));
+            List<String> optimInfo = new ArrayList<>();
+            optimInfo.add(String.format("total_penalty;penaltyP;penaltyQ;penaltyV;status;iterations"));
             try {
-                optim_info.add(String.format("%s;%s;%s;%s;%s;%s", totalPenalty, penaltyP, penaltyQ, penaltyV,solution.getStatus(), solver.getNumberIters()));
+                optimInfo.add(String.format("%s;%s;%s;%s;%s;%s", totalPenalty, penaltyP, penaltyQ, penaltyV, solution.getStatus(), solver.getNumberIters()));
             } catch (KNException e) {
                 throw new RuntimeException(e);
             }
@@ -192,11 +191,12 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 );
                 LOGGER.info("Slack informations and contributions exported to {}", csv + ".csv");
             } catch (java.io.IOException e) {
-                LOGGER.warn("Failed to write slack CSV to {}", csv );            }
+                LOGGER.warn("Failed to write slack CSV to {}", csv);
+            }
             try {
                 java.nio.file.Files.write(
-                        java.nio.file.Paths.get(csv +"_optim_info" + ".csv"),
-                        optim_info,
+                        java.nio.file.Paths.get(csv + "_optim_info" + ".csv"),
+                        optimInfo,
                         java.nio.charset.StandardCharsets.UTF_8,
                         java.nio.file.StandardOpenOption.CREATE,
                         java.nio.file.StandardOpenOption.TRUNCATE_EXISTING
@@ -268,7 +268,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                             }
                         }
                         if (maybeLoadP.isPresent()) {
-                            interpretation+= String.format("%n                                                           Load : %s MW", bus.getLoads());
+                            interpretation += String.format("%n                                                           Load : %s MW", bus.getLoads());
                             loadP = bus.getLoadTargetP();
                             isload = isLoadFeasible(bus.getLoadTargetP(), epsilon * PerUnit.SB) ? "feasible" : "violated";
                             info.put(bus.getLoadTargetP(), "load_P");
@@ -321,7 +321,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                         if (maybeLoadP.isPresent()) {
                             loadQ = bus.getLoadTargetQ(); //[MVar]
                             info.put(loadQ, "load_Q");
-                            interpretation+= String.format("%n                                                           Load : %s MW", bus.getLoads());
+                            interpretation += String.format("%n                                                           Load : %s MW", bus.getLoads());
                             isfeasibleloadQ = isLoadFeasible(epsilon * PerUnit.SB, bus.getLoadTargetQ()) ? "feasible" : "violated";
                             interpretation += String.format("If slack applied, Load constraints is %s ", isfeasibleloadQ);
                             if (isfeasibleloadQ.equals("violated")) {
