@@ -180,7 +180,6 @@ public class ResilientAcLoadFlowUnitTest1 {
 
     @ParameterizedTest(name = "Test HU networks convergence: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideNodeBreakerHUNetworks")
-        //@Disabled("Temporarily disabled")
     void testConvergenceOnHUData(NetworkPair pair) {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
     }
@@ -199,13 +198,4 @@ public class ResilientAcLoadFlowUnitTest1 {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
     }
 
-//    @Test
-//    @Disabled("Temporarily disabled")
-//    void testConvergenceOnTyndpData() {
-//        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, TYNDP_INSTANCE);
-//        Network network = Network.read(fileName).getNetwork();
-//        configureSolver(RKN);
-//        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-//        assertTrue(result.isFullyConverged());
-//    }
 }
