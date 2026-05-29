@@ -19,6 +19,10 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 public final class PerturbationFactory {
     private static final double BASE_100MVA = 100.0;
 
+    private PerturbationFactory() {
+        throw new UnsupportedOperationException("Utility class");
+    }
+
     /**
      * Finds all possible voltage perturbations of a network until a maximum number is reached.
      *
