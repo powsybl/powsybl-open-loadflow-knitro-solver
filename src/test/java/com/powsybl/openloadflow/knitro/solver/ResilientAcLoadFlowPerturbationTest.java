@@ -38,6 +38,7 @@ class ResilientAcLoadFlowPerturbationTest {
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
     private static final String VOLTAGE_PERTURBATION = "voltage-perturbation";
+    private static final String ACTIVE_POWER_PERTURBATION = "P_perturbation";
     private static final String EXPORT_CSV = "Slack_info/";
     private static final boolean EXPORT = true;
     private LoadFlow.Runner loadFlowRunner;
@@ -124,6 +125,28 @@ class ResilientAcLoadFlowPerturbationTest {
         PerturbationFactory.applyVoltagePerturbation(nrNetwork, perturbation, rPU, xPU, alpha);
         PerturbationFactory.applyVoltagePerturbation(dcNetwork, perturbation, rPU, xPU, alpha);
         compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, VOLTAGE_PERTURBATION, test);
+    }
+
+    @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on various IEEE networks: {0}")
+    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
+    void testActivePowerPerturbationOnVariousI3ENetworks(NetworkProviders.NetworkPair pair) {
+        String baseFilename = pair.baseFilename();
+
+        Network rknNetwork = pair.rknNetwork();
+        Network nrNetwork = pair.nrNetwork();
+        Network dcNetwork = pair.dcNetwork();
+
+        // Final perturbed load's percentage
+        double alpha = 0.10;
+        String test = EXPORT_CSV + "test_P_IEEE";
+        activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha, test);
+    }
+    private void activePowerPerturbationTest(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename, double alpha, String test) {
+        String targetLoadID = PerturbationFactory.getActivePowerPerturbation(nrNetwork);
+        PerturbationFactory.applyActivePowerPerturbation(rknNetwork, targetLoadID, alpha);
+        PerturbationFactory.applyActivePowerPerturbation(nrNetwork, targetLoadID, alpha);
+        PerturbationFactory.applyActivePowerPerturbation(dcNetwork, targetLoadID, alpha);
+        compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, ACTIVE_POWER_PERTURBATION, test);
     }
 
     private double calculateDcLosses(Network dcNetwork) {
