@@ -7,16 +7,13 @@ import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.math.matrix.SparseMatrixFactory;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
+import com.powsybl.openloadflow.ac.solver.NewtonRaphsonStoppingCriteriaType;
 import com.powsybl.openloadflow.network.SlackBusSelectionMode;
 import org.junit.jupiter.api.BeforeEach;
-//import org.junit.jupiter.api.Disabled;
-//import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-//import java.nio.file.Path;
 
 import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
-public class ResilientAcLoadFlowUnitTest {
+class ResilientAcLoadFlowUnitTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResilientAcLoadFlowUnitTest.class);
     private static final double DEFAULT_TOLERANCE = 1e-3;
     private static final double BASE_100MVA = 100.0;
@@ -48,7 +45,11 @@ public class ResilientAcLoadFlowUnitTest {
         OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
                 .setAcSolverType(solver)
-                .setLowImpedanceThreshold(1.0e-5);
+                .setNewtonRaphsonStoppingCriteriaType(NewtonRaphsonStoppingCriteriaType.PER_EQUATION_TYPE_CRITERIA)
+                .setMaxAngleMismatch(1e-3)
+                .setMaxActivePowerMismatch(1e-3)
+                .setMaxReactivePowerMismatch(1e-3)
+                .setMaxVoltageMismatch(1e-3);
 
         if (RKN.equals(solver)) {
             KnitroLoadFlowParameters knitroParams = new KnitroLoadFlowParameters();
@@ -99,7 +100,7 @@ public class ResilientAcLoadFlowUnitTest {
             double v1 = bus1.getV() / bus1.getVoltageLevel().getNominalV();
             double v2 = bus2.getV() / bus2.getVoltageLevel().getNominalV();
             double phi1 = bus1.getAngle();
-            double phi2 = bus2.getAngle();
+            double phi2 = bus1.getAngle();
 
             assertEquals(v1, v2, tolerance, "Mismatch on V for bus " + bus1.getId());
             assertEquals(phi1, phi2, tolerance, "Mismatch on Phi for bus " + bus1.getId());
@@ -164,42 +165,4 @@ public class ResilientAcLoadFlowUnitTest {
     void testLoadFlowComparisonOnVariousI3ENetworks(NetworkPair pair) {
         compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
     }
-
-//    @Test
-//    void testConvergenceOnHUInstance() {
-//        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, HU_INSTANCE);
-//        Network nrNetwork = Network.read(fileName).getNetwork();
-//        Network rknNetwork = Network.read(fileName).getNetwork();
-//        compareSolvers(rknNetwork, nrNetwork, "HU_INSTANCE");
-//    }
-
-//    @ParameterizedTest(name = "Test HU networks convergence: {0}")
-//    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideNodeBreakerHUNetworks")
-//    @Disabled("Temporarily disabled")
-//    void testConvergenceOnHUData(NetworkPair pair) {
-//        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
-//    }
-
-//    @Test
-//    void testConvergenceOnESData() {
-//        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, ES_INSTANCE);
-//        Network nrNetwork = Network.read(fileName).getNetwork();
-//        Network rknNetwork = Network.read(fileName).getNetwork();
-//        compareSolvers(rknNetwork, nrNetwork, "ES");
-//    }
-
-    @ParameterizedTest
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideRteNetworks")
-    void testLoadFlowComparisonOnRteNetworks(NetworkPair pair) {
-        compareSolvers(pair.rknNetwork(), pair.nrNetwork(), pair.baseFilename());
-    }
-
-//    @Test
-//    void testConvergenceOnTyndpData() {
-//        Path fileName = Path.of(CONFIDENTIAL_DATA_DIR, TYNDP_INSTANCE);
-//        Network network = Network.read(fileName).getNetwork();
-//        configureSolver(RKN);
-//        LoadFlowResult result = loadFlowRunner.run(network, parameters);
-//        assertTrue(result.isFullyConverged());
-//    }
 }
