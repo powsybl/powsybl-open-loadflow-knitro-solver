@@ -62,7 +62,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     // Mapping of the slack variable and info
     private final ArrayList<SlackVariableInfo> slackContributions = new ArrayList<>();
-  
     // Mapping of gamma : each Voltage Level is assign to a gamma depending on its nominal voltage
     protected HashMap<Double, Double> voltageLevelGammaMap;
     protected HashMap<Integer, Double> weightVMap;
@@ -254,6 +253,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             } catch (java.io.IOException e) {
                 LOGGER.warn("Failed to write optimization info CSV: {}", e.getMessage());
             }
+        }
         // Weight use in the objective function
         LOGGER.info("Total LOSSES DC =  {} MW", this.knitroParameters.getLosses());
         LOGGER.info("Weight P1 = {}", weightP1);

@@ -21,7 +21,7 @@ import java.util.Optional;
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 
-public class KnitroLoadFlowParameters<optional> extends AbstractExtension<LoadFlowParameters> {
+public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParameters> {
 
     public static final String MODULE_SPECIFIC_PARAMETERS = "open-load-flow-knitro-solver-default-parameters";
 
