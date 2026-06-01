@@ -285,7 +285,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                         }
                     }
                     case "Q" -> {
-                        double loadQ = 0.0;
                         String isfeasibleQ = "";
                         String isfeasibleloadQ = "";
                         interpretation.append(String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * PerUnit.SB));
@@ -311,8 +310,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                             }
                         }
                         if (maybeLoad.isPresent()) {
-                            loadQ = bus.getLoadTargetQ(); //[MVar]
-                            info.put(loadQ, "load_Q");
+                            info.put(bus.getLoadTargetQ(), "load_Q");
                             interpretation.append(String.format("%n                                                           Load : %s MW", bus.getLoads()));
                             isfeasibleloadQ = isLoadFeasible(epsilon * PerUnit.SB, bus.getLoadTargetQ()) ? FEASIBLE : VIOLATED;
                             interpretation.append(String.format("If slack applied, Load constraints is %s ", isfeasibleloadQ));
@@ -410,7 +408,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         int loadViolation;
         int genViolation;
         Map<Double, Object> info = new HashMap<>();
-        Collection<LfBranch> lines;
         Collection<LfGenerator> generators;
         List<VoltageControl<?>> voltageControls;
         Collection<LfLoad> loads;
@@ -424,7 +421,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             this.type = type;
             this.voltageControls = lfBus.getVoltageControls();
             this.generators = lfBus.getGenerators();
-            this.lines = lfBus.getBranches();
             this.loads = lfBus.getLoads();
             this.loadViolation = loadViolation;
             this.genViolation = genViolation;
@@ -483,7 +479,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             String controlers = (si.voltageControls != null && !si.voltageControls.isEmpty()) ? si.voltageControls.stream().map(Object::toString).collect(Collectors.joining(";")) : "";
             int loadViolation = si.loadViolation == 1 ? 1 : 0;
             int genViolation = si.genViolation == 1 ? 1 : 0;
-            String transfo = si.transformers == null ? "" : si.transformers.stream().map(Object::toString).collect(Collectors.joining(";"));
+            String transfo = si.transformers.stream().map(Object::toString).collect(Collectors.joining(";"));
             String shunt = si.shunts.stream().map(Object::toString).collect(Collectors.joining(";"));
             String loads = si.loads.stream().map(Object::toString).collect(Collectors.joining(";"));
             csvLines.add(String.format("%s;%s;%.6f;%.6f;%s;%s;%s;%s;%s;%s;%s",
@@ -499,7 +495,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         try {
             optimInfo.add(String.format("%s;%s;%s;%s;%s;%s", totalPenalty, penaltyP, penaltyQ, penaltyV, solution.getStatus(), solver.getNumberIters()));
         } catch (KNException e) {
-//            throw new KNException("Failed to gather optimization info.", e);
+            throw new PowsyblException("Failed to gather optimization info.", e);
         }
         return optimInfo;
     }
