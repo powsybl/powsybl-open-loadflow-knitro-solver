@@ -43,6 +43,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     public Optional<String> getExportSolution() {
         return this.exportSolution;
     }
+
     private double losses = KnitroSolverParameters.DEFAULT_DC_LOSSES;
 
     public static final String GRADIENT_COMPUTATION_MODE_PARAM_NAME = "gradientComputationMode";
