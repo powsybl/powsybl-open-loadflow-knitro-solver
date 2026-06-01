@@ -9,7 +9,9 @@ package com.powsybl.openloadflow.knitro.solver;
 
 import com.artelys.knitro.api.*;
 import com.artelys.knitro.api.callbacks.KNEvalGACallback;
+import com.google.errorprone.annotations.Var;
 import com.powsybl.commons.PowsyblException;
+import com.powsybl.iidm.network.Bus;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.ac.equations.AcVariableType;
 import com.powsybl.openloadflow.equations.*;
@@ -183,7 +185,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         SlackVariableInfo[] slackArray = slackContributions.toArray(new SlackVariableInfo[0]);
         logSlackSummary(slackArray);
 
-        String csv = this.knitroParameters.getExportSolution().orElse(null);
+        Optional<String> csvOpt = this.knitroParameters.getExportSolution();
+        String csv = csvOpt.orElse("");
 
         if (csv != null && !csv.isEmpty()) {
             List<String> csvLines = slackInfoCsv(slackArray);
@@ -239,135 +242,36 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 Optional<TransformerVoltageControl> maybeTransfo = bus.getTransformerVoltageControl().stream().findAny();
                 switch (type) {
                     case "P" -> {
-                        interpretation.append(String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB));
-                        String isload = "";
-                        String feasibleP = "";
-                        slackvalue = epsilon * PerUnit.SB;
-
-                        if (maybeGenerator.isPresent()) {
-                            List<LfGenerator> generator = bus.getGenerators();
-                            double[] genMaxP = new double[bus.getGenerators().size()];
-                            double[] genMinP = new double[bus.getGenerators().size()];
-                            for (LfGenerator gen : generator) {
-                                genMaxP = new double[]{gen.getMaxP()};
-                                genMinP = new double[]{gen.getMinP()};
-                                info.put(gen.getMinP(), "gen_minP");
-                                info.put(gen.getMaxP(), "gen_maxP");
-                                info.put(gen.getTargetP(), "gen_P");
-                                info.put(PerUnit.SB, "pu_base");
-                                interpretation.append(String.format("%n                                                           Generator %s of range: [%.2f,%.2f] ", gen.getId(), gen.getMinP(), gen.getMaxP()));
-                            }
-                            feasibleP = isGenFeasible(bus.getTargetP() + epsilon * PerUnit.SB, Arrays.stream(genMinP).sum(), Arrays.stream(genMaxP).sum()) ? FEASIBLE : VIOLATED;
-                            interpretation.append(String.format("If slack applied, generator limits are %s  ", feasibleP));
-                            if (feasibleP.equals(VIOLATED)) {
-                                interpretation.append(String.format("%n                                                           Changement out of generation bus range : [%.2f; %.2f] MW", Arrays.stream(genMinP).sum(), Arrays.stream(genMaxP).sum()));
-                                genViolation = 1;
-                            }
-                        }
-                        if (maybeLoad.isPresent()) {
-                            interpretation.append(String.format("%n                                                           Load : %s MW", bus.getLoads()));
-                            isload = isLoadFeasible(bus.getLoadTargetP(), epsilon * PerUnit.SB) ? FEASIBLE : VIOLATED;
-                            info.put(bus.getLoadTargetP(), "load_P");
-                            interpretation.append(String.format(" Load Target P : %.4f MW. If slack applied, Load constraints is %s", bus.getLoadTargetP(), isload));
-                            if (isload.equals(VIOLATED)) {
-                                interpretation.append(String.format("%n                                                           Load status after changement : %.4f MW", bus.getLoadTargetP() + epsilon * PerUnit.SB));
-                                loadViolation = 1;
-                            }
-                        }
-                        if (maybeShunt.isPresent()) {
-                            interpretation.append(String.format("%n                                                           Shunt susceptance : %.4f p.u.", maybeShunt.get().getB()));
-                        }
-                        if (maybeTransfo.isPresent()) {
-                            interpretation.append(String.format("%n                                                           Control voltage is made by a transformer "));
-                        }
-                        if (maybeLoad.isEmpty() && maybeGenerator.isEmpty() && maybeShunt.isEmpty() && maybeTransfo.isEmpty()) {
-                            interpretation.append(String.format("%n                                                           No direct connected Load, Generator, Transformer Control voltage or Shunt"));
-                        }
+                        SlackVariableInfo slackVar = logSlackTypeP(bus, epsilon, type);
+                        slackContributions.add(slackVar);
+                        LOGGER.debug("Slack {}[ {} ] → {}", type, name, slackVar.interpretation);
+                        slackContributions.add(new SlackVariableInfo(name, epsilon, slackvalue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
                     }
+
                     case "Q" -> {
-                        String isfeasibleQ = "";
-                        String isfeasibleloadQ = "";
-                        interpretation.append(String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * PerUnit.SB));
-                        slackvalue = epsilon * PerUnit.SB;
-                        if (maybeGenerator.isPresent()) {
-                            List<LfGenerator> generator = bus.getGenerators();
-                            double[] genMaxQ = new double[bus.getGenerators().size()];
-                            double[] genMinQ = new double[bus.getGenerators().size()];
-                            for (LfGenerator gen : generator) {
-                                genMaxQ = new double[]{gen.getMaxQ()};
-                                genMinQ = new double[]{gen.getMinQ()};
-                                info.put(gen.getMinQ(), "gen_minQ");
-                                info.put(gen.getMaxQ(), "gen_maxQ");
-                                info.put(gen.getTargetQ(), "gen_Q");
-                                info.put(PerUnit.SB, "pu_base");
-                                interpretation.append(String.format("%n                                                           Generator %s of range: [%.2f,%.2f] ", gen.getId(), gen.getMinQ(), gen.getMaxQ()));
-                            }
-                            isfeasibleQ = isGenFeasible(bus.getTargetQ() + epsilon * PerUnit.SB, Arrays.stream(genMinQ).sum(), Arrays.stream(genMaxQ).sum()) ? FEASIBLE : VIOLATED;
-                            interpretation.append(String.format(" If slack applied, generator limits are %s  ", isfeasibleQ));
-                            if (isfeasibleQ.equals(VIOLATED)) {
-                                interpretation.append(String.format("%n                                                           Changement out of generation bus range [%.2f,%.2f]", Arrays.stream(genMinQ).sum(), Arrays.stream(genMaxQ).sum()));
-                                genViolation = 1;
-                            }
-                        }
-                        if (maybeLoad.isPresent()) {
-                            info.put(bus.getLoadTargetQ(), "load_Q");
-                            interpretation.append(String.format("%n                                                           Load : %s MW", bus.getLoads()));
-                            isfeasibleloadQ = isLoadFeasible(epsilon * PerUnit.SB, bus.getLoadTargetQ()) ? FEASIBLE : VIOLATED;
-                            interpretation.append(String.format("If slack applied, Load constraints is %s ", isfeasibleloadQ));
-                            if (isfeasibleloadQ.equals(VIOLATED)) {
-                                interpretation.append(String.format("%n                                                           Load Target Q :  %.4f MVar after slack : %f", bus.getLoadTargetQ(), bus.getLoadTargetQ() + epsilon * PerUnit.SB));
-                                loadViolation = 1;
-                            }
-
-                        }
-                        if (maybeShunt.isPresent()) {
-                            interpretation.append(String.format("%n                                                           Shunt susceptance: %.4f p.u.", maybeShunt.get().getB()));
-                        }
-                        if (maybeTransfo.isPresent()) {
-                            interpretation.append(String.format("%n                                                           Control voltage is made by a transformer "));
-                        }
-                        if (maybeLoad.isEmpty() && maybeGenerator.isEmpty() && maybeShunt.isEmpty() && maybeTransfo.isEmpty()) {
-                            interpretation.append(String.format("%n                                                           No direct connected Load, Generator, Transformer Control voltage or Shunt"));
-                        }
+                        SlackVariableInfo slackVar = logSlackTypeQ(bus, epsilon, type);
+                        slackContributions.add(slackVar);
+                        LOGGER.debug("Slack {}[ {} ] → {}", type, name, slackVar.interpretation);
+                        slackContributions.add(new SlackVariableInfo(name, epsilon, slackvalue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
                     }
-                    case "V" -> {
-                        Optional<VoltageControl<?>> maybeControl = bus.getVoltageControls().stream().findAny();
-                        if (bus == null) {
-                            LOGGER.warn("Bus {} not found while logging V slack.", name);
-                            shouldSkip = true;
-                        } else {
-                            info.put(bus.getV(), "bus_V");
-                            info.put(bus.getNominalV(), "bus_nominalV");
-                            slackvalue = epsilon * bus.getNominalV();
-                            if (Math.abs(epsilon) < 0.001) {
-                                interpretation.append(String.format("ΔV = %f p.u. (%f kV) ", epsilon, epsilon * bus.getNominalV()));
-                            } else {
-                                interpretation.append(String.format("ΔV = %.4f p.u. (%.4f kV) ", epsilon, epsilon * bus.getNominalV()));
-                            }
-                            if (maybeControl.isPresent()) {
-                                List<VoltageControl<?>> controls = bus.getVoltageControls();
-                                for (VoltageControl vc : controls) {
-                                    interpretation.append(String.format("%n                                                           Voltage Control status is:%s of type %s located at %s," +
-                                            "%n                                                           Voltage target before slack change %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
-                                    interpretation.append(String.format("%n                                                           If slack applied, voltage constraints at bus is %s ", isFeasibleV(epsilon, bus.getNominalV(), vc.getTargetValue()) ? FEASIBLE : VIOLATED));
-                                }
-                            }
 
-                        }
+                    case "V" -> {
+                        SlackVariableInfo slackVar = logSlackTypeV(bus, epsilon, type);
+                        slackContributions.add(slackVar);
+                        LOGGER.debug("Slack {}[ {} ] → {}", type, name, slackVar.interpretation);
+                        slackContributions.add(new SlackVariableInfo(name, epsilon, slackvalue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
                     }
                     default -> interpretation.append("Unknown slack type");
                 }
-                slackContributions.add(new SlackVariableInfo(name, epsilon, slackvalue, type, bus, loadViolation, genViolation, info));
             }
 
             if (shouldSkip) {
                 continue;
             }
-            String msg = String.format("Slack %s[ %s ] → %s", type, name, interpretation);
-            LOGGER.debug(msg);
+//            String msg = String.format("Slack %s[ %s ] → %s", type, name, interpretation);
+//            LOGGER.debug(msg);
         }
     }
-
     /**
      * Finds the bus associated to a slack variable.
      *
@@ -413,8 +317,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         Collection<LfLoad> loads;
         Optional<LfShunt> shunts;
         Optional<TransformerVoltageControl> transformers;
+        String interpretation;
 
-        public SlackVariableInfo(String busId, double slackValuepu, double slackValue, String type, LfBus lfBus, int loadViolation, int genViolation, Map<Double, Object>info) {
+        public SlackVariableInfo(String busId, double slackValuepu, double slackValue, String type, LfBus lfBus, int loadViolation, int genViolation, Map<Double, Object>info, String interpretation) {
             this.busId = busId;
             this.slackValue = slackValue;
             this.slackValuepu = slackValuepu;
@@ -429,7 +334,155 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             if (info != null) {
                 this.info.putAll(info);
             }
+            this.interpretation = interpretation;
         }
+    }
+
+    private SlackVariableInfo logSlackTypeV(LfBus bus, double epsilon, String type) {
+        StringBuilder interpretation = new StringBuilder();
+        Map<Double, Object> info = new HashMap<>();
+        double slackValue = epsilon * bus.getNominalV();
+        int loadViolation = 0;
+        int genViolation = 0;
+
+        Optional<VoltageControl<?>> maybeControl = bus.getVoltageControls().stream().findAny();
+
+        info.put(bus.getV(), "bus_V");
+        info.put(bus.getNominalV(), "bus_nominalV");
+        if (Math.abs(epsilon) < 0.001) {
+            interpretation.append(String.format("ΔV = %f p.u. (%f kV) ", epsilon, epsilon * bus.getNominalV()));
+        } else {
+            interpretation.append(String.format("ΔV = %.4f p.u. (%.4f kV) ", epsilon, epsilon * bus.getNominalV()));
+        }
+        if (maybeControl.isPresent()) {
+            List<VoltageControl<?>> controls = bus.getVoltageControls();
+            for (VoltageControl vc : controls) {
+                interpretation.append(String.format("%n                                                           Voltage Control status is:%s of type %s located at %s," +
+                        "%n                                                           Voltage target before slack change %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
+                interpretation.append(String.format("%n                                                           If slack applied, voltage constraints at bus is %s ", isFeasibleV(epsilon, bus.getNominalV(), vc.getTargetValue()) ? FEASIBLE : VIOLATED));
+            }
+        }
+        return new SlackVariableInfo(bus.getId(), epsilon, slackValue, type, bus, loadViolation, genViolation, info, interpretation.toString());
+    }
+
+
+    private SlackVariableInfo logSlackTypeQ( LfBus bus, double epsilon, String type) {
+        StringBuilder interpretation = new StringBuilder();
+        Map<Double, Object> info = new HashMap<>();
+        int loadViolation = 0;
+        int genViolation = 0;
+        double slackValue = epsilon * PerUnit.SB;
+
+        Optional<LfGenerator> maybeGenerator = bus.getGenerators().stream().findAny();
+        Optional<LfLoad> maybeLoad = bus.getLoads().stream().findAny();
+        Optional<LfShunt> maybeShunt = bus.getShunt().stream().findAny();
+        Optional<TransformerVoltageControl> maybeTransfo = bus.getTransformerVoltageControl().stream().findAny();
+
+        interpretation.append(String.format("ΔQ = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB));
+        String isload = "";
+        String isfeasibleQ = "";
+
+        if (maybeGenerator.isPresent()) {
+            List<LfGenerator> generator = bus.getGenerators();
+            double[] genMaxQ = new double[bus.getGenerators().size()];
+            double[] genMinQ = new double[bus.getGenerators().size()];
+            for (LfGenerator gen : generator) {
+                genMaxQ = new double[]{gen.getMaxQ()};
+                genMinQ = new double[]{gen.getMinQ()};
+                info.put(gen.getMinQ(), "gen_minQ");
+                info.put(gen.getMaxQ(), "gen_maxQ");
+                info.put(gen.getTargetQ(), "gen_Q");
+                info.put(PerUnit.SB, "pu_base");
+                interpretation.append(String.format("%n                                                           Generator %s of range: [%.2f,%.2f] ", gen.getId(), gen.getMinQ(), gen.getMaxQ()));
+            }
+            isfeasibleQ = isGenFeasible(bus.getTargetQ() + epsilon * PerUnit.SB, Arrays.stream(genMinQ).sum(), Arrays.stream(genMaxQ).sum()) ? FEASIBLE : VIOLATED;
+            interpretation.append(String.format(" If slack applied, generator limits are %s  ", isfeasibleQ));
+            if (isfeasibleQ.equals(VIOLATED)) {
+                interpretation.append(String.format("%n                                                           Changement out of generation bus range [%.2f,%.2f]", Arrays.stream(genMinQ).sum(), Arrays.stream(genMaxQ).sum()));
+                genViolation = 1;
+            }
+        }
+        if (maybeLoad.isPresent()) {
+            info.put(bus.getLoadTargetQ(), "load_Q");
+            interpretation.append(String.format("%n                                                           Load : %s MW", bus.getLoads()));
+            isfeasibleQ = isLoadFeasible(epsilon * PerUnit.SB, bus.getLoadTargetQ()) ? FEASIBLE : VIOLATED;
+            interpretation.append(String.format("If slack applied, Load constraints is %s ", isfeasibleQ));
+            if (isfeasibleQ.equals(VIOLATED)) {
+                interpretation.append(String.format("%n                                                           Load Target Q :  %.4f MVar after slack : %f", bus.getLoadTargetQ(), bus.getLoadTargetQ() + epsilon * PerUnit.SB));
+                loadViolation = 1;
+            }
+
+        }
+        if (maybeShunt.isPresent()) {
+            interpretation.append(String.format("%n                                                           Shunt susceptance: %.4f p.u.", maybeShunt.get().getB()));
+        }
+        if (maybeTransfo.isPresent()) {
+            interpretation.append(String.format("%n                                                           Control voltage is made by a transformer "));
+        }
+        if (maybeLoad.isEmpty() && maybeGenerator.isEmpty() && maybeShunt.isEmpty() && maybeTransfo.isEmpty()) {
+            interpretation.append(String.format("%n                                                           No direct connected Load, Generator, Transformer Control voltage or Shunt"));
+        }
+        return new SlackVariableInfo(bus.getId(), epsilon, slackValue, type, bus, loadViolation, genViolation, info, interpretation.toString());
+    }
+
+    private SlackVariableInfo logSlackTypeP(LfBus bus, double epsilon, String type) {
+        StringBuilder interpretation = new StringBuilder();
+        Map<Double, Object> info = new HashMap<>();
+        int loadViolation = 0;
+        int genViolation = 0;
+
+        interpretation.append(String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB));
+        double slackValue = epsilon * PerUnit.SB;
+
+        Optional<LfGenerator> maybeGenerator = bus.getGenerators().stream().findAny();
+        Optional<LfLoad> maybeLoad = bus.getLoads().stream().findAny();
+        Optional<LfShunt> maybeShunt = bus.getShunt().stream().findAny();
+        Optional<TransformerVoltageControl> maybeTransfo = bus.getTransformerVoltageControl().stream().findAny();
+
+        interpretation.append(String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB));
+        String isload = "";
+        String feasibleP = "";
+
+        if (maybeGenerator.isPresent()) {
+            List<LfGenerator> generator = bus.getGenerators();
+            double[] genMaxP = new double[bus.getGenerators().size()];
+            double[] genMinP = new double[bus.getGenerators().size()];
+            for (LfGenerator gen : generator) {
+                genMaxP = new double[]{gen.getMaxP()};
+                genMinP = new double[]{gen.getMinP()};
+                info.put(gen.getMinP(), "gen_minP");
+                info.put(gen.getMaxP(), "gen_maxP");
+                info.put(gen.getTargetP(), "gen_P");
+                info.put(PerUnit.SB, "pu_base");
+                interpretation.append(String.format("%n                                                           Generator %s of range: [%.2f,%.2f] ", gen.getId(), gen.getMinP(), gen.getMaxP()));
+            }
+            feasibleP = isGenFeasible(bus.getTargetP() + epsilon * PerUnit.SB, Arrays.stream(genMinP).sum(), Arrays.stream(genMaxP).sum()) ? FEASIBLE : VIOLATED;
+            interpretation.append(String.format("If slack applied, generator limits are %s  ", feasibleP));
+            if (feasibleP.equals(VIOLATED)) {
+                interpretation.append(String.format("%n                                                           Changement out of generation bus range : [%.2f; %.2f] MW", Arrays.stream(genMinP).sum(), Arrays.stream(genMaxP).sum()));
+                genViolation = 1;
+            }
+        }
+        if (maybeLoad.isPresent()) {
+            interpretation.append(String.format("%n                                                           Load : %s MW", bus.getLoads()));
+            isload = isLoadFeasible(bus.getLoadTargetP(), epsilon * PerUnit.SB) ? FEASIBLE : VIOLATED;
+            info.put(bus.getLoadTargetP(), "load_P");
+            interpretation.append(String.format(" Load Target P : %.4f MW. If slack applied, Load constraints is %s", bus.getLoadTargetP(), isload));
+            if (isload.equals(VIOLATED)) {
+                interpretation.append(String.format("%n                                                           Load status after changement : %.4f MW", bus.getLoadTargetP() + epsilon * PerUnit.SB));
+                loadViolation = 1;
+            }
+        }
+        if (maybeShunt.isPresent()) {
+            interpretation.append(String.format("%n                                                           Shunt susceptance : %.4f p.u.", maybeShunt.get().getB()));
+        }
+        if (maybeTransfo.isPresent()) {
+            interpretation.append(String.format("%n                                                           Control voltage is made by a transformer "));
+        }
+        if (maybeLoad.isEmpty() && maybeGenerator.isEmpty() && maybeShunt.isEmpty() && maybeTransfo.isEmpty()) {
+            interpretation.append(String.format("%n                                                           No direct connected Load, Generator, Transformer Control voltage or Shunt"));
+        }
+        return new SlackVariableInfo(bus.getId(), epsilon, slackValue, type, bus, loadViolation, genViolation, info, interpretation.toString());
     }
 
     /**
@@ -468,7 +521,12 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("Total number of bus affected = {}", affectedBus);
         LOGGER.info("Total number of load violation {}", loadViolations);
         LOGGER.info("Total number of generator violation {}", genViolations);
-        LOGGER.info("Percentage of affected bus = {} %", String.format("%.2f", 100.0 * affectedBus / network.getBuses().size()));
+        if ( network.getBuses().size()> 0){
+            double percentAffected =  100.0 * affectedBus / network.getBuses().size();
+            LOGGER.info("Percentage of affected bus = {} %", String.format("%.2f",percentAffected));
+        } else {
+            LOGGER.info("No buses in the network were found.");
+        }
     }
 
     private List<String> slackInfoCsv(SlackVariableInfo[] slackArray) {

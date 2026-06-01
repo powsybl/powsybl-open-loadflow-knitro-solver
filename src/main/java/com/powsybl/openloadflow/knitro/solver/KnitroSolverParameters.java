@@ -92,6 +92,14 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return this;
     }
 
+    public Optional<String> getExportSolution() {
+        return exportSolution;
+    }
+
+    public KnitroSolverParameters setExportSolution(Optional<String> exportSolution) {
+        this.exportSolution = exportSolution;
+        return this;
+    }
     public int getGradientComputationMode() {
         return gradientComputationMode;
     }
@@ -307,10 +315,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
                 ", maxIterations=" + maxKnitroIterations +
                 ", threadNumber=" + threadNumber +
                 ')';
-    }
-
-    public Optional<String> getExportSolution() {
-        return exportSolution;
     }
 
     public enum SolverType {
