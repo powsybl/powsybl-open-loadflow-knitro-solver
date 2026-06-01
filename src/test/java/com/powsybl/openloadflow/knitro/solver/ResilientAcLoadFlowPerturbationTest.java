@@ -38,8 +38,6 @@ class ResilientAcLoadFlowPerturbationTest {
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
     private static final String VOLTAGE_PERTURBATION = "voltage-perturbation";
-    private static final String ACTIVE_POWER_PERTURBATION = "active-perturbation";
-    private static final String REACTIVE_POWER_PERTURBATION = "reactive-perturbation";
     private static final String EXPORT_CSV = "Slack_info/";
     private static final boolean EXPORT = true;
     private LoadFlow.Runner loadFlowRunner;
