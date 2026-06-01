@@ -20,6 +20,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Abstract class for relaxed Knitro solvers, solving the open load flow equation system by minimizing constraint violations through relaxation.
@@ -36,14 +38,9 @@ import java.util.*;
 public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelaxedKnitroSolver.class);
-
-    // Penalty weights in the objective function
-    protected static final double WEIGHT_P_PENAL = 1.0;
-    protected static final double WEIGHT_Q_PENAL = 1.0;
-    protected static final double WEIGHT_V_PENAL = 1.0;
-
-    // Weights of the linear in the objective function
-    protected static final double WEIGHT_ABSOLUTE_PENAL = 3.0;
+    protected double weightP1;
+    protected static final double WEIGHT_Q_1 = 1.0;
+    protected static final double GAMMA_FACTOR = 0.1;
 
     // Total number of variables (including power flow and slack variables)
     protected int numSlackVariables;
@@ -62,6 +59,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     protected final Map<Integer, Integer> pEquationLocalIds;
     protected final Map<Integer, Integer> qEquationLocalIds;
     protected final Map<Integer, Integer> vEquationLocalIds;
+
+    // Mapping of gamma : each Voltage Level is assign to a gamma depending on its nominal voltage
+    protected HashMap<Double, Double> voltageLevelGammaMap;
+    protected HashMap<Integer, Double> weightVMap;
 
     protected AbstractRelaxedKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                           JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
@@ -90,18 +91,66 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         int qCounter = 0;
         int vCounter = 0;
 
+        // MAP GAMMA : VL in kV and the corresponding gamma
+        voltageLevelGammaMap = new HashMap<>();
+        voltageLevelGammaMap.put(72.5, 39.55);
+        voltageLevelGammaMap.put(145.0, 100.45);
+        voltageLevelGammaMap.put(245.0, 212.18);
+        voltageLevelGammaMap.put(420.0, 458.30);
+
+        weightVMap = new HashMap<>();
+
         for (int i = 0; i < sortedEquations.size(); i++) {
             AcEquationType type = sortedEquations.get(i).getType();
+            double gammaValue = 0.0;
 
             switch (type) {
                 case BUS_TARGET_P -> pEquationLocalIds.put(i, pCounter++);
                 case BUS_TARGET_Q -> qEquationLocalIds.put(i, qCounter++);
-                case BUS_TARGET_V -> vEquationLocalIds.put(i, vCounter++);
+                case BUS_TARGET_V -> {
+                    // Set WEIGHT_V_1 based on the nominal voltage of the bus and the corresponding gamma
+                    LfBus vlInfo = network.getBus(sortedEquations.get(i).getElementNum());
+                    gammaValue = getGammaValues(vlInfo);
+                    if (gammaValue == 0.0 || Double.isNaN(gammaValue) || Double.isInfinite(gammaValue)) {
+                        throw new PowsyblException("Gamma value is not define for bus " + vlInfo.getId() + " with nominal voltage " + vlInfo.getNominalV() + " kV. Please check the voltage level gamma mapping.");
+                    }
+                    weightVMap.put(vCounter, gammaValue); // for each index of V  I have the corresponding gamma
+                    vEquationLocalIds.put(i, vCounter++);
+                }
                 default -> {
                     // Other equation types don't require slack variables
                 }
             }
         }
+
+        // Weight P
+        double activeGeneration = computeActiveGeneration(network);
+        double deltaP = computeDeltaP(network, activeGeneration, this.knitroParameters.getLosses());
+        if (deltaP == 0 || Double.isNaN(deltaP)) {
+            throw new PowsyblException("DIVIDED BY ZERO: DeltaP is equal to 0, cannot compute weightP1. Please check that the network has non-zero active power generation and load, and/or adjust the losses parameter.");
+        }
+
+        // Weight P
+        weightP1 = getWeightP1(activeGeneration, deltaP);
+    }
+
+    protected double getGammaValues(LfBus vlInfo) {
+        double gamma = 0.0;
+        if (vlInfo.getNominalV() <= 85.0) {
+            gamma = voltageLevelGammaMap.get(72.5);
+        } else if (vlInfo.getNominalV() > 85.0 && vlInfo.getNominalV() <= 200.0) {
+            gamma = voltageLevelGammaMap.get(145.0);
+        } else if (vlInfo.getNominalV() > 200.0 && vlInfo.getNominalV() <= 350.0) {
+            gamma = voltageLevelGammaMap.get(245.0);
+        } else if (vlInfo.getNominalV() > 350.0) {
+            gamma = voltageLevelGammaMap.get(420.0);
+        }
+        return gamma;
+    }
+
+    private double getWeightP1(double activeGeneration, double deltaP) {
+        weightP1 = Math.min(activeGeneration / (10 * deltaP), 1000);
+        return weightP1;
     }
 
     @Override
@@ -116,9 +165,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         logSlackValues("V", slackVStartIndex, numVEquations, x);
 
         // ========== Penalty Computation ==========
-        double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, WEIGHT_P_PENAL);
-        double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, WEIGHT_Q_PENAL);
-        double penaltyV = computeSlackPenalty(x, slackVStartIndex, numVEquations, WEIGHT_V_PENAL);
+        double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, weightP1);
+        double penaltyQ = computeSlackPenalty(x, slackQStartIndex, numQEquations, WEIGHT_Q_1);
+        double penaltyV = computeSlackPenaltyTypeV(x, slackVStartIndex, numVEquations, weightVMap);
         double totalPenalty = penaltyP + penaltyQ + penaltyV;
 
         LOGGER.info("==== Slack penalty details ====");
@@ -126,6 +175,20 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("Penalty Q = {}", penaltyQ);
         LOGGER.info("Penalty V = {}", penaltyV);
         LOGGER.info("Total penalty = {}", totalPenalty);
+
+        // Weight use in the objective function
+        LOGGER.info("Total LOSSES DC =  {} MW", this.knitroParameters.getLosses());
+        LOGGER.info("Weight P1 = {}", weightP1);
+        LOGGER.info("Weight Q1 = {}", WEIGHT_Q_1);
+        if (LOGGER.isInfoEnabled()) {
+            String gammaStr = weightVMap.entrySet().stream()
+                    .collect(Collectors.groupingBy(Map.Entry::getValue, Collectors.counting()))
+                    .entrySet().stream()
+                    .map(e -> String.format("%d x %s", e.getValue(), e.getKey()))
+                    .collect(Collectors.joining(", "));
+
+            LOGGER.info(String.format("Gamma values : %s", gammaStr));
+        }
     }
 
     /**
@@ -138,7 +201,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      */
     protected void logSlackValues(String type, int startIndex, int count, List<Double> x) {
         LOGGER.debug("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
-
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
@@ -215,19 +277,68 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param x          The variable values as returned by solver.
      * @param startIndex The start index of slack variables associated to the given type.
      * @param count      The maximum number of slack variables associated to the given type.
-     * @param weight     The weight inf front of the given slack variables terms
+     * @param weight1    The weight in front of the given slack variables terms (L1)
      * @return The total penalty associated to the slack variables type.
      */
-    double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight) {
+    double computeSlackPenalty(List<Double> x, int startIndex, int count, double weight1) {
         double penalty = 0.0;
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
-            double diff = sp - sm;
-            penalty += weight * (diff * diff); // Quadratic terms
-            penalty += weight * WEIGHT_ABSOLUTE_PENAL * (sp + sm); // Linear terms
+            penalty += weight1 * (sp + sm); // Linear terms
         }
         return penalty;
+    }
+
+    /**
+     * Calculates the total loss associated to a slack variable of type V
+     *
+     * @param x          The variable values as returned by solver.
+     * @param startIndex The start index of slack variables associated to the given type.
+     * @param count      The maximum number of slack variables associated to the given type.
+     * @param weight    The weight in front of the given slack variables terms : omegaV depending on the voltage level of the bus
+     * @return The total penalty associated to the slack variables type.
+     */
+    double computeSlackPenaltyTypeV(List<Double> x, int startIndex, int count, HashMap<Integer, Double> weight) {
+        double penalty = 0.0;
+        for (int i = 0; i < count; i++) {
+            double sm = x.get(startIndex + 2 * i);
+            double sp = x.get(startIndex + 2 * i + 1);
+            penalty += GAMMA_FACTOR * weight.get(i) * (sp + sm); // Linear terms
+        }
+        return penalty;
+    }
+
+    /**
+     * Calculates Delta P = |Pgen - Pload - Losses|
+     *
+     * @param network           LfNetwork
+     * @param activeGeneration  The total active power generation in the network
+     * @param losses            The approximated losses computed by a DC LoadF
+     * @return Delta P
+     */
+    private double computeDeltaP(LfNetwork network, double activeGeneration, double losses) {
+        double activeLoad = 0.0;
+
+        for (LfBus b : network.getBuses()) {
+            activeLoad += b.getLoadTargetP() * 100.0;
+        }
+        return Math.abs(activeGeneration - activeLoad - losses); //minus total Losses
+    }
+
+    /**
+     * Calculates Active Generation
+     *
+     * @param network           LfNetwork
+     * @return The total active power generation in the network
+     */
+    private double computeActiveGeneration(LfNetwork network) {
+        double activeGeneration = 0.0;
+
+        for (LfBus b : network.getBuses()) {
+            activeGeneration += b.getGenerationTargetP() * 100.0;
+        }
+        return activeGeneration;
     }
 
     /**
@@ -251,60 +362,58 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         void addObjectiveFunction(int numPEquations, int slackPStartIndex, int numQEquations, int slackQStartIndex,
                                   int numVEquations, int slackVStartIndex) throws KNException {
-            // initialise lists to track quadratic objective function terms of the form: a * x1 * x2
-            List<Integer> quadRows = new ArrayList<>(); // list of indexes of the first variable x1
-            List<Integer> quadCols = new ArrayList<>(); // list of indexes of the second variable x2
-            List<Double> quadCoefs = new ArrayList<>(); // list of indexes of the coefficient a
-
             // initialise lists to track linear objective function terms of the form: a * x
             List<Integer> linIndexes = new ArrayList<>(); // list of indexes of the variable x
             List<Double> linCoefs = new ArrayList<>(); // list of indexes of the coefficient a
 
             // add slack penalty terms, for each slack type, of the form: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
-            addSlackObjectiveTerms(numPEquations, slackPStartIndex, AbstractRelaxedKnitroSolver.WEIGHT_P_PENAL, AbstractRelaxedKnitroSolver.WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numQEquations, slackQStartIndex, AbstractRelaxedKnitroSolver.WEIGHT_Q_PENAL, AbstractRelaxedKnitroSolver.WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
-            addSlackObjectiveTerms(numVEquations, slackVStartIndex, AbstractRelaxedKnitroSolver.WEIGHT_V_PENAL, AbstractRelaxedKnitroSolver.WEIGHT_ABSOLUTE_PENAL, quadRows, quadCols, quadCoefs, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numPEquations, slackPStartIndex, weightP1, linIndexes, linCoefs);
+            addSlackObjectiveTerms(numQEquations, slackQStartIndex, AbstractRelaxedKnitroSolver.WEIGHT_Q_1, linIndexes, linCoefs);
+            addSlackObjectiveTermTypeV(numVEquations, slackVStartIndex, weightVMap, linIndexes, linCoefs);
 
-            setObjectiveQuadraticPart(quadRows, quadCols, quadCoefs);
             setObjectiveLinearPart(linIndexes, linCoefs);
         }
 
         /**
-         * Adds quadratic and linear terms related to slack variables to the objective function.
+         * Adds quadratic and linear terms related to slack variables of type P and Q  to the objective function.
          */
-        void addSlackObjectiveTerms(int numEquations, int slackStartIdx, double weight, double lambda,
-                                    List<Integer> quadRows, List<Integer> quadCols, List<Double> quadCoefs,
+        void addSlackObjectiveTerms(int numEquations, int slackStartIdx, double weight1,
                                     List<Integer> linIndexes, List<Double> linCoefs) {
             for (int i = 0; i < numEquations; i++) {
                 int idxSm = slackStartIdx + 2 * i; // negative slack variable index
                 int idxSp = slackStartIdx + 2 * i + 1; // positive slack variable index
 
-                // Add quadratic terms: weight * (sp^2 + sm^2 - 2 * sp * sm)
+                // Add linear terms: weight1 * (sp + sm)
 
-                // add first quadratic term : weight * sp^2
-                quadRows.add(idxSp);
-                quadCols.add(idxSp);
-                quadCoefs.add(weight);
-
-                // add second quadratic term : weight * sm^2
-                quadRows.add(idxSm);
-                quadCols.add(idxSm);
-                quadCoefs.add(weight);
-
-                // add third quadratic term : weight * (- 2 * sp * sm)
-                quadRows.add(idxSp);
-                quadCols.add(idxSm);
-                quadCoefs.add(-2 * weight);
-
-                // Add linear terms: weight * lambda * (sp + sm)
-
-                // add first linear term : weight * lambda * sp
+                // add first linear term : weight1 * sp
                 linIndexes.add(idxSp);
-                linCoefs.add(lambda * weight);
+                linCoefs.add(weight1);
 
-                // add second linear term : weight * lambda * sm
+                // add second linear term : weight1 * sm
                 linIndexes.add(idxSm);
-                linCoefs.add(lambda * weight);
+                linCoefs.add(weight1);
+            }
+        }
+
+        /**
+         * Adds quadratic and linear terms related to slack variables of type V to the objective function.
+         */
+        void addSlackObjectiveTermTypeV(int numEquations, int slackStartIdx, HashMap<Integer, Double> weight,
+                                        List<Integer> linIndexes, List<Double> linCoefs) {
+
+            for (int i = 0; i < numEquations; i++) {
+                int idxSm = slackStartIdx + 2 * i; // negative slack variable index
+                int idxSp = slackStartIdx + 2 * i + 1; // positive slack variable index
+
+                // Add linear terms: weight * (sp + sm)
+
+                // add first linear term : weight * sp
+                linIndexes.add(idxSp);
+                linCoefs.add(weight.get(i) * GAMMA_FACTOR);
+
+                // add second linear term : weight  * sm
+                linIndexes.add(idxSm);
+                linCoefs.add(weight.get(i) * GAMMA_FACTOR);
             }
         }
 
