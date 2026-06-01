@@ -351,7 +351,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                                 for (VoltageControl vc : controls) {
                                     interpretation.append(String.format("%n                                                           Voltage Control status is:%s of type %s located at %s," +
                                             "%n                                                           Voltage target before slack change %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
-                                    interpretation.append(String.format("%n                                                           If slack applied, voltage constraints at bus is %s ", isFeasibleV(epsilon, bus.getNominalV(), vc.getTargetValue()) ? FEASIBLE: VIOLATED));
+                                    interpretation.append(String.format("%n                                                           If slack applied, voltage constraints at bus is %s ", isFeasibleV(epsilon, bus.getNominalV(), vc.getTargetValue()) ? FEASIBLE : VIOLATED));
                                 }
                             }
 
@@ -479,20 +479,19 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         List<String> csvLines = new ArrayList<>();
         csvLines.add("busId;type;slackValue_pu;slackValue;gen;controlevoltage;transfo;shunt;load;load_violation;gen_violation");
         for (SlackVariableInfo si : slackArray) {
-            String gens = si.generators == null ? "" : si.generators.stream().map(Object::toString).collect(Collectors.joining(";"));
-            String controlers = si.voltageControls == null ? "" : si.voltageControls.stream().map(Object::toString).collect(Collectors.joining(";"));
+            String gens = (si.generators != null && !si.generators.isEmpty()) ? si.generators.stream().map(Object::toString).collect(Collectors.joining(";")) : "";
+            String controlers = (si.voltageControls != null && !si.voltageControls.isEmpty()) ? si.voltageControls.stream().map(Object::toString).collect(Collectors.joining(";")) : "";
             int loadViolation = si.loadViolation == 1 ? 1 : 0;
             int genViolation = si.genViolation == 1 ? 1 : 0;
             String transfo = si.transformers == null ? "" : si.transformers.stream().map(Object::toString).collect(Collectors.joining(";"));
-            String shunt = si.shunts == null ? "" : si.shunts.stream().map(Object::toString).collect(Collectors.joining(";"));
-            String loads = si.loads == null ? "" : si.loads.stream().map(Object::toString).collect(Collectors.joining(";"));
+            String shunt = si.shunts.stream().map(Object::toString).collect(Collectors.joining(";"));
+            String loads = si.loads.stream().map(Object::toString).collect(Collectors.joining(";"));
             csvLines.add(String.format("%s;%s;%.6f;%.6f;%s;%s;%s;%s;%s;%s;%s",
                     si.busId, si.type, si.slackValuepu, si.slackValue,
                     gens, controlers, transfo, shunt, loads, loadViolation, genViolation));
         }
         return csvLines;
     }
-
 
     private List<String> optimInfoCsv(double totalPenalty, double penaltyP, double penaltyQ, double penaltyV, KNSolution solution, KNSolver solver) {
         List<String> optimInfo = new ArrayList<>();
