@@ -28,7 +28,6 @@ import static com.powsybl.openloadflow.ac.equations.AcEquationType.*;
  * and taking into account generator reactive limits.
  * The consideration of limits is ensured by adding complementarity constraints in the problem formulation.
  * The solver must therefore extend the open load flow equation system.
- *
  * It should be noted that complementarity constraints fix the reactive limit on one side if it is violated,
  * and relax the voltage setpoint through the addition of auxiliary variables.
  * It should be noted that this relaxation is not penalized, as it corresponds to a PV/PQ transition of the bus.

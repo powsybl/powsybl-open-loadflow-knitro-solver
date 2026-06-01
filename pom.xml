@@ -32,6 +32,14 @@
         <url>https://github.com/powsybl/powsybl-open-loadflow-knitro-solver</url>
     </scm>
 
+    <repositories>
+        <repository>
+            <id>artelys.artifactory</id>
+            <name>Artelys Artifactory</name>
+            <url>https://artifactory.artelys.com/artifactory/Softwares</url>
+        </repository>
+    </repositories>
+
     <developers>
         <developer>
             <name>Jeanne ARCHAMBAULT</name>

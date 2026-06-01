@@ -148,6 +148,7 @@ public final class PerturbationFactory {
         double vNomRegulator = regulatingBusVL.getNominalV();
         double vNomNoGenerator = noGeneratorBusVL.getNominalV();
         double targetV = generator.getTargetV() / vNomRegulator * vNomGenerator * alpha;
+
         // Acquire regulating terminal
         Terminal regulatingTerminal;
         Optional<? extends Terminal> regulatingTerminalOp = lowImpedanceLine.getTerminals()
@@ -180,8 +181,6 @@ public final class PerturbationFactory {
                 .setB1(0.0)
                 .setG2(0.0)
                 .setB2(0.0);
-        System.out.printf("Pertubation value %f", targetV);
-
     }
 
     /**
@@ -201,19 +200,8 @@ public final class PerturbationFactory {
 
         Bus targetBus = targetBusOp.get();
         Optional<Load> targetLoadOp = targetBus.getLoadStream().filter(load -> load.getP0() > 0.0).findAny();
-    //    Optional<Load> targetLoadOP = Optional.ofNullable(targetBus.getLoadStream().filter(load -> load.getP0() > 0.0).toList().get(loadIndex));
-      //  assumeFalse(targetLoadOp.isEmpty());
-////        System.out.println("Target possibility ------------------" );
-//
-//        List<Load> targetLoadPossibility = network.getBusBreakerView()
-//                .getBusStream()
-//                .filter(bus -> bus.getLoadStream().anyMatch(load -> load.getP0() > 0.0))
-//                .flatMap(Bus::getLoadStream)
-//                .filter(load -> load.getP0() > 0.0)
-//                .toList();
-////        Load second_loadPossibility = targetLoadPossibility.get(loadIndex);
-//        System.out.println(targetLoadPossibility);
-//        System.out.println(second_loadPossibility.getId());
+
+        assumeFalse(targetLoadOp.isEmpty());
         return targetLoadOp.get().getId();
     }
 

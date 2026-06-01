@@ -75,19 +75,20 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_FEASTOLABS, knitroParameters.getAbsConvEps());
         solver.setParam(KNConstants.KN_PARAM_OPTTOL, knitroParameters.getRelOptEps());
         solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, knitroParameters.getAbsOptEps());
-        solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
+        solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxKnitroIterations());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
         solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
         solver.setParam(KNConstants.KN_PARAM_OUTMODE, 1);
         solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, knitroParameters.getThreadNumber());
+        solver.setParam(KNConstants.KN_PARAM_PRESOLVEOP_TIGHTEN, 4);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, OPTTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
                 knitroParameters.getHessianComputationMode(),
                 knitroParameters.getRelConvEps(),
                 knitroParameters.getRelOptEps(),
-                knitroParameters.getMaxIterations());
+                knitroParameters.getMaxKnitroIterations());
     }
 
     /**

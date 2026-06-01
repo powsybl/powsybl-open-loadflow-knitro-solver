@@ -6,10 +6,15 @@
  * SPDX-License-Identifier: MPL-2.0
  */
 package com.powsybl.openloadflow.knitro.solver;
-import java.util.Optional;
-//port com.google.common.base.Optional;
+
+import com.powsybl.commons.config.ModuleConfig;
+import com.powsybl.commons.config.PlatformConfig;
 import com.powsybl.commons.extensions.AbstractExtension;
 import com.powsybl.loadflow.LoadFlowParameters;
+
+import java.util.Map;
+import java.util.Optional;
+
 /**
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
@@ -18,12 +23,14 @@ import com.powsybl.loadflow.LoadFlowParameters;
 
 public class KnitroLoadFlowParameters<optional> extends AbstractExtension<LoadFlowParameters> {
 
+    public static final String MODULE_SPECIFIC_PARAMETERS = "open-load-flow-knitro-solver-default-parameters";
+
     private int gradientComputationMode = KnitroSolverParameters.DEFAULT_GRADIENT_COMPUTATION_MODE;
     private int gradientUserRoutine = KnitroSolverParameters.DEFAULT_GRADIENT_USER_ROUTINE;
     private int hessianComputationMode = KnitroSolverParameters.DEFAULT_HESSIAN_COMPUTATION_MODE;
     private double lowerVoltageBound = KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND;
     private double upperVoltageBound = KnitroSolverParameters.DEFAULT_UPPER_VOLTAGE_BOUND;
-    private int maxIterations = KnitroSolverParameters.DEFAULT_MAX_ITERATIONS;
+    private int maxKnitroIterations = KnitroSolverParameters.DEFAULT_MAX_KNITRO_ITERATIONS;
     private double relConvEps = KnitroSolverParameters.DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA;
     private double absConvEps = KnitroSolverParameters.DEFAULT_ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA;
     private double relOptEps = KnitroSolverParameters.DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA;
@@ -35,6 +42,30 @@ public class KnitroLoadFlowParameters<optional> extends AbstractExtension<LoadFl
 
     public Optional<String> getExportSolution() {
         return this.exportSolution;
+    private double losses = KnitroSolverParameters.DEFAULT_DC_LOSSES;
+
+    public static final String GRADIENT_COMPUTATION_MODE_PARAM_NAME = "gradientComputationMode";
+    public static final String GRADIENT_USER_ROUTINE_PARAM_NAME = "gradientUserRoutine";
+    public static final String HESSIAN_COMPUTATION_MODE_PARAM_NAME = "hessianComputationMode";
+    public static final String LOWER_VOLTAGE_BOUND_PARAM_NAME = "lowerVoltageBound";
+    public static final String UPPER_VOLTAGE_BOUND_PARAM_NAME = "upperVoltageBound";
+    public static final String MAX_KNITRO_ITERATIONS_PARAM_NAME = "maxKnitroIterations";
+    public static final String RELATIVE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME = "relativeFeasibilityStoppingCriteria";
+    public static final String ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME = "absoluteFeasibilityStoppingCriteria";
+    public static final String RELATIVE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME = "relativeOptimalityStoppingCriteria";
+    public static final String ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME = "absoluteOptimalityStoppingCriteria";
+    public static final String SLACK_THRESHOLD_PARAM_NAME = "slackThreshold";
+    public static final String SOLVER_TYPE_PARAM_NAME = "solverType";
+    public static final String THREAD_NUMBER_PARAM_NAME = "threadNumber";
+    public static final String LOSSES_NAME = "losses";
+
+    public double getLosses() {
+        return losses;
+    }
+
+    public KnitroLoadFlowParameters setLosses(double losses) {
+        this.losses = losses;
+        return this;
     }
 
     public int getGradientComputationMode() {
@@ -100,15 +131,15 @@ public class KnitroLoadFlowParameters<optional> extends AbstractExtension<LoadFl
         return this;
     }
 
-    public int getMaxIterations() {
-        return maxIterations;
+    public int getMaxKnitroIterations() {
+        return maxKnitroIterations;
     }
 
-    public KnitroLoadFlowParameters setMaxIterations(int maxIterations) {
-        if (maxIterations < 0) {
+    public KnitroLoadFlowParameters setMaxKnitroIterations(int maxKnitroIterations) {
+        if (maxKnitroIterations < 0) {
             throw new IllegalArgumentException("Max iterations parameter must be greater than 0");
         }
-        this.maxIterations = maxIterations;
+        this.maxKnitroIterations = maxKnitroIterations;
         return this;
     }
 
@@ -198,4 +229,79 @@ public class KnitroLoadFlowParameters<optional> extends AbstractExtension<LoadFl
         return "knitro-load-flow-parameters";
     }
 
+    public static KnitroLoadFlowParameters load() {
+        return load(PlatformConfig.defaultConfig());
+    }
+
+    public static KnitroLoadFlowParameters load(PlatformConfig platformConfig) {
+        KnitroLoadFlowParameters parameters = new KnitroLoadFlowParameters();
+        return parameters.update(platformConfig);
+    }
+
+    public KnitroLoadFlowParameters update(PlatformConfig platformConfig) {
+        platformConfig.getOptionalModuleConfig(MODULE_SPECIFIC_PARAMETERS)
+                .ifPresent((ModuleConfig config) -> {
+                    config.getOptionalIntProperty(GRADIENT_COMPUTATION_MODE_PARAM_NAME)
+                            .ifPresent(this::setGradientComputationMode);
+                    config.getOptionalIntProperty(GRADIENT_USER_ROUTINE_PARAM_NAME)
+                            .ifPresent(this::setGradientUserRoutine);
+                    config.getOptionalIntProperty(HESSIAN_COMPUTATION_MODE_PARAM_NAME)
+                            .ifPresent(this::setHessianComputationMode);
+                    config.getOptionalDoubleProperty(LOWER_VOLTAGE_BOUND_PARAM_NAME)
+                            .ifPresent(this::setLowerVoltageBound);
+                    config.getOptionalDoubleProperty(UPPER_VOLTAGE_BOUND_PARAM_NAME)
+                            .ifPresent(this::setUpperVoltageBound);
+                    config.getOptionalIntProperty(MAX_KNITRO_ITERATIONS_PARAM_NAME)
+                            .ifPresent(this::setMaxKnitroIterations);
+                    config.getOptionalDoubleProperty(RELATIVE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME)
+                            .ifPresent(this::setRelConvEps);
+                    config.getOptionalDoubleProperty(ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME)
+                            .ifPresent(this::setAbsConvEps);
+                    config.getOptionalDoubleProperty(RELATIVE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME)
+                            .ifPresent(this::setRelOptEps);
+                    config.getOptionalDoubleProperty(ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME)
+                            .ifPresent(this::setAbsOptEps);
+                    config.getOptionalDoubleProperty(SLACK_THRESHOLD_PARAM_NAME)
+                            .ifPresent(this::setSlackThreshold);
+                    config.getOptionalEnumProperty(SOLVER_TYPE_PARAM_NAME, KnitroSolverParameters.SolverType.class)
+                            .ifPresent(this::setKnitroSolverType);
+                    config.getOptionalIntProperty(THREAD_NUMBER_PARAM_NAME)
+                            .ifPresent(this::setThreadNumber);
+                    config.getOptionalIntProperty(LOSSES_NAME)
+                            .ifPresent(this::setLosses);
+                });
+        return this;
+    }
+
+    public KnitroLoadFlowParameters update(Map<String, String> properties) {
+        Optional.ofNullable(properties.get(GRADIENT_COMPUTATION_MODE_PARAM_NAME))
+                .ifPresent(prop -> this.setGradientComputationMode(Integer.parseInt(prop)));
+        Optional.ofNullable(properties.get(GRADIENT_USER_ROUTINE_PARAM_NAME))
+                .ifPresent(prop -> this.setGradientUserRoutine(Integer.parseInt(prop)));
+        Optional.ofNullable(properties.get(HESSIAN_COMPUTATION_MODE_PARAM_NAME))
+                .ifPresent(prop -> this.setHessianComputationMode(Integer.parseInt(prop)));
+        Optional.ofNullable(properties.get(LOWER_VOLTAGE_BOUND_PARAM_NAME))
+                .ifPresent(prop -> this.setLowerVoltageBound(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(UPPER_VOLTAGE_BOUND_PARAM_NAME))
+                .ifPresent(prop -> this.setUpperVoltageBound(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(MAX_KNITRO_ITERATIONS_PARAM_NAME))
+                .ifPresent(prop -> this.setMaxKnitroIterations(Integer.parseInt(prop)));
+        Optional.ofNullable(properties.get(RELATIVE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME))
+                .ifPresent(prop -> this.setRelConvEps(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME))
+                .ifPresent(prop -> this.setAbsConvEps(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(RELATIVE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME))
+                .ifPresent(prop -> this.setRelOptEps(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME))
+                .ifPresent(prop -> this.setAbsOptEps(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(SLACK_THRESHOLD_PARAM_NAME))
+                .ifPresent(prop -> this.setSlackThreshold(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(SOLVER_TYPE_PARAM_NAME))
+                .ifPresent(prop -> this.setKnitroSolverType(KnitroSolverParameters.SolverType.valueOf(prop)));
+        Optional.ofNullable(properties.get(THREAD_NUMBER_PARAM_NAME))
+                .ifPresent(prop -> this.setThreadNumber(Integer.parseInt(prop)));
+        Optional.ofNullable(properties.get(LOSSES_NAME))
+                .ifPresent(prop -> this.setLosses(Double.parseDouble(prop)));
+        return this;
+    }
 }
