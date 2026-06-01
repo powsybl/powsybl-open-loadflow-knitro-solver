@@ -62,8 +62,8 @@ class ResilientAcLoadFlowPerturbationTest {
             // Set the Knitro solver type to RELAXED
             knitroParams.setKnitroSolverType(KnitroSolverParameters.SolverType.RELAXED);
             knitroParams.setLosses(losses);
+            knitroParams.setExportSolution(filepath);
             parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
-            KnitroSolverParameters.DEFAULT_EXPORT_SOLUTION = filepath;
         }
     }
 

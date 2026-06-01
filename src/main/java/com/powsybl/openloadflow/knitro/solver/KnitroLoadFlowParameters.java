@@ -39,11 +39,6 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private KnitroSolverParameters.SolverType knitroSolverType = KnitroSolverParameters.DEFAULT_SOLVER_TYPE;
     private int threadNumber = KnitroSolverParameters.DEFAULT_THREAD_NUMBER;
     private Optional<String> exportSolution = KnitroSolverParameters.DEFAULT_EXPORT_SOLUTION;
-
-    public Optional<String> getExportSolution() {
-        return this.exportSolution;
-    }
-
     private double losses = KnitroSolverParameters.DEFAULT_DC_LOSSES;
 
     public static final String GRADIENT_COMPUTATION_MODE_PARAM_NAME = "gradientComputationMode";
@@ -60,6 +55,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     public static final String SOLVER_TYPE_PARAM_NAME = "solverType";
     public static final String THREAD_NUMBER_PARAM_NAME = "threadNumber";
     public static final String LOSSES_NAME = "losses";
+    public static final String EXPORT_SOLUTION_NAME = "exportSolution";
 
     public double getLosses() {
         return losses;
@@ -67,6 +63,15 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
 
     public KnitroLoadFlowParameters setLosses(double losses) {
         this.losses = losses;
+        return this;
+    }
+
+    public Optional<String> getExportSolution() {
+        return exportSolution;
+    }
+
+    public KnitroLoadFlowParameters setExportSolution(Optional<String> exportSolution) {
+        this.exportSolution = exportSolution;
         return this;
     }
 
@@ -271,6 +276,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
                             .ifPresent(this::setThreadNumber);
                     config.getOptionalIntProperty(LOSSES_NAME)
                             .ifPresent(this::setLosses);
+                    this.setExportSolution(config.getOptionalStringProperty(EXPORT_SOLUTION_NAME));
                 });
         return this;
     }
@@ -304,6 +310,8 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
                 .ifPresent(prop -> this.setThreadNumber(Integer.parseInt(prop)));
         Optional.ofNullable(properties.get(LOSSES_NAME))
                 .ifPresent(prop -> this.setLosses(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(EXPORT_SOLUTION_NAME))
+                .ifPresent(prop -> this.setExportSolution(Optional.ofNullable(prop)));
         return this;
     }
 }
