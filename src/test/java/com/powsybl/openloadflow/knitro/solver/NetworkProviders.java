@@ -5,9 +5,7 @@ import com.powsybl.ieeecdf.converter.IeeeCdfNetworkFactory;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.serde.XMLExporter;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Properties;
 import java.util.stream.Stream;
 

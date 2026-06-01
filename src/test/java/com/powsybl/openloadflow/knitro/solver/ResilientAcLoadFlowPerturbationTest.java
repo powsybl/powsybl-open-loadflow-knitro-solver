@@ -82,9 +82,6 @@ class ResilientAcLoadFlowPerturbationTest {
 
         // Newton-Raphson
         configureSolver(NR, filepath);
-                .setDistributedSlack(false)
-                .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.DC_VALUES);
-  
         LoadFlowResult resultNR = loadFlowRunner.run(nrNetwork, parameters);
         boolean isConvergedNR = resultNR.isFullyConverged();
         boolean isFailedNR = resultNR.isFailed();
@@ -123,12 +120,12 @@ class ResilientAcLoadFlowPerturbationTest {
         }
     }
 
-    private void voltagePerturbationTest(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename, double rPU, double xPU, double alpha) {
+    private void voltagePerturbationTest(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename, double rPU, double xPU, double alpha, String test) {
         PerturbationFactory.VoltagePerturbation perturbation = PerturbationFactory.getVoltagePerturbation(nrNetwork);
         PerturbationFactory.applyVoltagePerturbation(rknNetwork, perturbation, rPU, xPU, alpha);
         PerturbationFactory.applyVoltagePerturbation(nrNetwork, perturbation, rPU, xPU, alpha);
         PerturbationFactory.applyVoltagePerturbation(dcNetwork, perturbation, rPU, xPU, alpha);
-        compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, VOLTAGE_PERTURBATION);
+        compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, VOLTAGE_PERTURBATION, test);
     }
 
     private double calculateDcLosses(Network dcNetwork) {
@@ -159,8 +156,6 @@ class ResilientAcLoadFlowPerturbationTest {
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
-      
-        
         String test = EXPORT_CSV + "test_V_IEEE";
         Network dcNetwork = pair.dcNetwork();
 
