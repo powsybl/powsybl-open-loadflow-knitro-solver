@@ -485,7 +485,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         Optional<LfShunt> shunts;
         Optional<TransformerVoltageControl> transformers;
 
-        public SlackVariableInfo(String busId, double slackValuepu, double slackValue, String type, LfBus lfBus, int loadViolation, int genViolation, Map<Double, Object>info) { // Map<Double, Object>info) {
+        public SlackVariableInfo(String busId, double slackValuepu, double slackValue, String type, LfBus lfBus, int loadViolation, int genViolation, Map<Double, Object>info) {
             this.busId = busId;
             this.slackValue = slackValue;
             this.slackValuepu = slackValuepu;
