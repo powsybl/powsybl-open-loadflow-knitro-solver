@@ -39,6 +39,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     private static final String VIOLATED = "violated";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelaxedKnitroSolver.class);
+    private static final String SLACK_LOG = "Slack {}[ {} ] → {}";
+
+    // Variable weight
     protected double weightP1;
     protected static final double WEIGHT_Q_1 = 1.0;
     protected static final double GAMMA_FACTOR = 0.1;
@@ -229,34 +232,31 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             StringBuilder interpretation = new StringBuilder();
             Map<Double, Object> info = new HashMap<>();
             double slackvalue = 0.0;
+
             if (!shouldSkip) {
                 name = getSlackVariableBusName(i, type);
                 var bus = network.getBusById(name);
                 int loadViolation = 0;
                 int genViolation = 0;
-                Optional<LfGenerator> maybeGenerator = bus.getGenerators().stream().findAny();
-                Optional<LfLoad> maybeLoad = bus.getLoads().stream().findAny();
-                Optional<LfShunt> maybeShunt = bus.getShunt().stream().findAny();
-                Optional<TransformerVoltageControl> maybeTransfo = bus.getTransformerVoltageControl().stream().findAny();
                 switch (type) {
                     case "P" -> {
                         SlackVariableInfo slackVar = logSlackTypeP(bus, epsilon, type);
                         slackContributions.add(slackVar);
-                        LOGGER.debug("Slack {}[ {} ] → {}", type, name, slackVar.interpretation);
+                        LOGGER.debug(SLACK_LOG, type, name, slackVar.interpretation);
                         slackContributions.add(new SlackVariableInfo(name, epsilon, slackvalue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
                     }
 
                     case "Q" -> {
                         SlackVariableInfo slackVar = logSlackTypeQ(bus, epsilon, type);
                         slackContributions.add(slackVar);
-                        LOGGER.debug("Slack {}[ {} ] → {}", type, name, slackVar.interpretation);
+                        LOGGER.debug(SLACK_LOG, type, name, slackVar.interpretation);
                         slackContributions.add(new SlackVariableInfo(name, epsilon, slackvalue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
                     }
 
                     case "V" -> {
                         SlackVariableInfo slackVar = logSlackTypeV(bus, epsilon, type);
                         slackContributions.add(slackVar);
-                        LOGGER.debug("Slack {}[ {} ] → {}", type, name, slackVar.interpretation);
+                        LOGGER.debug(SLACK_LOG, type, name, slackVar.interpretation);
                         slackContributions.add(new SlackVariableInfo(name, epsilon, slackvalue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
                     }
                     default -> interpretation.append("Unknown slack type");
@@ -266,8 +266,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             if (shouldSkip) {
                 continue;
             }
-//            String msg = String.format("Slack %s[ %s ] → %s", type, name, interpretation);
-//            LOGGER.debug(msg);
         }
     }
     /**
@@ -354,8 +352,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             interpretation.append(String.format("ΔV = %.4f p.u. (%.4f kV) ", epsilon, epsilon * bus.getNominalV()));
         }
         if (maybeControl.isPresent()) {
-            List<VoltageControl<?>> controls = bus.getVoltageControls();
-            for (VoltageControl vc : controls) {
+//            List<VoltageControl<?>> controls = bus.getVoltageControls();
+            for (VoltageControl vc : bus.getVoltageControls()) {
                 interpretation.append(String.format("%n                                                           Voltage Control status is:%s of type %s located at %s," +
                         "%n                                                           Voltage target before slack change %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
                 interpretation.append(String.format("%n                                                           If slack applied, voltage constraints at bus is %s ", isFeasibleV(epsilon, bus.getNominalV(), vc.getTargetValue()) ? FEASIBLE : VIOLATED));
@@ -377,7 +375,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         Optional<TransformerVoltageControl> maybeTransfo = bus.getTransformerVoltageControl().stream().findAny();
 
         interpretation.append(String.format("ΔQ = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB));
-        String isload = "";
+//        String isload = "";
         String isfeasibleQ = "";
 
         if (maybeGenerator.isPresent()) {
@@ -519,7 +517,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("Total number of bus affected = {}", affectedBus);
         LOGGER.info("Total number of load violation {}", loadViolations);
         LOGGER.info("Total number of generator violation {}", genViolations);
-        if (network.getBuses().size() > 0) {
+        if (!network.getBuses().isEmpty()) {
             double percentAffected = 100.0 * affectedBus / network.getBuses().size();
             LOGGER.info("Percentage of affected bus = {} %", String.format("%.2f", percentAffected));
         } else {
