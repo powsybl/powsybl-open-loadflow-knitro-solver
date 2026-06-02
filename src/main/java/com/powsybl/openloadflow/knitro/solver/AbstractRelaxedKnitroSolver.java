@@ -356,7 +356,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             for (VoltageControl vc : bus.getVoltageControls()) {
                 interpretation.append(String.format("%n                                                           Voltage Control status is:%s of type %s located at %s," +
                         "%n                                                           Voltage target before slack change %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
-                interpretation.append(String.format("%n                                                           If slack applied, voltage constraints at bus is %s ", isFeasibleV(epsilon, bus.getNominalV(), vc.getTargetValue()) ? FEASIBLE : VIOLATED));
+                interpretation.append(String.format("%n                                                           With slack applied, voltage constraints at bus is %s ", isFeasibleV(epsilon, bus.getNominalV(), vc.getTargetValue()) ? FEASIBLE : VIOLATED));
             }
         }
         return new SlackVariableInfo(bus.getId(), epsilon, slackValue, type, bus, loadViolation, genViolation, info, interpretation.toString());
@@ -380,7 +380,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         if (maybeGenerator.isPresent()) {
             GenInterpretation generator = buildGenInterpretation(bus.getGenerators(), interpretation, info);
             isfeasibleQ = isGenFeasible(bus.getTargetQ() + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
-            interpretation.append(String.format(" If slack applied, generator limits are %s  ", isfeasibleQ));
+            interpretation.append(String.format(" With slack applied, generator limits are %s  ", isfeasibleQ));
             if (isfeasibleQ.equals(VIOLATED)) {
                 interpretation.append(String.format("%n                                                           Changement out of generation bus range [%.2f,%.2f]", generator.minSum(), generator.maxSum()));
                 genViolation = 1;
@@ -390,7 +390,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             info.put(bus.getLoadTargetQ(), "load_Q");
             interpretation.append(String.format("%n                                                           Load : %s MW", bus.getLoads()));
             isfeasibleQ = isLoadFeasible(epsilon * PerUnit.SB, bus.getLoadTargetQ()) ? FEASIBLE : VIOLATED;
-            interpretation.append(String.format("If slack applied, Load constraints is %s ", isfeasibleQ));
+            interpretation.append(String.format("With slack applied, Load constraints is %s ", isfeasibleQ));
             if (isfeasibleQ.equals(VIOLATED)) {
                 interpretation.append(String.format("%n                                                           Load Target Q :  %.4f MVar after slack : %f", bus.getLoadTargetQ(), bus.getLoadTargetQ() + epsilon * PerUnit.SB));
                 loadViolation = 1;
@@ -430,7 +430,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         if (maybeGenerator.isPresent()) {
             GenInterpretation generator = buildGenInterpretation(bus.getGenerators(), interpretation, info);
             feasibleP = isGenFeasible(bus.getTargetP() + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
-            interpretation.append(String.format("If slack applied, generator limits are %s  ", feasibleP));
+            interpretation.append(String.format("With slack applied, the resulting generator limits are %s  ", feasibleP));
             if (feasibleP.equals(VIOLATED)) {
                 interpretation.append(String.format("%n                                                           Changement out of generation bus range : [%.2f; %.2f] MW", generator.minSum(), generator.maxSum()));
                 genViolation = 1;
@@ -440,7 +440,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             interpretation.append(String.format("%n                                                           Load : %s MW", bus.getLoads()));
             isload = isLoadFeasible(bus.getLoadTargetP(), epsilon * PerUnit.SB) ? FEASIBLE : VIOLATED;
             info.put(bus.getLoadTargetP(), "load_P");
-            interpretation.append(String.format(" Load Target P : %.4f MW. If slack applied, Load constraints is %s", bus.getLoadTargetP(), isload));
+            interpretation.append(String.format(" Load Target P : %.4f MW. With slack applied, Load constraints is %s", bus.getLoadTargetP(), isload));
             if (isload.equals(VIOLATED)) {
                 interpretation.append(String.format("%n                                                           Load status after changement : %.4f MW", bus.getLoadTargetP() + epsilon * PerUnit.SB));
                 loadViolation = 1;
@@ -475,8 +475,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             info.put(gen.getTargetQ(), "gen_Q");
             info.put(PerUnit.SB, "pu_base");
 
-            interpretation.append(String.format(
-                    "%n                                                           Generator %s of range: [%.2f,%.2f] ",
+            interpretation.append(String.format("%n                                                           Generator %s of range: [%.2f,%.2f] ",
                     gen.getId(), gen.getMinQ(), gen.getMaxQ()
             ));
         }
