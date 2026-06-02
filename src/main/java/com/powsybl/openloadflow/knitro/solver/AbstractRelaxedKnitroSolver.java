@@ -40,6 +40,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelaxedKnitroSolver.class);
     private static final String SLACK_LOG = "Slack {}[ {} ] → {}";
+    private static final String CSV_EXTENSION = ".csv";
+    private static final String CSV_EXTENSION_OPTI = "_optim_info.csv";
 
     // Variable weight
     protected double weightP1;
@@ -193,8 +195,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             List<String> csvLines = slackInfoCsv(slackArray);
             List<String> optimInfo = optimInfoCsv(totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver);
 
-            writeSlackInfoCsv(csv + ".csv", csvLines);
-            writeOptimInfoCsv(csv + "_optim_info.csv", optimInfo);
+            writeSlackInfoCsv(csv + CSV_EXTENSION, csvLines);
+            writeOptimInfoCsv(csv + CSV_EXTENSION_OPTI, optimInfo);
         }
 
         // Weight use in the objective function
