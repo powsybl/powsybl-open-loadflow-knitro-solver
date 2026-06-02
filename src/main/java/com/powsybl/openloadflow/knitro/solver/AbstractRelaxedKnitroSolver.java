@@ -522,7 +522,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         int busCount = network.getBuses().size();
         if (busCount > 0) {
             double percentAffected = 100.0 * affectedBus / busCount;
-            LOGGER.info("Percentage of affected bus = {} %", String.format("%.2f", percentAffected));
+            LOGGER.info("Percentage of affected bus = {} %", Math.round(percentAffected * 100.0) / 100.0);
         } else {
             LOGGER.info("No buses in the network were found.");
         }
