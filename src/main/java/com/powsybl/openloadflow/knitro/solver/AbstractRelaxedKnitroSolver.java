@@ -84,12 +84,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         this.numQEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count();
         this.numVEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count();
 
-        this.numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations); //declaration of all the slacks variabel each type and *2 for positive and negative slack variables
-
+        this.numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations);
         // the slack variables start after power flow variables
-        this.slackPStartIndex = equationSystem.getIndex().getSortedVariablesToFind().size(); // P
-        this.slackQStartIndex = slackPStartIndex + 2 * numPEquations; // Q
-        this.slackVStartIndex = slackQStartIndex + 2 * numQEquations; // V
+        this.slackPStartIndex = equationSystem.getIndex().getSortedVariablesToFind().size();
+        this.slackQStartIndex = slackPStartIndex + 2 * numPEquations;
+        this.slackVStartIndex = slackQStartIndex + 2 * numQEquations;
 
         // Map equations to local indices
         this.pEquationLocalIds = new HashMap<>();
@@ -185,8 +184,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("Penalty V = {}", penaltyV);
         LOGGER.info("Total penalty = {}", totalPenalty);
 
-        SlackVariableInfo[] slackArray = slackContributions.toArray(new SlackVariableInfo[0]);
-        logSlackSummary(slackArray);
+        SlackVariableInfo[] slackArray = slackContributions.toArray(new SlackVariableInfo[0]); // Object with all the present slack information
+        logSlackSummary(slackArray); // Generic summary of the network, number of slack of each type, number of load or generator violations
 
         Optional<String> csvOpt = this.knitroParameters.getExportSolution();
         String csv = csvOpt.orElse("");
@@ -583,7 +582,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                     java.nio.file.StandardOpenOption.CREATE,
                     java.nio.file.StandardOpenOption.TRUNCATE_EXISTING
             );
-            LOGGER.info("Optimization info exported to {}", filename);
+            LOGGER.info("Optimization information exported to {}", filename);
         } catch (java.io.IOException e) {
             LOGGER.warn("Failed to write optimization info CSV: {}", e.getMessage());
         }
