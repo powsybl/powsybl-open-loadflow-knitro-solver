@@ -483,14 +483,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         return new GenInterpretation(minSum, maxSum, interpretation.toString());
     }
 
-    /**
-     * Checks if a new value is feasible according to given bounds.
-     * @param newdata
-     * @param min
-     * @param max
-     * @return
-     */
-
     private static boolean isGenFeasible(double newdata, double min, double max) {
         return newdata >= min && newdata <= max;
     }
