@@ -231,7 +231,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             String name = null;
             StringBuilder interpretation = new StringBuilder();
             Map<Double, Object> info = new HashMap<>();
-            double slackvalue = 0.0;
+            double slackValue = 0.0;
 
             if (!shouldSkip) {
                 name = getSlackVariableBusName(i, type);
@@ -243,21 +243,21 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                         SlackVariableInfo slackVar = logSlackTypeP(bus, epsilon, type);
                         slackContributions.add(slackVar);
                         LOGGER.debug(SLACK_LOG, type, name, slackVar.interpretation);
-                        slackContributions.add(new SlackVariableInfo(name, epsilon, slackvalue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
+                        slackContributions.add(new SlackVariableInfo(name, epsilon, slackValue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
                     }
 
                     case "Q" -> {
                         SlackVariableInfo slackVar = logSlackTypeQ(bus, epsilon, type);
                         slackContributions.add(slackVar);
                         LOGGER.debug(SLACK_LOG, type, name, slackVar.interpretation);
-                        slackContributions.add(new SlackVariableInfo(name, epsilon, slackvalue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
+                        slackContributions.add(new SlackVariableInfo(name, epsilon, slackValue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
                     }
 
                     case "V" -> {
                         SlackVariableInfo slackVar = logSlackTypeV(bus, epsilon, type);
                         slackContributions.add(slackVar);
                         LOGGER.debug(SLACK_LOG, type, name, slackVar.interpretation);
-                        slackContributions.add(new SlackVariableInfo(name, epsilon, slackvalue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
+                        slackContributions.add(new SlackVariableInfo(name, epsilon, slackValue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
                     }
                     default -> interpretation.append("Unknown slack type");
                 }
