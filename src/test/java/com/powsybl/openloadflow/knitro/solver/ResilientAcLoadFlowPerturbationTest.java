@@ -43,6 +43,7 @@ class ResilientAcLoadFlowPerturbationTest {
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
     private double losses;
+    private String exportSolution;
 
     @BeforeEach
     void setUp() {
@@ -52,7 +53,7 @@ class ResilientAcLoadFlowPerturbationTest {
                 .setDistributedSlack(false);
     }
 
-    private void configureSolver(String solver, Optional<String> filepath) {
+    private void configureSolver(String solver, String filepath) {
         OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
                 .setAcSolverType(solver);
@@ -62,7 +63,7 @@ class ResilientAcLoadFlowPerturbationTest {
             // Set the Knitro solver type to RELAXED
             knitroParams.setKnitroSolverType(KnitroSolverParameters.SolverType.RELAXED);
             knitroParams.setLosses(losses);
-            knitroParams.setExportSolution(filepath);
+            knitroParams.setExportSolution(exportSolution);
             parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
         }
     }
@@ -76,10 +77,10 @@ class ResilientAcLoadFlowPerturbationTest {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        Optional<String> filepath = Optional.of(filePath.toString());
+        this.exportSolution = filePath.toString();
 
         // Newton-Raphson
-        configureSolver(NR, filepath);
+        configureSolver(NR, exportSolution);
         LoadFlowResult resultNR = loadFlowRunner.run(nrNetwork, parameters);
         boolean isConvergedNR = resultNR.isFullyConverged();
         boolean isFailedNR = resultNR.isFailed();
@@ -103,14 +104,15 @@ class ResilientAcLoadFlowPerturbationTest {
         this.losses = calculateDcLosses(dcNetwork);
 
         // Knitro Resilient
-        configureSolver(RKN, filepath);
+        configureSolver(RKN, exportSolution);
         LoadFlowResult resultRKN = loadFlowRunner.run(rknNetwork, parameters);
         boolean isConvergedRKN = resultRKN.isFullyConverged();
         LOGGER.info("==== Test Information ====");
         LOGGER.info("Algorithm : RKN");
         LOGGER.info("Type : {}", perturbationType);
         LOGGER.info("Network name : {}", baseFilename);
-        LOGGER.info("CSV name : {}", filepath.orElse("<empty>"));
+        String exportSolution = filePath.toAbsolutePath().toString();
+        LOGGER.info("CSV name : {}", exportSolution);
         assertTrue(isConvergedRKN, baseFilename + ": Knitro should converge");
 
         if (EXPORT) {

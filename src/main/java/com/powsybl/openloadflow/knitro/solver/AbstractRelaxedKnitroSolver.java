@@ -187,15 +187,14 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         SlackVariableInfo[] slackArray = slackContributions.toArray(new SlackVariableInfo[0]); // Object with all the present slack information
         logSlackSummary(slackArray); // Generic summary of the network, number of slack of each type, number of load or generator violations
 
-        Optional<String> csvOpt = this.knitroParameters.getExportSolution();
-        String csv = csvOpt.orElse("");
+        String csvPath = this.knitroParameters.getExportSolution();
 
-        if (csv != null && !csv.isEmpty()) {
+        if (csvPath != null && !csvPath.isEmpty()) {
             List<String> csvLines = slackInfoCsv(slackArray);
             List<String> optimInfo = optimInfoCsv(totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver);
 
-            writeSlackInfoCsv(csv + CSV_EXTENSION, csvLines);
-            writeOptimInfoCsv(csv + CSV_EXTENSION_OPTI, optimInfo);
+            writeSlackInfoCsv(csvPath + CSV_EXTENSION, csvLines);
+            writeOptimInfoCsv(csvPath + CSV_EXTENSION_OPTI, optimInfo);
         }
 
         // Weight use in the objective function
