@@ -276,7 +276,8 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
                             .ifPresent(this::setThreadNumber);
                     config.getOptionalIntProperty(LOSSES_NAME)
                             .ifPresent(this::setLosses);
-                    this.setExportSolution(config.getStringProperty(EXPORT_SOLUTION_NAME));
+                    config.getOptionalStringProperty(EXPORT_SOLUTION_NAME)
+                            .ifPresent(this::setExportSolution);
                 });
         return this;
     }
