@@ -13,7 +13,6 @@ import com.powsybl.openloadflow.ac.solver.MaxVoltageChangeStateVectorScaling;
 import com.powsybl.openloadflow.ac.solver.StateVectorScalingMode;
 
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}

@@ -18,8 +18,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
-
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
@@ -39,6 +37,8 @@ class ResilientAcLoadFlowPerturbationTest {
     private static final String NR = "NEWTON_RAPHSON";
     private static final String VOLTAGE_PERTURBATION = "voltage-perturbation";
     private static final String EXPORT_CSV = "Slack_info/";
+    private static final String TEST_V_IE3 = "Test_V_IEEE";
+    private static final String ACTIVE_POWER_PERTURBATION = "P_perturbation";
     private static final boolean EXPORT = true;
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
@@ -156,7 +156,7 @@ class ResilientAcLoadFlowPerturbationTest {
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
-        String test = EXPORT_CSV + "test_V_IEEE";
+        String test = EXPORT_CSV + TEST_V_IE3;
         Network dcNetwork = pair.dcNetwork();
 
         // Line Characteristics in per-unit
