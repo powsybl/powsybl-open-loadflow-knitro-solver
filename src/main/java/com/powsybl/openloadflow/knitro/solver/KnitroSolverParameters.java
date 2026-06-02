@@ -100,6 +100,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
         this.exportSolution = exportSolution;
         return this;
     }
+
     public int getGradientComputationMode() {
         return gradientComputationMode;
     }

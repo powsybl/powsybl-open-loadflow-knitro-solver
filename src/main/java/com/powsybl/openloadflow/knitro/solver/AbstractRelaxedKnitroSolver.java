@@ -9,9 +9,7 @@ package com.powsybl.openloadflow.knitro.solver;
 
 import com.artelys.knitro.api.*;
 import com.artelys.knitro.api.callbacks.KNEvalGACallback;
-import com.google.errorprone.annotations.Var;
 import com.powsybl.commons.PowsyblException;
-import com.powsybl.iidm.network.Bus;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.ac.equations.AcVariableType;
 import com.powsybl.openloadflow.equations.*;
@@ -279,6 +277,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param type The slack variable type.
      * @return The id of the bus associated to the slack variable.
      */
+
     private String getSlackVariableBusName(Integer index, String type) {
         Set<Map.Entry<Integer, Integer>> equationSet = switch (type) {
             case "P" -> pEquationLocalIds.entrySet();
@@ -365,8 +364,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         return new SlackVariableInfo(bus.getId(), epsilon, slackValue, type, bus, loadViolation, genViolation, info, interpretation.toString());
     }
 
-
-    private SlackVariableInfo logSlackTypeQ( LfBus bus, double epsilon, String type) {
+    private SlackVariableInfo logSlackTypeQ(LfBus bus, double epsilon, String type) {
         StringBuilder interpretation = new StringBuilder();
         Map<Double, Object> info = new HashMap<>();
         int loadViolation = 0;
@@ -521,9 +519,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("Total number of bus affected = {}", affectedBus);
         LOGGER.info("Total number of load violation {}", loadViolations);
         LOGGER.info("Total number of generator violation {}", genViolations);
-        if ( network.getBuses().size()> 0){
-            double percentAffected =  100.0 * affectedBus / network.getBuses().size();
-            LOGGER.info("Percentage of affected bus = {} %", String.format("%.2f",percentAffected));
+        if (network.getBuses().size() > 0) {
+            double percentAffected = 100.0 * affectedBus / network.getBuses().size();
+            LOGGER.info("Percentage of affected bus = {} %", String.format("%.2f", percentAffected));
         } else {
             LOGGER.info("No buses in the network were found.");
         }
