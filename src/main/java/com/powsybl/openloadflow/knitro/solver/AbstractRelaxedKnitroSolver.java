@@ -352,7 +352,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             interpretation.append(String.format("ΔV = %.4f p.u. (%.4f kV) ", epsilon, epsilon * bus.getNominalV()));
         }
         if (maybeControl.isPresent()) {
-//            List<VoltageControl<?>> controls = bus.getVoltageControls();
             for (VoltageControl vc : bus.getVoltageControls()) {
                 interpretation.append(String.format("%n                                                           Voltage Control status is:%s of type %s located at %s," +
                         "%n                                                           Voltage target before slack change %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
@@ -375,26 +374,14 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         Optional<TransformerVoltageControl> maybeTransfo = bus.getTransformerVoltageControl().stream().findAny();
 
         interpretation.append(String.format("ΔQ = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB));
-//        String isload = "";
         String isfeasibleQ = "";
 
         if (maybeGenerator.isPresent()) {
-            List<LfGenerator> generator = bus.getGenerators();
-            double[] genMaxQ = new double[bus.getGenerators().size()];
-            double[] genMinQ = new double[bus.getGenerators().size()];
-            for (LfGenerator gen : generator) {
-                genMaxQ = new double[]{gen.getMaxQ()};
-                genMinQ = new double[]{gen.getMinQ()};
-                info.put(gen.getMinQ(), "gen_minQ");
-                info.put(gen.getMaxQ(), "gen_maxQ");
-                info.put(gen.getTargetQ(), "gen_Q");
-                info.put(PerUnit.SB, "pu_base");
-                interpretation.append(String.format("%n                                                           Generator %s of range: [%.2f,%.2f] ", gen.getId(), gen.getMinQ(), gen.getMaxQ()));
-            }
-            isfeasibleQ = isGenFeasible(bus.getTargetQ() + epsilon * PerUnit.SB, Arrays.stream(genMinQ).sum(), Arrays.stream(genMaxQ).sum()) ? FEASIBLE : VIOLATED;
+            GenInterpretation generator = buildGenInterpretation(bus.getGenerators(), interpretation, info);
+            isfeasibleQ = isGenFeasible(bus.getTargetQ() + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format(" If slack applied, generator limits are %s  ", isfeasibleQ));
             if (isfeasibleQ.equals(VIOLATED)) {
-                interpretation.append(String.format("%n                                                           Changement out of generation bus range [%.2f,%.2f]", Arrays.stream(genMinQ).sum(), Arrays.stream(genMaxQ).sum()));
+                interpretation.append(String.format("%n                                                           Changement out of generation bus range [%.2f,%.2f]", generator.minSum(), generator.maxSum()));
                 genViolation = 1;
             }
         }
@@ -440,22 +427,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         String feasibleP = "";
 
         if (maybeGenerator.isPresent()) {
-            List<LfGenerator> generator = bus.getGenerators();
-            double[] genMaxP = new double[bus.getGenerators().size()];
-            double[] genMinP = new double[bus.getGenerators().size()];
-            for (LfGenerator gen : generator) {
-                genMaxP = new double[]{gen.getMaxP()};
-                genMinP = new double[]{gen.getMinP()};
-                info.put(gen.getMinP(), "gen_minP");
-                info.put(gen.getMaxP(), "gen_maxP");
-                info.put(gen.getTargetP(), "gen_P");
-                info.put(PerUnit.SB, "pu_base");
-                interpretation.append(String.format("%n                                                           Generator %s of range: [%.2f,%.2f] ", gen.getId(), gen.getMinP(), gen.getMaxP()));
-            }
-            feasibleP = isGenFeasible(bus.getTargetP() + epsilon * PerUnit.SB, Arrays.stream(genMinP).sum(), Arrays.stream(genMaxP).sum()) ? FEASIBLE : VIOLATED;
+            GenInterpretation generator = buildGenInterpretation(bus.getGenerators(), interpretation, info);
+            feasibleP = isGenFeasible(bus.getTargetP() + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format("If slack applied, generator limits are %s  ", feasibleP));
             if (feasibleP.equals(VIOLATED)) {
-                interpretation.append(String.format("%n                                                           Changement out of generation bus range : [%.2f; %.2f] MW", Arrays.stream(genMinP).sum(), Arrays.stream(genMaxP).sum()));
+                interpretation.append(String.format("%n                                                           Changement out of generation bus range : [%.2f; %.2f] MW", generator.minSum(), generator.maxSum()));
                 genViolation = 1;
             }
         }
@@ -479,6 +455,31 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             interpretation.append(String.format("%n                                                           No direct connected Load, Generator, Transformer Control voltage or Shunt"));
         }
         return new SlackVariableInfo(bus.getId(), epsilon, slackValue, type, bus, loadViolation, genViolation, info, interpretation.toString());
+    }
+
+    private record GenInterpretation(double minSum, double maxSum, String interpretation) {
+
+    }
+
+    private static GenInterpretation buildGenInterpretation(List<LfGenerator> generators, StringBuilder interpretation, Map<Double, Object> info) {
+        double minSum = 0.0;
+        double maxSum = 0.0;
+
+        for (LfGenerator gen : generators) {
+            minSum += gen.getMinQ();
+            maxSum += gen.getMaxQ();
+
+            info.put(gen.getMinQ(), "gen_minQ");
+            info.put(gen.getMaxQ(), "gen_maxQ");
+            info.put(gen.getTargetQ(), "gen_Q");
+            info.put(PerUnit.SB, "pu_base");
+
+            interpretation.append(String.format(
+                    "%n                                                           Generator %s of range: [%.2f,%.2f] ",
+                    gen.getId(), gen.getMinQ(), gen.getMaxQ()
+            ));
+        }
+        return new GenInterpretation(minSum, maxSum, interpretation.toString());
     }
 
     /**
@@ -517,8 +518,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("Total number of bus affected = {}", affectedBus);
         LOGGER.info("Total number of load violation {}", loadViolations);
         LOGGER.info("Total number of generator violation {}", genViolations);
-        if (!network.getBuses().isEmpty()) {
-            double percentAffected = 100.0 * affectedBus / network.getBuses().size();
+
+        int busCount = network.getBuses().size();
+        if (busCount > 0) {
+            double percentAffected = 100.0 * affectedBus / busCount;
             LOGGER.info("Percentage of affected bus = {} %", String.format("%.2f", percentAffected));
         } else {
             LOGGER.info("No buses in the network were found.");
