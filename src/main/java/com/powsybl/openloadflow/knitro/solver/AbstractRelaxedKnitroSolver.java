@@ -241,21 +241,18 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 switch (type) {
                     case "P" -> {
                         SlackVariableInfo slackVar = logSlackTypeP(bus, epsilon, type);
-                        slackContributions.add(slackVar);
                         LOGGER.debug(SLACK_LOG, type, name, slackVar.interpretation);
                         slackContributions.add(new SlackVariableInfo(name, epsilon, slackValue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
                     }
 
                     case "Q" -> {
                         SlackVariableInfo slackVar = logSlackTypeQ(bus, epsilon, type);
-                        slackContributions.add(slackVar);
                         LOGGER.debug(SLACK_LOG, type, name, slackVar.interpretation);
                         slackContributions.add(new SlackVariableInfo(name, epsilon, slackValue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
                     }
 
                     case "V" -> {
                         SlackVariableInfo slackVar = logSlackTypeV(bus, epsilon, type);
-                        slackContributions.add(slackVar);
                         LOGGER.debug(SLACK_LOG, type, name, slackVar.interpretation);
                         slackContributions.add(new SlackVariableInfo(name, epsilon, slackValue, type, bus, loadViolation, genViolation, info, interpretation.toString()));
                     }
