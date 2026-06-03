@@ -487,7 +487,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 .count();
         LOGGER.info("Total number of bus affected = {}", affectedBus);
         LOGGER.info("Total number of load violation = {}", loadViolationCount);
-        LOGGER.info("Total number of generator violation = {}",genViolationCount);
+        LOGGER.info("Total number of generator violation = {}", genViolationCount);
 
         int busCount = network.getBuses().size();
         if (busCount > 0) {
