@@ -259,10 +259,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                     default -> interpretation.append("Unknown slack type");
                 }
             }
-
-            if (shouldSkip) {
-                continue;
-            }
         }
     }
     /**
