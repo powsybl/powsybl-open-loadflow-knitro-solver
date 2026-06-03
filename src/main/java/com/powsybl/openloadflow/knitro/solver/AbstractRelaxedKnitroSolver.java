@@ -477,9 +477,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         return slack + loadTarget >= 0;
     }
 
-    private static boolean isFeasibleV(double slack, double vNominal, double vRef) {
-        double vNewref = slack * vNominal + vRef;
-        return vNewref / vNominal >= 0.8 && vNewref / vNominal <= 1.2; //0.8 et 1.2 V
+    private static boolean isFeasibleV(double slack, double vRef) {
+        double vNewref = slack + vRef;
+        return vNewref >= 0.8 && vNewref <= 1.2; //0.8 et 1.2 V
     }
 
     private void logSlackSummary(SlackVariableInfo[] slackArray) {
