@@ -99,7 +99,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         int qCounter = 0;
         int vCounter = 0;
 
-        // MAP GAMMA : VL in kV and the corresponding gamma
+        // Map GAMMA values : for the different voltage level (kV) map the corresponding gamma value
         voltageLevelGammaMap = new HashMap<>();
         voltageLevelGammaMap.put(72.5, 39.55);
         voltageLevelGammaMap.put(145.0, 100.45);
@@ -138,7 +138,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             throw new PowsyblException("DIVIDED BY ZERO: DeltaP is equal to 0, cannot compute weightP1. Please check that the network has non-zero active power generation and load, and/or adjust the losses parameter.");
         }
 
-        // Weight P
         weightP1 = getWeightP1(activeGeneration, deltaP);
     }
 
@@ -184,20 +183,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("Penalty V = {}", penaltyV);
         LOGGER.info("Total penalty = {}", totalPenalty);
 
-        SlackVariableInfo[] slackArray = slackContributions.toArray(new SlackVariableInfo[0]); // Object with all the present slack information
-        logSlackSummary(slackArray); // Generic summary of the network, number of slack of each type, number of load or generator violations
-
-        String csvPath = this.knitroParameters.getExportSolution();
-
-        if (csvPath != null && !csvPath.isEmpty()) {
-            List<String> csvLines = slackInfoCsv(slackArray);
-            List<String> optimInfo = optimInfoCsv(totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver);
-
-            writeSlackInfoCsv(csvPath + CSV_EXTENSION, csvLines);
-            writeOptimInfoCsv(csvPath + CSV_EXTENSION_OPTI, optimInfo);
-        }
-
         // Weight use in the objective function
+        LOGGER.info("==== Objective function weight details ====");
         LOGGER.info("Total LOSSES DC =  {} MW", this.knitroParameters.getLosses());
         LOGGER.info("Weight P1 = {}", weightP1);
         LOGGER.info("Weight Q1 = {}", WEIGHT_Q_1);
@@ -210,6 +197,19 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
             LOGGER.info(String.format("Gamma values : %s", gammaStr));
         }
+
+        SlackVariableInfo[] slackArray = slackContributions.toArray(new SlackVariableInfo[0]); // Object with all the present slack information
+        String csvPath = this.knitroParameters.getExportSolution();
+
+        logSlackSummary(slackArray); // Generic summary of the network, number of slack of each type, number of load or generator violations
+        if (csvPath != null && !csvPath.isEmpty()) {
+            List<String> csvLines = slackInfoCsv(slackArray);
+            List<String> optimInfo = optimInfoCsv(totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver);
+
+            writeSlackInfoCsv(csvPath + CSV_EXTENSION, csvLines);
+            writeOptimInfoCsv(csvPath + CSV_EXTENSION_OPTI, optimInfo);
+        }
+
     }
 
     /**
@@ -231,6 +231,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             String name = null;
             StringBuilder interpretation = new StringBuilder();
 
+            //double slackValue = 0.0;
             if (!shouldSkip) {
                 name = getSlackVariableBusName(i, type);
                 var bus = network.getBusById(name);
