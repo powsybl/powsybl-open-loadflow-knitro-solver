@@ -336,9 +336,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
         if (maybeControl.isPresent()) {
             for (VoltageControl vc : bus.getVoltageControls()) {
-                interpretation.append(String.format("%n                                                           Voltage Control status is:%s of type %s located at %s," +
-                        "%n                                                           Voltage target before slack change %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
-                interpretation.append(String.format("%n                                                           With slack applied, voltage constraints at bus is %s ", isFeasibleV(epsilon, bus.getNominalV(), vc.getTargetValue()) ? FEASIBLE : VIOLATED));
+                interpretation.append(String.format("%n\t\tVoltage Control status is:%s of type %s located at %s," +
+                        "Voltage target before slack change %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
+                interpretation.append(String.format("%n\t\tWith slack applied, voltage constraints at bus is %s ", isFeasibleV(epsilon, vc.getTargetValue()) ? FEASIBLE : VIOLATED));
             }
         }
         return new SlackVariableInfo(bus.getId(), epsilon, type, bus, loadViolationCount, genViolationCount, interpretation.toString());
