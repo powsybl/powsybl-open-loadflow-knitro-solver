@@ -202,7 +202,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         String csvPath = this.knitroParameters.getExportSolution();
 
         logSlackSummary(slackArray); // Generic summary of the network, number of slack of each type, number of load or generator violations
-        if (csvPath != null && !csvPath.isEmpty()) {
+        if (csvPath != knitroParameters.DEFAULT_EXPORT_SOLUTION && !csvPath.isEmpty()) {
             List<String> csvLines = slackInfoCsv(slackArray);
             List<String> optimInfo = optimInfoCsv(totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver);
 
