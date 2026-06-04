@@ -53,7 +53,7 @@ class ResilientAcLoadFlowPerturbationTest {
                 .setDistributedSlack(false);
     }
 
-    private void configureSolver(String solver, String filepath) {
+    private void configureSolver(String solver) {
         OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED)
                 .setAcSolverType(solver);
@@ -80,7 +80,7 @@ class ResilientAcLoadFlowPerturbationTest {
         this.exportSolution = filePath.toString();
 
         // Newton-Raphson
-        configureSolver(NR, exportSolution);
+        configureSolver(NR);
         LoadFlowResult resultNR = loadFlowRunner.run(nrNetwork, parameters);
         boolean isConvergedNR = resultNR.isFullyConverged();
         boolean isFailedNR = resultNR.isFailed();
@@ -104,14 +104,13 @@ class ResilientAcLoadFlowPerturbationTest {
         this.losses = calculateDcLosses(dcNetwork);
 
         // Knitro Resilient
-        configureSolver(RKN, exportSolution);
+        configureSolver(RKN);
         LoadFlowResult resultRKN = loadFlowRunner.run(rknNetwork, parameters);
         boolean isConvergedRKN = resultRKN.isFullyConverged();
         LOGGER.info("==== Test Information ====");
         LOGGER.info("Algorithm : RKN");
         LOGGER.info("Type : {}", perturbationType);
         LOGGER.info("Network name : {}", baseFilename);
-        String exportSolution = filePath.toAbsolutePath().toString();
         LOGGER.info("CSV name : {}", exportSolution);
         assertTrue(isConvergedRKN, baseFilename + ": Knitro should converge");
 

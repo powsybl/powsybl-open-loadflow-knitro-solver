@@ -324,7 +324,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         StringBuilder interpretation = new StringBuilder();
         int hasLoadViolation = 0;
         int hasGenViolation = 0;
-
         Optional<VoltageControl<?>> maybeControl = bus.getVoltageControls().stream().findAny();
 
         if (Math.abs(epsilon) < 0.001) {
@@ -333,7 +332,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             interpretation.append(String.format("ΔV = %.4f p.u. (%.4f kV) ", epsilon, epsilon * bus.getNominalV()));
         }
         if (maybeControl.isPresent()) {
-            for (VoltageControl vc : bus.getVoltageControls()) {
+            for (VoltageControl<?> vc : bus.getVoltageControls()) {
                 interpretation.append(String.format("%n\t\tVoltage Control status is:%s of type %s located at %s," +
                         "Voltage target before slack change %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
                 interpretation.append(String.format("%n\t\tWith slack applied, voltage constraints at bus is %s ", isFeasibleV(epsilon, vc.getTargetValue()) ? FEASIBLE : VIOLATED));
@@ -509,7 +508,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             String transfo = si.transformers.stream().map(Object::toString).collect(Collectors.joining(";"));
             String shunt = si.shunts.stream().map(Object::toString).collect(Collectors.joining(";"));
             String loads = si.loads.stream().map(Object::toString).collect(Collectors.joining(";"));
-            csvLines.add(String.format("%s;%s;%.6f;%s;%s;%s;%s;%s;%s",
+            csvLines.add(String.format("%s;%s;%.6f;%s;%s;%s;%s;%s;%s;%s",
                     si.busId, si.type, si.slackValuepu,
                     gens, controlers, transfo, shunt, loads, hasLoadViolation, hasGenViolation));
         }
