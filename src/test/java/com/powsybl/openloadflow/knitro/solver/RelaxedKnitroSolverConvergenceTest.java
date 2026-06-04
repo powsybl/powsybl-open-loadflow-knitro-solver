@@ -70,7 +70,7 @@ class RelaxedKnitroSolverConvergenceTest {
         Terminal t5 = t5Optional.get();
 
         // Apply voltage mismatch and remote control to regulating generator
-        network.getGenerator("B2-G").setTargetV(131.0429) // choisi après avoir run et vu que ca convergait pas ?
+        network.getGenerator("B2-G").setTargetV(131.0429)
                 .setVoltageRegulatorOn(true)
                 .setRegulatingTerminal(t5);
 
