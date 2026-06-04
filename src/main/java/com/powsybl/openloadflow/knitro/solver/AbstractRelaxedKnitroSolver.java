@@ -360,29 +360,29 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             isfeasibleQ = isGenFeasible(bus.getTargetQ() + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format(" With slack applied, generator limits are %s  ", isfeasibleQ));
             if (isfeasibleQ.equals(VIOLATED)) {
-                interpretation.append(String.format("%n                                                           Changement out of generation bus range [%.2f,%.2f]", generator.minSum(), generator.maxSum()));
+                interpretation.append(String.format("%n\t\tChangement out of generation bus range [%.2f,%.2f]", generator.minSum(), generator.maxSum()));
                 hasGenViolation = 1;
             }
         }
         if (maybeLoad.isPresent()) {
             info.put(bus.getLoadTargetQ(), "load_Q");
-            interpretation.append(String.format("%n                                                           Load : %s MW", bus.getLoads()));
+            interpretation.append(String.format("%n\t\tLoad : %s MW", bus.getLoads()));
             isfeasibleQ = isLoadFeasible(epsilon * PerUnit.SB, bus.getLoadTargetQ()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format("With slack applied, Load constraints is %s ", isfeasibleQ));
             if (isfeasibleQ.equals(VIOLATED)) {
-                interpretation.append(String.format("%n                                                           Load Target Q :  %.4f MVar after slack : %f", bus.getLoadTargetQ(), bus.getLoadTargetQ() + epsilon * PerUnit.SB));
+                interpretation.append(String.format("%n\t\tLoad Target Q :  %.4f MVar after slack : %f", bus.getLoadTargetQ(), bus.getLoadTargetQ() + epsilon * PerUnit.SB));
                 hasLoadViolation = 1;
             }
 
         }
         if (maybeShunt.isPresent()) {
-            interpretation.append(String.format("%n                                                           Shunt susceptance: %.4f p.u.", maybeShunt.get().getB()));
+            interpretation.append(String.format("%n\t\tShunt susceptance: %.4f p.u.", maybeShunt.get().getB()));
         }
         if (maybeTransfo.isPresent()) {
-            interpretation.append(String.format("%n                                                           Control voltage is made by a transformer "));
+            interpretation.append(String.format("%n\t\tControl voltage is made by a transformer "));
         }
         if (maybeLoad.isEmpty() && maybeGenerator.isEmpty() && maybeShunt.isEmpty() && maybeTransfo.isEmpty()) {
-            interpretation.append(String.format("%n                                                           No direct connected Load, Generator, Transformer Control voltage or Shunt"));
+            interpretation.append(String.format("%n\t\tNo direct connected Load, Generator, Transformer Control voltage or Shunt"));
         }
         return new SlackVariableInfo(bus.getId(), epsilon, type, bus, hasLoadViolation, hasGenViolation, interpretation.toString());
     }
@@ -409,7 +409,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             feasibleP = isGenFeasible(bus.getTargetP() + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format("With slack applied, the resulting generator limits are %s  ", feasibleP));
             if (feasibleP.equals(VIOLATED)) {
-                interpretation.append(String.format("%n                                                           Changement out of generation bus range : [%.2f; %.2f] MW", generator.minSum(), generator.maxSum()));
+                interpretation.append(String.format("%n\t\tChangement out of generation bus range : [%.2f; %.2f] MW", generator.minSum(), generator.maxSum()));
                 hasGenViolation = 1;
             }
         }
@@ -419,18 +419,18 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             info.put(bus.getLoadTargetP(), "load_P");
             interpretation.append(String.format(" Load Target P : %.4f MW. With slack applied, Load constraints is %s", bus.getLoadTargetP(), isload));
             if (isload.equals(VIOLATED)) {
-                interpretation.append(String.format("%n                                                           Load status after changement : %.4f MW", bus.getLoadTargetP() + epsilon * PerUnit.SB));
+                interpretation.append(String.format("%n\t\tLoad status after changement : %.4f MW", bus.getLoadTargetP() + epsilon * PerUnit.SB));
                 hasLoadViolation = 1;
             }
         }
         if (maybeShunt.isPresent()) {
-            interpretation.append(String.format("%n                                                           Shunt susceptance : %.4f p.u.", maybeShunt.get().getB()));
+            interpretation.append(String.format("%n\t\tShunt susceptance : %.4f p.u.", maybeShunt.get().getB()));
         }
         if (maybeTransfo.isPresent()) {
-            interpretation.append(String.format("%n                                                           Control voltage is made by a transformer "));
+            interpretation.append(String.format("%n\t\tControl voltage is made by a transformer "));
         }
         if (maybeLoad.isEmpty() && maybeGenerator.isEmpty() && maybeShunt.isEmpty() && maybeTransfo.isEmpty()) {
-            interpretation.append(String.format("%n                                                           No direct connected Load, Generator, Transformer Control voltage or Shunt"));
+            interpretation.append(String.format("%n\t\tNo direct connected Load, Generator, Transformer Control voltage or Shunt"));
         }
         return new SlackVariableInfo(bus.getId(), epsilon, type, bus, hasLoadViolation, hasGenViolation, interpretation.toString());
     }
@@ -452,7 +452,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             info.put(gen.getTargetQ(), "gen_Q");
             info.put(PerUnit.SB, "pu_base");
 
-            interpretation.append(String.format("%n                                                           Generator %s of range: [%.2f,%.2f] ",
+            interpretation.append(String.format("%n\t\tGenerator %s of range: [%.2f,%.2f] ",
                     gen.getId(), gen.getMinQ(), gen.getMaxQ()
             ));
         }
