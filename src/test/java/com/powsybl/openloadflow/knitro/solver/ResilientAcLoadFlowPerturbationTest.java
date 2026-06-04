@@ -38,7 +38,10 @@ class ResilientAcLoadFlowPerturbationTest {
     private static final String VOLTAGE_PERTURBATION = "voltage-perturbation";
     private static final String EXPORT_CSV = "Slack_info/";
     private static final String TEST_V_IE3 = "Test_V_IEEE";
-    private static final String ACTIVE_POWER_PERTURBATION = "P_perturbation";
+    private static final String TEST_P_IE3 = "Test_P_IEEE";
+    private static final String TEST_Q_IE3 = "Test_Q_IEEE";
+    private static final String ACTIVE_POWER_PERTURBATION = "active-perturbation";
+    private static final String REACTIVE_POWER_PERTURBATION = "reactive-perturbation";
     private static final boolean EXPORT = true;
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
@@ -127,6 +130,22 @@ class ResilientAcLoadFlowPerturbationTest {
         compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, VOLTAGE_PERTURBATION, test);
     }
 
+    private void activePowerPerturbationTest(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename, double alpha, String test) {
+        String targetLoadID = PerturbationFactory.getActivePowerPerturbation(nrNetwork);
+        PerturbationFactory.applyActivePowerPerturbation(rknNetwork, targetLoadID, alpha);
+        PerturbationFactory.applyActivePowerPerturbation(nrNetwork, targetLoadID, alpha);
+        PerturbationFactory.applyActivePowerPerturbation(dcNetwork, targetLoadID, alpha);
+        compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, ACTIVE_POWER_PERTURBATION, test);
+    }
+
+    private void reactivePowerPerturbationTest(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename, double targetQ, String test) {
+        PerturbationFactory.ReactivePowerPerturbation perturbation = PerturbationFactory.getReactivePowerPerturbation(nrNetwork);
+        PerturbationFactory.applyReactivePowerPerturbation(rknNetwork, perturbation, targetQ);
+        PerturbationFactory.applyReactivePowerPerturbation(nrNetwork, perturbation, targetQ);
+        PerturbationFactory.applyReactivePowerPerturbation(dcNetwork, perturbation, targetQ);
+        compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, REACTIVE_POWER_PERTURBATION, test);
+    }
+
     private double calculateDcLosses(Network dcNetwork) {
         double totalLosses = 0.0;
 
@@ -152,10 +171,10 @@ class ResilientAcLoadFlowPerturbationTest {
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
     void testVoltagePerturbationOnVariousI3ENetworks(NetworkPair pair) {
         String baseFilename = pair.baseFilename();
+        String test = EXPORT_CSV + TEST_V_IE3;
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
-        String test = EXPORT_CSV + TEST_V_IE3;
         Network dcNetwork = pair.dcNetwork();
 
         // Line Characteristics in per-unit
@@ -165,5 +184,37 @@ class ResilientAcLoadFlowPerturbationTest {
         double alpha = 0.95;
 
         voltagePerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, rPU, xPU, alpha, test);
+    }
+
+    @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on various IEEE networks: {0}")
+    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
+    void testActivePowerPerturbationOnVariousI3ENetworks(NetworkProviders.NetworkPair pair) {
+        String baseFilename = pair.baseFilename();
+        String test = EXPORT_CSV + TEST_P_IE3;
+
+        Network rknNetwork = pair.rknNetwork();
+        Network nrNetwork = pair.nrNetwork();
+        Network dcNetwork = pair.dcNetwork();
+
+        // Final perturbed load's percentage
+        double alpha = 0.10;
+
+        activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha, test);
+    }
+
+    @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on various IEEE networks: {0}")
+    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
+    void testReactivePowerPerturbationOnOnVariousI3ENetworks(NetworkProviders.NetworkPair pair) {
+        String baseFilename = pair.baseFilename();
+        String test = EXPORT_CSV + TEST_Q_IE3;
+
+        Network rknNetwork = pair.rknNetwork();
+        Network nrNetwork = pair.nrNetwork();
+        Network dcNetwork = pair.dcNetwork();
+
+        // Target reactive power injection by the shunt section in VArs
+        double targetQ = 3e9;
+
+        reactivePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, targetQ, test);
     }
 }
