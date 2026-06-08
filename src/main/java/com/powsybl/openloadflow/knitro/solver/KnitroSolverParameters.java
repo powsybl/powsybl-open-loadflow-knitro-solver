@@ -38,7 +38,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final SolverType DEFAULT_SOLVER_TYPE = SolverType.STANDARD;
     public static final int DEFAULT_THREAD_NUMBER = -1;
     public static final double DEFAULT_DC_LOSSES = 10.0; // MW
-    public static final String DEFAULT_EXPORT_SOLUTION = "PathToCsv"; // To export the solution of the optimization problem and slack information
+    public static String DEFAULT_EXPORT_SOLUTION = "PathToCsv"; // To export the solution of the optimization problem and slack information
 
     private String exportSolution = DEFAULT_EXPORT_SOLUTION;
 
