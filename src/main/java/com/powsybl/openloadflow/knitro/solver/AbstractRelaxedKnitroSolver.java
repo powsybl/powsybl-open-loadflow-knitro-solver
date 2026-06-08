@@ -370,23 +370,22 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
         if (maybeLoad.isPresent()) {
             info.put(bus.getLoadTargetQ(), "load_Q");
-            interpretation.append(String.format("%n\t\tLoad : %s MW", bus.getLoads()));
+            interpretation.append(String.format("%n\t\tLoad : %s MW ", bus.getLoads()));
             isfeasibleQ = isLoadFeasible(epsilon * PerUnit.SB, bus.getLoadTargetQ()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format("With slack applied, Load constraints is %s ", isfeasibleQ));
             if (isfeasibleQ.equals(VIOLATED)) {
                 interpretation.append(String.format("%n\t\tLoad Target Q :  %.4f MVar after slack : %f", bus.getLoadTargetQ(), bus.getLoadTargetQ() + epsilon * PerUnit.SB));
                 hasLoadViolation = 1;
             }
-
         }
         if (maybeShunt.isPresent()) {
-            interpretation.append(String.format("%n\t\tShunt susceptance: %.4f p.u.", maybeShunt.get().getB()));
+            interpretation.append(String.format("%n\t\tShunt susceptance: %.4f p.u. ", maybeShunt.get().getB()));
         }
         if (maybeTransfo.isPresent()) {
             interpretation.append(String.format("%n\t\tControl voltage is made by a transformer "));
         }
         if (maybeLoad.isEmpty() && maybeGenerator.isEmpty() && maybeShunt.isEmpty() && maybeTransfo.isEmpty()) {
-            interpretation.append(String.format("%n\t\tNo direct connected Load, Generator, Transformer Control voltage or Shunt"));
+            interpretation.append(String.format("%n\t\tNo direct connected Load, Generator, Transformer Control voltage or Shunt "));
         }
         return new SlackVariableInfo(bus.getId(), epsilon, type, bus, hasLoadViolation, hasGenViolation, interpretation.toString(), outerloopIteration);
     }
@@ -397,14 +396,12 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         int hasLoadViolation = 0;
         int hasGenViolation = 0;
 
-        interpretation.append(String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB));
-
         Optional<LfGenerator> maybeGenerator = bus.getGenerators().stream().findAny();
         Optional<LfLoad> maybeLoad = bus.getLoads().stream().findAny();
         Optional<LfShunt> maybeShunt = bus.getShunt().stream().findAny();
         Optional<TransformerVoltageControl> maybeTransfo = bus.getTransformerVoltageControl().stream().findAny();
 
-        interpretation.append(String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB));
+        interpretation.append(String.format("ΔP = %.4f p.u. (%.1f MW) ", epsilon, epsilon * PerUnit.SB));
         String isload = "";
         String feasibleP = "";
 
@@ -413,28 +410,28 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             feasibleP = isGenFeasible(bus.getTargetP() + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format("With slack applied, the resulting generator limits are %s  ", feasibleP));
             if (feasibleP.equals(VIOLATED)) {
-                interpretation.append(String.format("%n\t\tChangement out of generation bus range : [%.2f; %.2f] MW", generator.minSum(), generator.maxSum()));
+                interpretation.append(String.format("%n\t\tChangement out of generation bus range : [%.2f; %.2f] MW ", generator.minSum(), generator.maxSum()));
                 hasGenViolation = 1;
             }
         }
         if (maybeLoad.isPresent()) {
-            interpretation.append(String.format("%n                                                           Load : %s MW", bus.getLoads()));
+            interpretation.append(String.format("%n\t\tLoad : %s MW ", bus.getLoads()));
             isload = isLoadFeasible(bus.getLoadTargetP(), epsilon * PerUnit.SB) ? FEASIBLE : VIOLATED;
             info.put(bus.getLoadTargetP(), "load_P");
-            interpretation.append(String.format(" Load Target P : %.4f MW. With slack applied, Load constraints is %s", bus.getLoadTargetP(), isload));
+            interpretation.append(String.format("Load Target P : %.4f MW. With slack applied, Load constraints are %s ", bus.getLoadTargetP(), isload));
             if (isload.equals(VIOLATED)) {
-                interpretation.append(String.format("%n\t\tLoad status after changement : %.4f MW", bus.getLoadTargetP() + epsilon * PerUnit.SB));
+                interpretation.append(String.format("%n\t\tLoad status after changement : %.4f MW ", bus.getLoadTargetP() + epsilon * PerUnit.SB));
                 hasLoadViolation = 1;
             }
         }
         if (maybeShunt.isPresent()) {
-            interpretation.append(String.format("%n\t\tShunt susceptance : %.4f p.u.", maybeShunt.get().getB()));
+            interpretation.append(String.format("%n\t\tShunt susceptance : %.4f p.u. ", maybeShunt.get().getB()));
         }
         if (maybeTransfo.isPresent()) {
             interpretation.append(String.format("%n\t\tControl voltage is made by a transformer "));
         }
         if (maybeLoad.isEmpty() && maybeGenerator.isEmpty() && maybeShunt.isEmpty() && maybeTransfo.isEmpty()) {
-            interpretation.append(String.format("%n\t\tNo direct connected Load, Generator, Transformer Control voltage or Shunt"));
+            interpretation.append(String.format("%n\t\tNo direct connected Load, Generator, Transformer Control voltage or Shunt "));
         }
         return new SlackVariableInfo(bus.getId(), epsilon, type, bus, hasLoadViolation, hasGenViolation, interpretation.toString(), outerloopIteration);
     }
@@ -663,7 +660,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             List<Integer> linIndexes = new ArrayList<>(); // list of indexes of the variable x
             List<Double> linCoefs = new ArrayList<>(); // list of indexes of the coefficient a
 
-            // add slack penalty terms, for each slack type, of the form: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
+            // add slack penalty terms, for each slack type, linear terms from the absolute value
             addSlackObjectiveTerms(numPEquations, slackPStartIndex, weightP1, linIndexes, linCoefs);
             addSlackObjectiveTerms(numQEquations, slackQStartIndex, AbstractRelaxedKnitroSolver.WEIGHT_Q_1, linIndexes, linCoefs);
             addSlackObjectiveTermTypeV(numVEquations, slackVStartIndex, weightVMap, linIndexes, linCoefs);
