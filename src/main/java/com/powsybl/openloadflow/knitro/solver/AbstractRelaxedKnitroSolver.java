@@ -166,8 +166,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         super.processSolution(solver, solution, problemInstance);
 
         List<Double> x = solution.getX();
-        int outerloopIteration = solveCount;
-
+        int outerloopIteration = solveCount.incrementAndGet();
         // ========== Slack Logging ==========
         logSlackValues("P", slackPStartIndex, numPEquations, x, outerloopIteration);
         logSlackValues("Q", slackQStartIndex, numQEquations, x, outerloopIteration);
