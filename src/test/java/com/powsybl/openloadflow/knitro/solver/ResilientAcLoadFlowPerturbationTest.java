@@ -51,6 +51,7 @@ class ResilientAcLoadFlowPerturbationTest {
     @BeforeEach
     void setUp() {
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new SparseMatrixFactory()));
+        // With these parameters no outer loop are activated
         parameters = new LoadFlowParameters()
                 .setUseReactiveLimits(false)
                 .setDistributedSlack(false);
@@ -187,8 +188,24 @@ class ResilientAcLoadFlowPerturbationTest {
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on various IEEE networks: {0}")
+    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3E30Networks")
+    void testActivePowerPerturbationOnI3E30Network(NetworkProviders.NetworkPair pair) {
+        String baseFilename = pair.baseFilename();
+        String test = EXPORT_CSV + TEST_P_IE3;
+
+        Network rknNetwork = pair.rknNetwork();
+        Network nrNetwork = pair.nrNetwork();
+        Network dcNetwork = pair.dcNetwork();
+
+        // Final perturbed load's percentage
+        double alpha = 5;
+
+        activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha, test);
+    }
+
+    @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on IEEE networks: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
-    void testActivePowerPerturbationOnVariousI3ENetworks(NetworkProviders.NetworkPair pair) {
+    void testActivePowerPerturbationOnI3E14Network(NetworkProviders.NetworkPair pair) {
         String baseFilename = pair.baseFilename();
         String test = EXPORT_CSV + TEST_P_IE3;
 
@@ -202,6 +219,9 @@ class ResilientAcLoadFlowPerturbationTest {
         activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha, test);
     }
 
+    // This Perturbation Test is an exemple on how tu use reactivePowerPerturbationTest
+    // The test is made in a certain way that demands a shunt ..... which does not occur with the IEEE14 and IEEE30 network
+    // Both tests should be aborted: Assumption failed: No possible reactive power perturbation was found
     @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on various IEEE networks: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
     void testReactivePowerPerturbationOnOnVariousI3ENetworks(NetworkProviders.NetworkPair pair) {
