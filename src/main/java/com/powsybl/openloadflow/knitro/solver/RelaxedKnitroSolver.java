@@ -54,13 +54,13 @@ public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver {
     }
 
     public final class RelaxedKnitroProblem extends AbstractRelaxedKnitroProblem {
+        public static int solveCount = 0;
 
         private RelaxedKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                      TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                                      KnitroSolverParameters knitroParameters, VoltageInitializer voltageInitializer) throws KNException {
 
             super(network, equationSystem, targetVector, jacobianMatrix, knitroParameters, numSlackVariables, 0);
-
             LOGGER.info("Defining {} variables", numTotalVariables);
 
             // Initialize variables (base class handles LF variables, we customize for slack)
@@ -78,6 +78,7 @@ public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver {
 
             // set the objective function of the optimization problem
             addObjectiveFunction(numPEquations, slackPStartIndex, numQEquations, slackQStartIndex, numVEquations, slackVStartIndex);
+            solveCount++;
         }
     }
 }
