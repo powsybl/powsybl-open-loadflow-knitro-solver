@@ -55,10 +55,14 @@ public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver {
     }
 
     public final class RelaxedKnitroProblem extends AbstractRelaxedKnitroProblem {
-        public static AtomicInteger solveCount = new AtomicInteger(0);
+        public static final AtomicInteger SOLVE_COUNT = new AtomicInteger(0);
 
         public static int incrementSolveCount() {
-            return solveCount.incrementAndGet();
+            return SOLVE_COUNT.incrementAndGet();
+        }
+
+        public static int getSolveCount() {
+            return SOLVE_COUNT.get();
         }
 
         private RelaxedKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,

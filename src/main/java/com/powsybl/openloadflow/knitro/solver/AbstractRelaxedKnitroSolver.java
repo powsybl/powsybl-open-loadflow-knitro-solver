@@ -21,7 +21,9 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.Map;
 import java.util.stream.Collectors;
-import static com.powsybl.openloadflow.knitro.solver.RelaxedKnitroSolver.RelaxedKnitroProblem.solveCount;
+
+import static com.powsybl.openloadflow.knitro.solver.RelaxedKnitroSolver.RelaxedKnitroProblem.incrementSolveCount;
+import static com.powsybl.openloadflow.knitro.solver.RelaxedKnitroSolver.RelaxedKnitroProblem.getSolveCount;
 
 /**
  * Abstract class for relaxed Knitro solvers, solving the open load flow equation system by minimizing constraint violations through relaxation.
@@ -166,7 +168,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         super.processSolution(solver, solution, problemInstance);
 
         List<Double> x = solution.getX();
-        int outerloopIteration = solveCount.incrementAndGet();
+        int outerloopIteration = incrementSolveCount();
+
         // ========== Slack Logging ==========
         logSlackValues("P", slackPStartIndex, numPEquations, x, outerloopIteration);
         logSlackValues("Q", slackQStartIndex, numQEquations, x, outerloopIteration);
@@ -475,7 +478,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     private void logSlackSummary(SlackVariableInfo[] slackArray) {
         Map<Integer, List<SlackVariableInfo>> groupedByIteration = Arrays.stream(slackArray)
                 .collect(Collectors.groupingBy(si -> si.outerloopIteration));
-        List<SlackVariableInfo> currentIterationSlacks = groupedByIteration.getOrDefault(solveCount.get(), List.of());
+        List<SlackVariableInfo> currentIterationSlacks = groupedByIteration.getOrDefault(getSolveCount(), List.of());
 
         if (!currentIterationSlacks.isEmpty()) {
             LOGGER.info("==== Perturbation general impact  ====");
