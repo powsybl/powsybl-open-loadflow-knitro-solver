@@ -40,6 +40,7 @@ class ResilientAcLoadFlowPerturbationTest {
     private static final String TEST_V_IE3 = "Test_V_IEEE";
     private static final String TEST_P_IE3 = "Test_P_IEEE";
     private static final String TEST_Q_IE3 = "Test_Q_IEEE";
+    private static final String TEST_V_IE3_OUTERLOOP = "Test_V_IEEE_outerloop";
     private static final String ACTIVE_POWER_PERTURBATION = "active-perturbation";
     private static final String REACTIVE_POWER_PERTURBATION = "reactive-perturbation";
     private static final boolean EXPORT = true;
@@ -187,6 +188,29 @@ class ResilientAcLoadFlowPerturbationTest {
         voltagePerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, rPU, xPU, alpha, test);
     }
 
+    // Same test but with the activation of outerloop calculation, the final result should converge
+    @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on IEEE networks: {0}")
+    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
+    void testVoltagePerturbationOnVariousI3ENetworksOuterLoopActivated(NetworkPair pair) {
+        parameters = new LoadFlowParameters()
+                .setUseReactiveLimits(true)
+                .setDistributedSlack(true);
+
+        String baseFilename = pair.baseFilename();
+        String test = EXPORT_CSV + TEST_V_IE3_OUTERLOOP;
+
+        Network rknNetwork = pair.rknNetwork();
+        Network nrNetwork = pair.nrNetwork();
+        Network dcNetwork = pair.dcNetwork();
+
+        // Line Characteristics in per-unit
+        double rPU = 0.0;
+        double xPU = 1e-5;
+        // Voltage Mismatch
+        double alpha = 0.95;
+        voltagePerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, rPU, xPU, alpha, test);
+    }
+
     @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on various IEEE networks: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3E30Networks")
     void testActivePowerPerturbationOnI3E30Network(NetworkProviders.NetworkPair pair) {
@@ -220,7 +244,7 @@ class ResilientAcLoadFlowPerturbationTest {
     }
 
     // This Perturbation Test is an exemple on how tu use reactivePowerPerturbationTest
-    // The test is made in a certain way that demands a shunt ..... which does not occur with the IEEE14 and IEEE30 network
+    // The test is made in a certain way that demands a shunt which does not occur with the IEEE14 and IEEE30 network
     // Both tests should be aborted: Assumption failed: No possible reactive power perturbation was found
     @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on various IEEE networks: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
