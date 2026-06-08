@@ -88,7 +88,6 @@ public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver {
             // set the objective function of the optimization problem
             addObjectiveFunction(numPEquations, slackPStartIndex, numQEquations, slackQStartIndex, numVEquations, slackVStartIndex);
 
-            incrementSolveCount();
         }
     }
 }
