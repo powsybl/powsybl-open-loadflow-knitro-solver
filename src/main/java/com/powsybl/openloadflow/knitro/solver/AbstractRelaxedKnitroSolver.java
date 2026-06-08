@@ -475,7 +475,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     private void logSlackSummary(SlackVariableInfo[] slackArray) {
         Map<Integer, List<SlackVariableInfo>> groupedByIteration = Arrays.stream(slackArray)
                 .collect(Collectors.groupingBy(si -> si.outerloopIteration));
-        List<SlackVariableInfo> currentIterationSlacks = groupedByIteration.getOrDefault(solveCount, List.of());
+        List<SlackVariableInfo> currentIterationSlacks = groupedByIteration.getOrDefault(solveCount.get(), List.of());
 
         if (!currentIterationSlacks.isEmpty()) {
             LOGGER.info("==== Perturbation general impact  ====");

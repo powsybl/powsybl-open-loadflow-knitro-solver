@@ -57,6 +57,10 @@ public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver {
     public final class RelaxedKnitroProblem extends AbstractRelaxedKnitroProblem {
         public static AtomicInteger solveCount = new AtomicInteger(0);
 
+        public static int incrementSolveCount() {
+            return solveCount.incrementAndGet();
+        }
+
         private RelaxedKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                      TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                                      KnitroSolverParameters knitroParameters, VoltageInitializer voltageInitializer) throws KNException {
@@ -79,7 +83,8 @@ public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver {
 
             // set the objective function of the optimization problem
             addObjectiveFunction(numPEquations, slackPStartIndex, numQEquations, slackQStartIndex, numVEquations, slackVStartIndex);
-            solveCount.incrementAndGet();
+
+            incrementSolveCount();
         }
     }
 }
