@@ -519,7 +519,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         if (!currentIterationSlacks.isEmpty()) {
             LOGGER.info("==== Perturbation general impact  ====");
             LOGGER.info("Total number of Slack = {}", currentIterationSlacks.size());
-            long affectedBus = currentIterationSlacks.stream()
+            int affectedBus = (int) currentIterationSlacks.stream()
                     .map(si -> si.busId)
                     .distinct().count();
             int loadViolationCount = (int) currentIterationSlacks.stream()
