@@ -11,6 +11,7 @@ import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
 import com.powsybl.openloadflow.network.*;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -43,7 +44,7 @@ class ResilientAcLoadFlowPerturbationTest {
     private static final String TEST_V_IE3_OUTERLOOP = "Test_V_IEEE_outerloop";
     private static final String ACTIVE_POWER_PERTURBATION = "active-perturbation";
     private static final String REACTIVE_POWER_PERTURBATION = "reactive-perturbation";
-    private static final boolean EXPORT = true;
+    private static final boolean EXPORT = false;
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
     private double losses;
@@ -169,11 +170,14 @@ class ResilientAcLoadFlowPerturbationTest {
         return totalLosses;
     }
 
+    @TempDir
+    Path tmp;
+
     @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on IEEE networks: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
     void testVoltagePerturbationOnVariousI3ENetworks(NetworkPair pair) {
         String baseFilename = pair.baseFilename();
-        String test = EXPORT_CSV + TEST_V_IE3;
+        String exportPath = tmp.resolve("Slack_info").toString();
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
@@ -184,8 +188,7 @@ class ResilientAcLoadFlowPerturbationTest {
         double xPU = 1e-5;
         // Voltage Mismatch
         double alpha = 0.95;
-
-        voltagePerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, rPU, xPU, alpha, test);
+        voltagePerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, rPU, xPU, alpha, exportPath);
     }
 
     // Same test but with the activation of outerloop calculation, the final result should converge
@@ -197,7 +200,7 @@ class ResilientAcLoadFlowPerturbationTest {
                 .setDistributedSlack(true);
 
         String baseFilename = pair.baseFilename();
-        String test = EXPORT_CSV + TEST_V_IE3_OUTERLOOP;
+        String exportPath = tmp.resolve("Slack_info").toString();
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
@@ -208,14 +211,14 @@ class ResilientAcLoadFlowPerturbationTest {
         double xPU = 1e-5;
         // Voltage Mismatch
         double alpha = 0.95;
-        voltagePerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, rPU, xPU, alpha, test);
+        voltagePerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, rPU, xPU, alpha, exportPath);
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on various IEEE networks: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3E30Networks")
     void testActivePowerPerturbationOnI3E30Network(NetworkProviders.NetworkPair pair) {
         String baseFilename = pair.baseFilename();
-        String test = EXPORT_CSV + TEST_P_IE3;
+        String exportPath = tmp.resolve("Slack_info").toString();
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
@@ -224,14 +227,14 @@ class ResilientAcLoadFlowPerturbationTest {
         // Final perturbed load's percentage
         double alpha = 5;
 
-        activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha, test);
+        activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha, exportPath);
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on IEEE networks: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
     void testActivePowerPerturbationOnI3E14Network(NetworkProviders.NetworkPair pair) {
         String baseFilename = pair.baseFilename();
-        String test = EXPORT_CSV + TEST_P_IE3;
+        String exportPath = tmp.resolve("Slack_info").toString();
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
@@ -240,7 +243,7 @@ class ResilientAcLoadFlowPerturbationTest {
         // Final perturbed load's percentage
         double alpha = 0.10;
 
-        activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha, test);
+        activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha, exportPath);
     }
 
     // This Perturbation Test is an exemple on how tu use reactivePowerPerturbationTest
@@ -250,7 +253,7 @@ class ResilientAcLoadFlowPerturbationTest {
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
     void testReactivePowerPerturbationOnOnVariousI3ENetworks(NetworkProviders.NetworkPair pair) {
         String baseFilename = pair.baseFilename();
-        String test = EXPORT_CSV + TEST_Q_IE3;
+        String exportPath = tmp.resolve("Slack_info").toString();
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
@@ -259,6 +262,6 @@ class ResilientAcLoadFlowPerturbationTest {
         // Target reactive power injection by the shunt section in VArs
         double targetQ = 3e9;
 
-        reactivePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, targetQ, test);
+        reactivePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, targetQ, exportPath);
     }
 }
