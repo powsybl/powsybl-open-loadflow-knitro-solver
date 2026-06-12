@@ -436,7 +436,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
         if (maybeLoad.isPresent()) {
             interpretation.append(String.format("%n\t\tLoad %s", bus.getLoads()));
-            isload = isLoadFeasible(bus.getLoadTargetP(), epsilon * PerUnit.SB) ? FEASIBLE : VIOLATED;
+            isload = isLoadFeasible(epsilon * PerUnit.SB,bus.getLoadTargetP()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format(", target P: %.4f MW. If this slack is applied, load constraints are %s ", bus.getLoadTargetP(), isload));
             if (isload.equals(VIOLATED)) {
                 interpretation.append(String.format("%n\t\tLoad after slack: %.4f MW ", bus.getLoadTargetP() + epsilon * PerUnit.SB));
@@ -494,6 +494,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         return newdata >= min && newdata <= max;
     }
 
+    //A load is feasible if the post-slack values stays >= 0
     private static boolean isLoadFeasible(double slack, double loadTarget) {
         return slack + loadTarget >= 0;
     }
