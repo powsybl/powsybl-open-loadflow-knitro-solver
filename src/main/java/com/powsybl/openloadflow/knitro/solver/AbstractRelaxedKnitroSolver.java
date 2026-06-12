@@ -551,7 +551,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             String shunt = si.shunts.stream().map(Object::toString).collect(Collectors.joining("|"));
             String loads = si.loads.stream().map(Object::toString).collect(Collectors.joining("|"));
             int outerloopIteration = si.outerloopIteration;
-            csvLines.add(String.format("%s;%s;%.6f;%s;%s;%s;%s;%s;%s;%s;%d",
+            csvLines.add(String.format(java.util.Locale.US, "%s;%s;%.6f;%s;%s;%s;%s;%s;%s;%s;%d",
                     si.busId, si.type, si.slackValuepu,
                     genenerator, controleVoltage, transformer, shunt, loads, hasLoadViolation, hasGenViolation, outerloopIteration));
         }
@@ -562,7 +562,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         List<String> optimInfo = new ArrayList<>();
         optimInfo.add("total_penalty;penaltyP;penaltyQ;penaltyV;status;iterations");
         try {
-            optimInfo.add(String.format("%s;%s;%s;%s;%s;%s", totalPenalty, penaltyP, penaltyQ, penaltyV, solution.getStatus(), solver.getNumberIters()));
+            optimInfo.add(String.format(java.util.Locale.US,"%s;%s;%s;%s;%s;%s", totalPenalty, penaltyP, penaltyQ, penaltyV, solution.getStatus(), solver.getNumberIters()));
         } catch (KNException e) {
             throw new PowsyblException("Failed to gather optimization info.", e);
         }
