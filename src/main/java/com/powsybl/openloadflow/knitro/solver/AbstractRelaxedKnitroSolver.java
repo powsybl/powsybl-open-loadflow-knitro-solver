@@ -21,6 +21,11 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 
 import static com.powsybl.openloadflow.knitro.solver.RelaxedKnitroSolver.RelaxedKnitroProblem.incrementSolveCount;
 import static com.powsybl.openloadflow.knitro.solver.RelaxedKnitroSolver.RelaxedKnitroProblem.getSolveCount;
@@ -572,27 +577,27 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     private void writeSlackInfoCsv(String filename, List<String> lines) {
         try {
-            java.nio.file.Files.write(
-                    java.nio.file.Paths.get(filename),
+            Files.write(
+                    Paths.get(filename),
                     lines,
-                    java.nio.charset.StandardCharsets.UTF_8,
-                    java.nio.file.StandardOpenOption.CREATE,
-                    java.nio.file.StandardOpenOption.TRUNCATE_EXISTING
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
             );
             LOGGER.info("Slack informations and contributions exported to {}", filename);
         } catch (java.io.IOException e) {
-            LOGGER.warn("Failed to write slack CSV to {}", filename);
+            LOGGER.warn("Failed to write slack CSV to {}", e.getMessage());
         }
     }
 
     private void writeOptimInfoCsv(String filename, List<String> lines) {
         try {
-            java.nio.file.Files.write(
-                    java.nio.file.Paths.get(filename),
+            Files.write(
+                    Paths.get(filename),
                     lines,
-                    java.nio.charset.StandardCharsets.UTF_8,
-                    java.nio.file.StandardOpenOption.CREATE,
-                    java.nio.file.StandardOpenOption.TRUNCATE_EXISTING
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
             );
             LOGGER.info("Optimization information exported to {}", filename);
         } catch (java.io.IOException e) {
