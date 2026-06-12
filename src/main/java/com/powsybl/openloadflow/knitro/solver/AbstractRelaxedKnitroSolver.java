@@ -21,7 +21,6 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -214,7 +213,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         String csvPath = this.knitroParameters.getExportSolution();
 
         logSlackSummary(slackArray); // Generic summary of the network, number of slack of each type, number of load or generator violations
-        if (!csvPath.equals(KnitroSolverParameters.DEFAULT_EXPORT_SOLUTION) && !csvPath.isEmpty()) {
+        if (csvPath != null && !csvPath.isEmpty()) {
             List<String> csvLines = slackInfoCsv(slackArray);
             List<String> optimInfo = optimInfoCsv(totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver);
 
