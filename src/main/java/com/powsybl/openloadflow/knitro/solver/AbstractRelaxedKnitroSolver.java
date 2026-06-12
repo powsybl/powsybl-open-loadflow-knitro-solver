@@ -395,7 +395,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             info.put(bus.getLoadTargetQ(), "load_Q");
             interpretation.append(String.format("%n\t\tLoad : %s, ", bus.getLoads()));
             isfeasibleQ = isLoadFeasible(epsilon * PerUnit.SB, bus.getLoadTargetQ()) ? FEASIBLE : VIOLATED;
-            interpretation.append(String.format("target Q: %.4f MVAR. If this slack is applied, load constraints are %s ", bus.getLoadTargetP(), isfeasibleQ));
+            interpretation.append(String.format("target Q: %.4f MVAR. If this slack is applied, load constraints are %s ", bus.getLoadTargetQ(), isfeasibleQ));
             if (isfeasibleQ.equals(VIOLATED)) {
                 interpretation.append(String.format("%n\t\tLoad after slack: %.4f MVAR ", bus.getLoadTargetQ() + epsilon * PerUnit.SB));
                 hasLoadViolation = 1;
