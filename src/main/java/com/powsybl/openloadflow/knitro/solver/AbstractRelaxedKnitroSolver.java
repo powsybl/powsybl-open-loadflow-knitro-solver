@@ -40,7 +40,7 @@ import static com.powsybl.openloadflow.knitro.solver.RelaxedKnitroSolver.Relaxed
 public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     private static final String FEASIBLE = "feasible";
     private static final String VIOLATED = "violated";
-    private static final double V_MIN_PU =  new KnitroLoadFlowParameters().getLowerVoltageBound();
+    private static final double V_MIN_PU = new KnitroLoadFlowParameters().getLowerVoltageBound();
     private static final double V_MAX_PU = new KnitroLoadFlowParameters().getUpperVoltageBound();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelaxedKnitroSolver.class);
@@ -438,7 +438,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
         if (maybeLoad.isPresent()) {
             interpretation.append(String.format("%n\t\tLoad %s", bus.getLoads()));
-            isload = isLoadFeasible(epsilon * PerUnit.SB,bus.getLoadTargetP()) ? FEASIBLE : VIOLATED;
+            isload = isLoadFeasible(epsilon * PerUnit.SB, bus.getLoadTargetP()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format(", target P: %.4f MW. If this slack is applied, load constraints are %s ", bus.getLoadTargetP(), isload));
             if (isload.equals(VIOLATED)) {
                 interpretation.append(String.format("%n\t\tLoad after slack: %.4f MW ", bus.getLoadTargetP() + epsilon * PerUnit.SB));
@@ -562,7 +562,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         List<String> optimInfo = new ArrayList<>();
         optimInfo.add("total_penalty;penaltyP;penaltyQ;penaltyV;status;iterations");
         try {
-            optimInfo.add(String.format(java.util.Locale.US,"%s;%s;%s;%s;%s;%s", totalPenalty, penaltyP, penaltyQ, penaltyV, solution.getStatus(), solver.getNumberIters()));
+            optimInfo.add(String.format(java.util.Locale.US, "%s;%s;%s;%s;%s;%s", totalPenalty, penaltyP, penaltyQ, penaltyV, solution.getStatus(), solver.getNumberIters()));
         } catch (KNException e) {
             LOGGER.warn("Failed to gather optimization info for CSV export", e);
             return optimInfo; // header only, or skip the line
