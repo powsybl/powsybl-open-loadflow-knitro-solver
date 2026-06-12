@@ -391,7 +391,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             isfeasibleQ = isGenFeasible(bus.getTargetQ() + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format("%n\t\tTotal generation bus range [%.2f,%.2f] MVAR", generator.minSum(), generator.maxSum()));
             if (isfeasibleQ.equals(VIOLATED)) {
-                interpretation.append(String.format(", Generator limits would be exceeded if this slack is applied ", isfeasibleQ));
+                interpretation.append(String.format(", Generator limits would be exceeded if this slack is applied %s", isfeasibleQ));
                 hasGenViolation = 1;
             }
         }
@@ -437,7 +437,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             feasibleP = isGenFeasible(bus.getTargetP() + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format("%n\t\tTotal generation bus range : [%.2f; %.2f] MW", generator.minSum(), generator.maxSum()));
             if (feasibleP.equals(VIOLATED)) {
-                interpretation.append(String.format(", Generator limits would be exceeded if this slack is applied", feasibleP));
+                interpretation.append(String.format(", Generator limits would be exceeded if this slack is applied %s", feasibleP));
                 hasGenViolation = 1;
             }
         }
