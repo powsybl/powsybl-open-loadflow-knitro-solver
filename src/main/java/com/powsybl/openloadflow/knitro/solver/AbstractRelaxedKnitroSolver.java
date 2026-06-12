@@ -40,6 +40,8 @@ import static com.powsybl.openloadflow.knitro.solver.RelaxedKnitroSolver.Relaxed
 public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     private static final String FEASIBLE = "feasible";
     private static final String VIOLATED = "violated";
+    private static final double V_MIN_PU =  new KnitroLoadFlowParameters().getLowerVoltageBound();
+    private static final double V_MAX_PU = new KnitroLoadFlowParameters().getUpperVoltageBound();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelaxedKnitroSolver.class);
     private static final String SLACK_LOG = "Slack {}[ {} ] → {}";
@@ -499,9 +501,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         return slack + loadTarget >= 0;
     }
 
+    // The voltage value is acceptable if the post-slack values stays between V_MIN_PU and V_MAX_PU
     private static boolean isFeasibleV(double slack, double vRef) {
         double vNewref = slack + vRef;
-        return vNewref >= 0.8 && vNewref <= 1.2; //0.8 et 1.2 V
+        return vNewref >= V_MIN_PU && vNewref <= V_MAX_PU;
     }
 
     private void logSlackSummary(SlackVariableInfo[] slackArray) {
