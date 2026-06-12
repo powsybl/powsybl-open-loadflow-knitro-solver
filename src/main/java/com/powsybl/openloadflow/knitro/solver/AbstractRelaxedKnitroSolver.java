@@ -541,19 +541,19 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     private List<String> slackInfoCsv(SlackVariableInfo[] slackArray) {
         List<String> csvLines = new ArrayList<>();
-        csvLines.add("busId;type;slackValue_pu;gen;controlevoltage;transfo;shunt;load;load_violation;gen_violation;outerLoopIteration");
+        csvLines.add("busId;type;slackValue_pu;generator;controleVoltage;transfo;shunt;load;load_violation;gen_violation;outerLoopIteration");
         for (SlackVariableInfo si : slackArray) {
-            String gens = (si.generators != null && !si.generators.isEmpty()) ? si.generators.stream().map(Object::toString).collect(Collectors.joining(";")) : "";
-            String controlers = (si.voltageControls != null && !si.voltageControls.isEmpty()) ? si.voltageControls.stream().map(Object::toString).collect(Collectors.joining(";")) : "";
-            int hasLoadViolation = si.hasLoadViolation == 1 ? 1 : 0;
-            int hasGenViolation = si.hasGenViolation == 1 ? 1 : 0;
-            String transfo = si.transformers.stream().map(Object::toString).collect(Collectors.joining(";"));
-            String shunt = si.shunts.stream().map(Object::toString).collect(Collectors.joining(";"));
-            String loads = si.loads.stream().map(Object::toString).collect(Collectors.joining(";"));
+            String genenerator = (si.generators != null && !si.generators.isEmpty()) ? si.generators.stream().map(Object::toString).collect(Collectors.joining("|")) : "";
+            String controleVoltage = (si.voltageControls != null && !si.voltageControls.isEmpty()) ? si.voltageControls.stream().map(Object::toString).collect(Collectors.joining(";")) : "";
+            int hasLoadViolation = si.hasLoadViolation;
+            int hasGenViolation = si.hasGenViolation;
+            String transformer = si.transformers.stream().map(Object::toString).collect(Collectors.joining("|"));
+            String shunt = si.shunts.stream().map(Object::toString).collect(Collectors.joining("|"));
+            String loads = si.loads.stream().map(Object::toString).collect(Collectors.joining("|"));
             int outerloopIteration = si.outerloopIteration;
             csvLines.add(String.format("%s;%s;%.6f;%s;%s;%s;%s;%s;%s;%s;%d",
                     si.busId, si.type, si.slackValuepu,
-                    gens, controlers, transfo, shunt, loads, hasLoadViolation, hasGenViolation, outerloopIteration));
+                    genenerator, controleVoltage, transformer, shunt, loads, hasLoadViolation, hasGenViolation, outerloopIteration));
         }
         return csvLines;
     }
