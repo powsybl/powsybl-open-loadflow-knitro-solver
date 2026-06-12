@@ -236,20 +236,16 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             if (Math.abs(epsilon) > knitroParameters.getSlackThreshold()) {
                 String name = getSlackVariableBusName(i, type);
                 var bus = network.getBusById(name);
-                int hasLoadViolation = 0;
-                int hasGenViolation = 0;
+
                 switch (type) {
                     case "P" -> {
-                        SlackVariableInfo slackVar = logSlackTypeP(bus, epsilon, type, outerloopIteration);
-                        localContributions.add(new SlackVariableInfo(name, epsilon, type, bus, hasLoadViolation, hasGenViolation, slackVar.interpretation, outerloopIteration));
+                        localContributions.add(logSlackTypeP(bus, epsilon, type, outerloopIteration));
                     }
                     case "Q" -> {
-                        SlackVariableInfo slackVar = logSlackTypeQ(bus, epsilon, type, outerloopIteration);
-                        localContributions.add(new SlackVariableInfo(name, epsilon, type, bus, hasLoadViolation, hasGenViolation, slackVar.interpretation, outerloopIteration));
+                        localContributions.add(logSlackTypeQ(bus, epsilon, type, outerloopIteration));
                     }
                     case "V" -> {
-                        SlackVariableInfo slackVar = logSlackTypeV(bus, epsilon, type, outerloopIteration);
-                        localContributions.add(new SlackVariableInfo(name, epsilon, type, bus, hasLoadViolation, hasGenViolation, slackVar.interpretation, outerloopIteration));
+                        localContributions.add(logSlackTypeV(bus, epsilon, type, outerloopIteration));
                     }
                 }
             }
