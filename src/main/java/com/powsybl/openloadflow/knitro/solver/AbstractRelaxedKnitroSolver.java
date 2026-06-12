@@ -564,7 +564,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         try {
             optimInfo.add(String.format(java.util.Locale.US,"%s;%s;%s;%s;%s;%s", totalPenalty, penaltyP, penaltyQ, penaltyV, solution.getStatus(), solver.getNumberIters()));
         } catch (KNException e) {
-            throw new PowsyblException("Failed to gather optimization info.", e);
+            LOGGER.warn("Failed to gather optimization info for CSV export", e);
+            return optimInfo; // header only, or skip the line
         }
         return optimInfo;
     }
