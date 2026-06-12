@@ -171,6 +171,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         int outerloopIteration = incrementSolveCount();
 
         // ========== Slack Logging ==========
+        LOGGER.info("== Slack informations: showing the 5 largest slack value (use DEBUG mode to display all) == ");
         logSlackValues("P", slackPStartIndex, numPEquations, x, outerloopIteration);
         logSlackValues("Q", slackQStartIndex, numQEquations, x, outerloopIteration);
         logSlackValues("V", slackVStartIndex, numVEquations, x, outerloopIteration);
@@ -225,44 +226,56 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param x The variable values as returned by solver.
      */
     protected void logSlackValues(String type, int startIndex, int count, List<Double> x, int outerloopIteration) {
-        LOGGER.debug("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
+        List<SlackVariableInfo> localContributions = new ArrayList<>();
+        LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
             double epsilon = sp - sm;
 
-            boolean shouldSkip = Math.abs(epsilon) <= knitroParameters.getSlackThreshold();
-            String name = null;
-            StringBuilder interpretation = new StringBuilder();
-
-            if (!shouldSkip) {
-                name = getSlackVariableBusName(i, type);
+            if (Math.abs(epsilon) > knitroParameters.getSlackThreshold()) {
+                String name = getSlackVariableBusName(i, type);
                 var bus = network.getBusById(name);
                 int hasLoadViolation = 0;
                 int hasGenViolation = 0;
                 switch (type) {
                     case "P" -> {
                         SlackVariableInfo slackVar = logSlackTypeP(bus, epsilon, type, outerloopIteration);
-                        LOGGER.debug(SLACK_LOG, type, name, slackVar.interpretation);
-                        slackContributions.add(new SlackVariableInfo(name, epsilon, type, bus, hasLoadViolation, hasGenViolation, interpretation.toString(), outerloopIteration));
+                        localContributions.add(new SlackVariableInfo(name, epsilon, type, bus, hasLoadViolation, hasGenViolation, slackVar.interpretation, outerloopIteration));
                     }
-
                     case "Q" -> {
                         SlackVariableInfo slackVar = logSlackTypeQ(bus, epsilon, type, outerloopIteration);
-                        LOGGER.debug(SLACK_LOG, type, name, slackVar.interpretation);
-                        slackContributions.add(new SlackVariableInfo(name, epsilon, type, bus, hasLoadViolation, hasGenViolation, interpretation.toString(), outerloopIteration));
+                        localContributions.add(new SlackVariableInfo(name, epsilon, type, bus, hasLoadViolation, hasGenViolation, slackVar.interpretation, outerloopIteration));
                     }
-
                     case "V" -> {
                         SlackVariableInfo slackVar = logSlackTypeV(bus, epsilon, type, outerloopIteration);
-                        LOGGER.debug(SLACK_LOG, type, name, slackVar.interpretation);
-                        slackContributions.add(new SlackVariableInfo(name, epsilon, type, bus, hasLoadViolation, hasGenViolation, interpretation.toString(), outerloopIteration));
+                        localContributions.add(new SlackVariableInfo(name, epsilon, type, bus, hasLoadViolation, hasGenViolation, slackVar.interpretation, outerloopIteration));
                     }
-                    default -> interpretation.append("Unknown slack type");
                 }
             }
         }
+
+        // Add to global list
+        slackContributions.addAll(localContributions);
+
+        // Log top 5 of this type as INFO, rest as DEBUG
+        List<SlackVariableInfo> sorted = new ArrayList<>(localContributions);
+        sorted.sort(Comparator.comparingDouble(s -> -Math.abs(s.getSlackValuepu())));
+
+        Set<String> top5Names = sorted.stream()
+                .limit(5)
+                .map(SlackVariableInfo::name)
+                .collect(Collectors.toSet());
+
+        for (SlackVariableInfo s : sorted) {
+            if (top5Names.contains(s.name())) {
+                LOGGER.info(SLACK_LOG, s.type(), s.name(), s.interpretation());
+            } else {
+                LOGGER.debug(SLACK_LOG, s.type(), s.name(), s.interpretation());
+            }
+        }
     }
+
     /**
      * Finds the bus associated to a slack variable.
      *
@@ -324,6 +337,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             this.interpretation = interpretation;
             this.outerloopIteration = outerloopIteration;
         }
+        public String name() { return busId; }
+        public double getSlackValuepu() { return slackValuepu; }
+        public String type() { return type; }
+        public String interpretation() { return interpretation; }
     }
 
     private SlackVariableInfo logSlackTypeV(LfBus bus, double epsilon, String type, int outerloopIteration) {
