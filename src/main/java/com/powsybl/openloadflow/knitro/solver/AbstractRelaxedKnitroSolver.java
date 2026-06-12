@@ -337,10 +337,18 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             this.interpretation = interpretation;
             this.outerloopIteration = outerloopIteration;
         }
-        public String name() { return busId; }
-        public double getSlackValuepu() { return slackValuepu; }
-        public String type() { return type; }
-        public String interpretation() { return interpretation; }
+
+        public String name() {
+            return busId; }
+
+        public double getSlackValuepu() {
+            return slackValuepu; }
+
+        public String type() {
+            return type; }
+
+        public String interpretation() {
+            return interpretation; }
     }
 
     private SlackVariableInfo logSlackTypeV(LfBus bus, double epsilon, String type, int outerloopIteration) {
