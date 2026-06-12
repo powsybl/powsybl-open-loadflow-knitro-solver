@@ -370,7 +370,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     private SlackVariableInfo logSlackTypeQ(LfBus bus, double epsilon, String type, int outerloopIteration) {
         StringBuilder interpretation = new StringBuilder();
-        Map<Double, Object> info = new HashMap<>();
         int hasLoadViolation = 0;
         int hasGenViolation = 0;
 
@@ -392,7 +391,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             }
         }
         if (maybeLoad.isPresent()) {
-            info.put(bus.getLoadTargetQ(), "load_Q");
             interpretation.append(String.format("%n\t\tLoad : %s, ", bus.getLoads()));
             isfeasibleQ = isLoadFeasible(epsilon * PerUnit.SB, bus.getLoadTargetQ()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format("target Q: %.4f MVAR. If this slack is applied, load constraints are %s ", bus.getLoadTargetQ(), isfeasibleQ));
@@ -415,7 +413,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     private SlackVariableInfo logSlackTypeP(LfBus bus, double epsilon, String type, int outerloopIteration) {
         StringBuilder interpretation = new StringBuilder();
-        Map<Double, Object> info = new HashMap<>();
         int hasLoadViolation = 0;
         int hasGenViolation = 0;
 
@@ -440,7 +437,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         if (maybeLoad.isPresent()) {
             interpretation.append(String.format("%n\t\tLoad %s", bus.getLoads()));
             isload = isLoadFeasible(bus.getLoadTargetP(), epsilon * PerUnit.SB) ? FEASIBLE : VIOLATED;
-            info.put(bus.getLoadTargetP(), "load_P");
             interpretation.append(String.format(", target P: %.4f MW. If this slack is applied, load constraints are %s ", bus.getLoadTargetP(), isload));
             if (isload.equals(VIOLATED)) {
                 interpretation.append(String.format("%n\t\tLoad after slack: %.4f MW ", bus.getLoadTargetP() + epsilon * PerUnit.SB));
