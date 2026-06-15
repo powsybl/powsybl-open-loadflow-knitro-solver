@@ -37,11 +37,6 @@ class ResilientAcLoadFlowPerturbationTest {
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
     private static final String VOLTAGE_PERTURBATION = "voltage-perturbation";
-    private static final String EXPORT_CSV = "Slack_info/";
-    private static final String TEST_V_IE3 = "Test_V_IEEE";
-    private static final String TEST_P_IE3 = "Test_P_IEEE";
-    private static final String TEST_Q_IE3 = "Test_Q_IEEE";
-    private static final String TEST_V_IE3_OUTERLOOP = "Test_V_IEEE_outerloop";
     private static final String ACTIVE_POWER_PERTURBATION = "active-perturbation";
     private static final String REACTIVE_POWER_PERTURBATION = "reactive-perturbation";
     private static final boolean EXPORT = false;
