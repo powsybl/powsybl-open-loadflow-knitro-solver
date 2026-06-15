@@ -28,3 +28,4 @@ PathToCsv_optim_info.csv
 30-voltage-perturbation.xiidm
 NetworkProvidersalldata.java
 ResilientAcLoadFlowPerturbationTestAlldata.java
+_pycache_/
