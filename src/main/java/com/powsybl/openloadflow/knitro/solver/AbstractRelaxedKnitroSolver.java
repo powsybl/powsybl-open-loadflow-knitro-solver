@@ -260,18 +260,18 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         // Log top 5 of this type as INFO, rest as DEBUG
         List<SlackVariableInfo> sorted = new ArrayList<>(localContributions);
-        sorted.sort(Comparator.comparingDouble(s -> -Math.abs(s.getSlackValuepu())));
+        sorted.sort(Comparator.comparingDouble(s -> -Math.abs(s.slackValuePu)));
 
         Set<String> top5Names = sorted.stream()
                 .limit(5)
-                .map(SlackVariableInfo::name)
+                .map(SlackVariableInfo::busId)
                 .collect(Collectors.toSet());
 
         for (SlackVariableInfo s : sorted) {
-            if (top5Names.contains(s.name())) {
-                LOGGER.info(SLACK_LOG, s.type(), s.name(), s.interpretation());
+            if (top5Names.contains(s.busId())) {
+                LOGGER.info(SLACK_LOG, s.type(), s.busId(), s.interpretation());
             } else {
-                LOGGER.debug(SLACK_LOG, s.type(), s.name(), s.interpretation());
+                LOGGER.debug(SLACK_LOG, s.type(), s.busId(), s.interpretation());
             }
         }
     }
@@ -309,46 +309,12 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         return bus.getId();
     }
 
-    private class SlackVariableInfo {
-        String busId;
-        double slackValuepu;
-        String type;
-        int hasLoadViolation;
-        int hasGenViolation;
-        Collection<LfGenerator> generators;
-        List<VoltageControl<?>> voltageControls;
-        Collection<LfLoad> loads;
-        Optional<LfShunt> shunts;
-        Optional<TransformerVoltageControl> transformers;
-        String interpretation;
-        int outerloopIteration;
-
-        public SlackVariableInfo(String busId, double slackValuepu, String type, LfBus lfBus, int hasLoadViolation, int hasGenViolation, String interpretation, int outerloopIteration) {
-            this.busId = busId;
-            this.slackValuepu = slackValuepu;
-            this.type = type;
-            this.voltageControls = lfBus.getVoltageControls();
-            this.generators = lfBus.getGenerators();
-            this.loads = lfBus.getLoads();
-            this.hasLoadViolation = hasLoadViolation;
-            this.hasGenViolation = hasGenViolation;
-            this.shunts = lfBus.getShunt();
-            this.transformers = lfBus.getTransformerVoltageControl();
-            this.interpretation = interpretation;
-            this.outerloopIteration = outerloopIteration;
-        }
-
-        public String name() {
-            return busId; }
-
-        public double getSlackValuepu() {
-            return slackValuepu; }
-
-        public String type() {
-            return type; }
-
-        public String interpretation() {
-            return interpretation; }
+    private record SlackVariableInfo(String busId, double slackValuePu, String type,
+                                         int loadViolation, int genViolation,
+                                         Collection<LfGenerator> generators, List<VoltageControl<?>> voltageControls,
+                                         Collection<LfLoad> loads, Optional<LfShunt> shunt,
+                                         Optional<TransformerVoltageControl> transformer,
+                                         String interpretation, int outerloopIteration) {
     }
 
     enum SlackType {
@@ -399,7 +365,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 interpretation.append(String.format("%n\t\tAfter slack, voltage constraints at bus are %s ", isFeasibleV(epsilon, vc.getTargetValue()) ? FEASIBLE : VIOLATED));
             }
         }
-        return new SlackVariableInfo(bus.getId(), epsilon, type, bus, hasLoadViolation, hasGenViolation, interpretation.toString(), outerloopIteration);
+        return new SlackVariableInfo(bus.getId(), epsilon, type.toString(), hasLoadViolation, hasGenViolation, bus.getGenerators(), bus.getVoltageControls(),
+                bus.getLoads(), bus.getShunt(), bus.getTransformerVoltageControl(), interpretation.toString(), outerloopIteration
+        );
     }
 
     private SlackVariableInfo logSlackPowerType(LfBus bus, double epsilon, SlackType type, int outerloopIteration) {
@@ -442,7 +410,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         if (maybeLoad.isEmpty() && maybeGenerator.isEmpty() && maybeShunt.isEmpty() && maybeTransfo.isEmpty()) {
             interpretation.append(String.format("%n\t\tNo direct connected Load, Generator, Transformer Control voltage or Shunt "));
         }
-        return new SlackVariableInfo(bus.getId(), epsilon, type, bus, hasLoadViolation, hasGenViolation, interpretation.toString(), outerloopIteration);
+        return new SlackVariableInfo(bus.getId(), epsilon, type.toString(), hasLoadViolation, hasGenViolation, bus.getGenerators(), bus.getVoltageControls(),
+                bus.getLoads(), bus.getShunt(), bus.getTransformerVoltageControl(), interpretation.toString(), outerloopIteration
+        );
     }
 
     private SlackVariableInfo logSlackTypeP(LfBus bus, double epsilon, String type, int outerloopIteration) {
@@ -535,10 +505,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                     .map(si -> si.busId)
                     .distinct().count();
             int loadViolationCount = (int) currentIterationSlacks.stream()
-                    .filter(si -> si.hasLoadViolation == 1)
+                    .filter(si -> si.loadViolation == 1)
                     .count();
             int genViolationCount = (int) currentIterationSlacks.stream()
-                    .filter(si -> si.hasGenViolation == 1)
+                    .filter(si -> si.genViolation == 1)
                     .count();
 
             LOGGER.info("Total number of bus affected = {}", affectedBus);
@@ -561,14 +531,14 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         for (SlackVariableInfo si : slackArray) {
             String genenerator = (si.generators != null && !si.generators.isEmpty()) ? si.generators.stream().map(Object::toString).collect(Collectors.joining("|")) : "";
             String controleVoltage = (si.voltageControls != null && !si.voltageControls.isEmpty()) ? si.voltageControls.stream().map(Object::toString).collect(Collectors.joining(";")) : "";
-            int hasLoadViolation = si.hasLoadViolation;
-            int hasGenViolation = si.hasGenViolation;
-            String transformer = si.transformers.stream().map(Object::toString).collect(Collectors.joining("|"));
-            String shunt = si.shunts.stream().map(Object::toString).collect(Collectors.joining("|"));
+            int hasLoadViolation = si.loadViolation;
+            int hasGenViolation = si.genViolation;
+            String transformer = si.transformer.stream().map(Object::toString).collect(Collectors.joining("|"));
+            String shunt = si.shunt.stream().map(Object::toString).collect(Collectors.joining("|"));
             String loads = si.loads.stream().map(Object::toString).collect(Collectors.joining("|"));
             int outerloopIteration = si.outerloopIteration;
             csvLines.add(String.format(java.util.Locale.US, "%s;%s;%.6f;%s;%s;%s;%s;%s;%s;%s;%d",
-                    si.busId, si.type, si.slackValuepu,
+                    si.busId, si.type, si.slackValuePu,
                     genenerator, controleVoltage, transformer, shunt, loads, hasLoadViolation, hasGenViolation, outerloopIteration));
         }
         return csvLines;
