@@ -247,10 +247,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 }
 
                 switch (type) {
-                    case P -> {
-                        localContributions.add(logSlackPowerType(bus, epsilon, type, outerloopIteration));
-                    }
-                    case Q -> {
+                    case P, Q -> {
                         localContributions.add(logSlackPowerType(bus, epsilon, type, outerloopIteration));
                     }
                     case V -> {
