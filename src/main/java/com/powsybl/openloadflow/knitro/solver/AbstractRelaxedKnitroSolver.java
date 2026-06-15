@@ -43,8 +43,6 @@ import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.*;
 public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     private static final String FEASIBLE = "feasible";
     private static final String VIOLATED = "violated";
-    private static final double V_MIN_PU = new KnitroLoadFlowParameters().getLowerVoltageBound();
-    private static final double V_MAX_PU = new KnitroLoadFlowParameters().getUpperVoltageBound();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelaxedKnitroSolver.class);
     private static final String SLACK_LOG = "Slack {}[{}] → {}";
