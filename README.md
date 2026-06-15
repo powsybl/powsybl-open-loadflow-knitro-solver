@@ -247,6 +247,16 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
      - Use `setThreadNumber` in the `KnitroLoadFlowParameters` extension.
      - Warning: for options `2 (forward)` and `3 (central)` set the solver's number of threads to 1.
 
+11. **DC Losses approximation**:
+    - Default value: 10 MW 
+    - Can be set manually or computed by running a DC Load Flow on the network 
+    - Use `setLosses` 
+
+12. **Export Solution**
+    - Default value: exporte disabled 
+    - When enabled, a CSV file is exported containing information for each slack (type, value, location...), which can be used afterward for visualization.
+    - Use `setExportSolution` 
+    
 ### Constraint Handling
 
 Constraints are categorized into two types:
