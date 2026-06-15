@@ -158,7 +158,6 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         int nbIter;
         AcSolverStatus acStatus;
         KNProblem instance;
-        int solverCount = 0;
 
         try {
             instance = createKnitroProblem(voltageInitializer);
@@ -189,7 +188,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         return new AcSolverResult(acStatus, nbIter, slackBusActivePowerMismatch);
     }
 
-    private int solverCount;
+    private int solverCount=0;
 
     public int incrementSolveCount() {
         return solverCount++;
