@@ -190,6 +190,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
     }
 
     private int solverCount;
+
     public int incrementSolveCount() {
         return solverCount++;
     }
@@ -197,6 +198,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
     public int getSolveCount() {
         return solverCount;
     }
+
     public abstract class AbstractKnitroProblem extends KNProblem {
 
         protected static final Logger LOGGER = LoggerFactory.getLogger(AbstractKnitroProblem.class);
