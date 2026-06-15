@@ -217,7 +217,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             writeSlackInfoCsv(csvPath + CSV_EXTENSION, csvLines);
             writeOptimInfoCsv(csvPath + CSV_EXTENSION_OPTI, optimInfo);
         }
-        outerloopIteration = incrementSolveCount();
+     incrementSolveCount();
 
     }
 
