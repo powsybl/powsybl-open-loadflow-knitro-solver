@@ -465,21 +465,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         return new GenInterpretation(minSum, maxSum, interpretation.toString());
     }
 
-    private static boolean isGenFeasible(double newdata, double min, double max) {
-        return newdata >= min && newdata <= max;
-    }
-
-    //A load is feasible if the post-slack values stays >= 0
-    private static boolean isLoadFeasible(double slack, double loadTarget) {
-        return slack + loadTarget >= 0;
-    }
-
-    // The voltage value is acceptable if the post-slack values stays between V_MIN_PU and V_MAX_PU
-    private static boolean isFeasibleV(double slack, double vRef) {
-        double vNewref = slack + vRef;
-        return vNewref >= V_MIN_PU && vNewref <= V_MAX_PU;
-    }
-
     private void logSlackSummary(SlackVariableInfo[] slackArray) {
         Map<Integer, List<SlackVariableInfo>> groupedByIteration = Arrays.stream(slackArray)
                 .collect(Collectors.groupingBy(si -> si.outerloopIteration));
