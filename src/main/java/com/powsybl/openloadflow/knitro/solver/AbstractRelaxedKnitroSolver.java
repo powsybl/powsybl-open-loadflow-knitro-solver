@@ -218,7 +218,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             writeOptimInfoCsv(csvPath + CSV_EXTENSION_OPTI, optimInfo);
         }
 
-     incrementSolveCount();
+        incrementSolveCount();
 
     }
 
