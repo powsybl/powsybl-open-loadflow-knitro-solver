@@ -45,7 +45,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     private static final double V_MAX_PU = new KnitroLoadFlowParameters().getUpperVoltageBound();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelaxedKnitroSolver.class);
-    private static final String SLACK_LOG = "Slack {}[ {} ] → {}";
+    private static final String SLACK_LOG = "Slack {}[{}] → {}";
     private static final String CSV_EXTENSION = ".csv";
     private static final String CSV_EXTENSION_OPTI = "_optim_info.csv";
 
@@ -175,9 +175,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         // ========== Slack Logging ==========
         LOGGER.info("== Slack informations: showing the 5 largest slack value (use DEBUG mode to display all) == ");
-        logSlackValues("P", slackPStartIndex, numPEquations, x, outerloopIteration);
-        logSlackValues("Q", slackQStartIndex, numQEquations, x, outerloopIteration);
-        logSlackValues("V", slackVStartIndex, numVEquations, x, outerloopIteration);
+        logSlackValues(SlackType.P, slackPStartIndex, numPEquations, x, outerloopIteration);
+        logSlackValues(SlackType.Q, slackQStartIndex, numQEquations, x, outerloopIteration);
+        logSlackValues(SlackType.V, slackVStartIndex, numVEquations, x, outerloopIteration);
 
         // ========== Penalty Computation ==========
         double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, weightP1);
@@ -229,7 +229,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param count The maximum number of slack variables associated to the given type.
      * @param x The variable values as returned by solver.
      */
-    protected void logSlackValues(String type, int startIndex, int count, List<Double> x, int outerloopIteration) {
+    protected void logSlackValues(SlackType type, int startIndex, int count, List<Double> x, int outerloopIteration) {
         List<SlackVariableInfo> localContributions = new ArrayList<>();
         LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
         for (int i = 0; i < count; i++) {
@@ -242,13 +242,13 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 var bus = network.getBusById(name);
 
                 switch (type) {
-                    case "P" -> {
-                        localContributions.add(logSlackTypeP(bus, epsilon, type, outerloopIteration));
+                    case P -> {
+                        localContributions.add(logSlackPowerType(bus, epsilon, type, outerloopIteration));
                     }
-                    case "Q" -> {
-                        localContributions.add(logSlackTypeQ(bus, epsilon, type, outerloopIteration));
+                    case Q -> {
+                        localContributions.add(logSlackPowerType(bus, epsilon, type, outerloopIteration));
                     }
-                    case "V" -> {
+                    case V -> {
                         localContributions.add(logSlackTypeV(bus, epsilon, type, outerloopIteration));
                     }
                 }
@@ -284,11 +284,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @return The id of the bus associated to the slack variable.
      */
 
-    private String getSlackVariableBusName(Integer index, String type) {
+    private String getSlackVariableBusName(Integer index, SlackType type) {
         Set<Map.Entry<Integer, Integer>> equationSet = switch (type) {
-            case "P" -> pEquationLocalIds.entrySet();
-            case "Q" -> qEquationLocalIds.entrySet();
-            case "V" -> vEquationLocalIds.entrySet();
+            case P -> pEquationLocalIds.entrySet();
+            case Q -> qEquationLocalIds.entrySet();
+            case V -> vEquationLocalIds.entrySet();
             default -> throw new IllegalStateException("Unexpected variable type: " + type);
         };
 
@@ -351,7 +351,37 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             return interpretation; }
     }
 
-    private SlackVariableInfo logSlackTypeV(LfBus bus, double epsilon, String type, int outerloopIteration) {
+    enum SlackType {
+        P("MW") {
+            double genMin(LfGenerator g) { return g.getMinP(); }
+            double genMax(LfGenerator g) { return g.getMaxP(); }
+            double busTarget(LfBus b) { return b.getTargetP(); }
+            double loadTarget(LfBus b) { return b.getLoadTargetP(); }
+        },
+        Q("MVAR") {
+            double genMin(LfGenerator g) { return g.getMinQ(); }
+            double genMax(LfGenerator g) { return g.getMaxQ(); }
+            double busTarget(LfBus b) { return b.getTargetQ(); }
+            double loadTarget(LfBus b) { return b.getLoadTargetQ(); }
+        },
+        V("kV") {
+            double genMin(LfGenerator g) { throw new UnsupportedOperationException("Not applicable for V"); }
+            double genMax(LfGenerator g) { throw new UnsupportedOperationException("Not applicable for V"); }
+            double busTarget(LfBus b) { return b.getV(); }
+            double loadTarget(LfBus b) { throw new UnsupportedOperationException("Not applicable for V"); }
+        };
+
+        private final String unit;
+        SlackType(String unit) { this.unit = unit; }
+        String unit() { return unit; }
+
+        abstract double genMin(LfGenerator g);
+        abstract double genMax(LfGenerator g);
+        abstract double busTarget(LfBus b);
+        abstract double loadTarget(LfBus b);
+    }
+
+    private SlackVariableInfo logSlackTypeV(LfBus bus, double epsilon, SlackType type, int outerloopIteration) {
         StringBuilder interpretation = new StringBuilder();
         int hasLoadViolation = 0;
         int hasGenViolation = 0;
@@ -372,7 +402,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         return new SlackVariableInfo(bus.getId(), epsilon, type, bus, hasLoadViolation, hasGenViolation, interpretation.toString(), outerloopIteration);
     }
 
-    private SlackVariableInfo logSlackTypeQ(LfBus bus, double epsilon, String type, int outerloopIteration) {
+    private SlackVariableInfo logSlackPowerType(LfBus bus, double epsilon, SlackType type, int outerloopIteration) {
         StringBuilder interpretation = new StringBuilder();
         int hasLoadViolation = 0;
         int hasGenViolation = 0;
@@ -382,24 +412,24 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         Optional<LfShunt> maybeShunt = bus.getShunt().stream().findAny();
         Optional<TransformerVoltageControl> maybeTransfo = bus.getTransformerVoltageControl().stream().findAny();
 
-        interpretation.append(String.format("ΔQ = %.4f p.u. (%.1f MVAR)", epsilon, epsilon * PerUnit.SB));
-        String isfeasibleQ = "";
+        interpretation.append(String.format("Δ%s = %.4f p.u. (%.1f %s)", type, epsilon, epsilon * PerUnit.SB, type.unit()));
+        String isfeasible = "";
 
         if (maybeGenerator.isPresent()) {
-            GenInterpretation generator = buildGenInterpretationQ(bus.getGenerators(), interpretation);
-            isfeasibleQ = isGenFeasible(bus.getTargetQ() + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
-            interpretation.append(String.format("%n\t\tTotal generation bus range [%.2f,%.2f] MVAR", generator.minSum(), generator.maxSum()));
-            if (isfeasibleQ.equals(VIOLATED)) {
-                interpretation.append(String.format(", Generator limits would be exceeded if this slack is applied %s", isfeasibleQ));
+            GenInterpretation generator = buildGenInterpretation(bus.getGenerators(), interpretation, type);
+            isfeasible = isGenFeasible(type.busTarget(bus) + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
+            interpretation.append(String.format("%n\t\tTotal generation bus range [%.2f,%.2f] %s", generator.minSum(), generator.maxSum(), type.unit()));
+            if (isfeasible.equals(VIOLATED)) {
+                interpretation.append(String.format(", Generator limits would be exceeded if this slack is applied %s", isfeasible));
                 hasGenViolation = 1;
             }
         }
         if (maybeLoad.isPresent()) {
             interpretation.append(String.format("%n\t\tLoad : %s, ", bus.getLoads()));
-            isfeasibleQ = isLoadFeasible(epsilon * PerUnit.SB, bus.getLoadTargetQ()) ? FEASIBLE : VIOLATED;
-            interpretation.append(String.format("target Q: %.4f MVAR. If this slack is applied, load constraints are %s ", bus.getLoadTargetQ(), isfeasibleQ));
-            if (isfeasibleQ.equals(VIOLATED)) {
-                interpretation.append(String.format("%n\t\tLoad after slack: %.4f MVAR ", bus.getLoadTargetQ() + epsilon * PerUnit.SB));
+            isfeasible = isLoadFeasible(epsilon * PerUnit.SB, type.loadTarget(bus)) ? FEASIBLE : VIOLATED;
+            interpretation.append(String.format("target %s: %.4f %s. If this slack is applied, load constraints are %s ", type, type.loadTarget(bus), type.unit(), isfeasible));
+            if (isfeasible.equals(VIOLATED)) {
+                interpretation.append(String.format("%n\t\tLoad after slack: %.4f %s ", bus.getLoadTargetQ() + epsilon * PerUnit.SB, type.unit()));
                 hasLoadViolation = 1;
             }
         }
@@ -463,32 +493,16 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     }
 
-    private static GenInterpretation buildGenInterpretationQ(List<LfGenerator> generators, StringBuilder interpretation) {
+    private static GenInterpretation buildGenInterpretation(List<LfGenerator> generators, StringBuilder interpretation, SlackType type) {
         double minSum = 0.0;
         double maxSum = 0.0;
         interpretation.append(String.format("%n,\t\tGenerator at bus : "));
         for (LfGenerator gen : generators) {
-            minSum += gen.getMinQ();
-            maxSum += gen.getMaxQ();
+            minSum += type.genMin(gen);
+            maxSum += type.genMax(gen);
 
-            interpretation.append(String.format("%n\t\tGenerator [%s] of range: [%.2f,%.2f] MVAR",
-                    gen.getId(), gen.getMinQ(), gen.getMaxQ()
-            ));
-        }
-        return new GenInterpretation(minSum, maxSum, interpretation.toString());
-    }
-
-    private static GenInterpretation buildGenInterpretationP(List<LfGenerator> generators, StringBuilder interpretation) {
-        double minSum = 0.0;
-        double maxSum = 0.0;
-        interpretation.append(String.format("%n\t\tGenerators at bus : "));
-
-        for (LfGenerator gen : generators) {
-            minSum += gen.getMinP();
-            maxSum += gen.getMaxP();
-
-            interpretation.append(String.format("%n\t\t[%s] of range: [%.2f,%.2f] MW",
-                    gen.getId(), gen.getMinP(), gen.getMaxP()
+            interpretation.append(String.format("%n\t\tGenerator [%s] of range: [%.2f,%.2f] %s",
+                    gen.getId(), type.genMin(gen), type.genMax(gen), type.unit()
             ));
         }
         return new GenInterpretation(minSum, maxSum, interpretation.toString());
