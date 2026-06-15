@@ -18,7 +18,6 @@ import com.powsybl.openloadflow.equations.JacobianMatrix;
 import com.powsybl.openloadflow.equations.TargetVector;
 import com.powsybl.openloadflow.network.LfNetwork;
 import com.powsybl.openloadflow.network.util.VoltageInitializer;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Relaxed Knitro solver, solving the open load flow equation system by minimizing constraint violations through relaxation.
@@ -55,16 +54,6 @@ public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver {
     }
 
     public final class RelaxedKnitroProblem extends AbstractRelaxedKnitroProblem {
-        public static final AtomicInteger SOLVE_COUNT = new AtomicInteger(0);
-
-        public static int incrementSolveCount() {
-            return SOLVE_COUNT.incrementAndGet();
-        }
-
-        public static int getSolveCount() {
-            return SOLVE_COUNT.get();
-        }
-
         private RelaxedKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                      TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                                      KnitroSolverParameters knitroParameters, VoltageInitializer voltageInitializer) throws KNException {

@@ -26,8 +26,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 
-import static com.powsybl.openloadflow.knitro.solver.RelaxedKnitroSolver.RelaxedKnitroProblem.incrementSolveCount;
-import static com.powsybl.openloadflow.knitro.solver.RelaxedKnitroSolver.RelaxedKnitroProblem.getSolveCount;
 
 /**
  * Abstract class for relaxed Knitro solvers, solving the open load flow equation system by minimizing constraint violations through relaxation.
@@ -174,7 +172,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         super.processSolution(solver, solution, problemInstance);
 
         List<Double> x = solution.getX();
-        int outerloopIteration = incrementSolveCount();
+        int outerloopIteration = getSolveCount();
 
         // ========== Slack Logging ==========
         LOGGER.info("== Slack informations: showing the 5 largest slack value (use DEBUG mode to display all) == ");
@@ -220,6 +218,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             writeSlackInfoCsv(csvPath + CSV_EXTENSION, csvLines);
             writeOptimInfoCsv(csvPath + CSV_EXTENSION_OPTI, optimInfo);
         }
+        outerloopIteration = incrementSolveCount();
 
     }
 
