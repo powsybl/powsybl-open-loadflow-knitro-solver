@@ -319,31 +319,59 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     enum SlackType {
         P("MW") {
-            double genMin(LfGenerator g) { return g.getMinP(); }
-            double genMax(LfGenerator g) { return g.getMaxP(); }
-            double busTarget(LfBus b) { return b.getTargetP(); }
-            double loadTarget(LfBus b) { return b.getLoadTargetP(); }
+            double genMin(LfGenerator g) {
+                return g.getMinP(); }
+
+            double genMax(LfGenerator g) {
+                return g.getMaxP(); }
+
+            double busTarget(LfBus b) {
+                return b.getTargetP(); }
+
+            double loadTarget(LfBus b) {
+                return b.getLoadTargetP(); }
         },
         Q("MVAR") {
-            double genMin(LfGenerator g) { return g.getMinQ(); }
-            double genMax(LfGenerator g) { return g.getMaxQ(); }
-            double busTarget(LfBus b) { return b.getTargetQ(); }
-            double loadTarget(LfBus b) { return b.getLoadTargetQ(); }
+            double genMin(LfGenerator g) {
+                return g.getMinQ(); }
+
+            double genMax(LfGenerator g) {
+                return g.getMaxQ(); }
+
+            double busTarget(LfBus b) {
+                return b.getTargetQ(); }
+
+            double loadTarget(LfBus b) {
+                return b.getLoadTargetQ(); }
         },
         V("kV") {
-            double genMin(LfGenerator g) { throw new UnsupportedOperationException("Not applicable for V"); }
-            double genMax(LfGenerator g) { throw new UnsupportedOperationException("Not applicable for V"); }
-            double busTarget(LfBus b) { return b.getV(); }
-            double loadTarget(LfBus b) { throw new UnsupportedOperationException("Not applicable for V"); }
+            double genMin(LfGenerator g) {
+                throw new UnsupportedOperationException("Not applicable for V"); }
+
+            double genMax(LfGenerator g) {
+                throw new UnsupportedOperationException("Not applicable for V"); }
+
+            double busTarget(LfBus b) {
+                return b.getV(); }
+
+            double loadTarget(LfBus b) {
+                throw new UnsupportedOperationException("Not applicable for V"); }
         };
 
         private final String unit;
-        SlackType(String unit) { this.unit = unit; }
-        String unit() { return unit; }
+
+        SlackType(String unit) {
+            this.unit = unit; }
+
+        String unit() {
+            return unit; }
 
         abstract double genMin(LfGenerator g);
+
         abstract double genMax(LfGenerator g);
+
         abstract double busTarget(LfBus b);
+
         abstract double loadTarget(LfBus b);
     }
 

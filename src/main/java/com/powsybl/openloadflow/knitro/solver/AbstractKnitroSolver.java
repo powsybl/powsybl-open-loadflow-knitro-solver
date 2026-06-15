@@ -188,7 +188,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         return new AcSolverResult(acStatus, nbIter, slackBusActivePowerMismatch);
     }
 
-    private int solverCount=0;
+    private int solverCount = 0;
 
     public int incrementSolveCount() {
         return solverCount++;
