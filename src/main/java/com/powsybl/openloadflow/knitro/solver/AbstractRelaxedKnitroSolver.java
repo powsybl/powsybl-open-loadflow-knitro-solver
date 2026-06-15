@@ -241,6 +241,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 String name = getSlackVariableBusName(i, type);
                 var bus = network.getBusById(name);
 
+                if (bus == null) {
+                    LOGGER.warn("Bus {} not found while logging slack.", name);
+                    continue;
+                }
+
                 switch (type) {
                     case P -> {
                         localContributions.add(logSlackPowerType(bus, epsilon, type, outerloopIteration));
