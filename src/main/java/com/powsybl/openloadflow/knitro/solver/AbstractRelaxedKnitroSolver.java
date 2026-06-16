@@ -433,7 +433,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             }
         }
         if (maybeShunt.isPresent()) {
-            interpretation.append(String.format("%n\t\tShunt susceptance: %.4f p.u. ", maybeShunt.get().getB()));
+            interpretation.append(String.format("%n\t\tShunt [%s] of susceptance: %.4f S and conductance: %.4f S ", maybeShunt.get().getId(), maybeShunt.get().getB(), maybeShunt.get().getG()));
         }
         if (maybeTransfo.isPresent()) {
             interpretation.append(String.format("%n\t\tControl voltage is made by a transformer "));
