@@ -188,8 +188,8 @@ class ResilientAcLoadFlowPerturbationTest {
         voltagePerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, rPU, xPU, alpha, exportPath);
     }
 
-    // Same test but with the activation of outerloop calculation, the final result should converge
-    @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on IEEE networks: {0}")
+    // Same test but with the activation of outerloop calculation
+    @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation with active outerloop on IEEE networks: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
     void testVoltagePerturbationOnVariousI3ENetworksOuterLoopActivated(NetworkPair pair) {
         parameters = new LoadFlowParameters()
@@ -211,7 +211,7 @@ class ResilientAcLoadFlowPerturbationTest {
         voltagePerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, rPU, xPU, alpha, exportPath);
     }
 
-    @ParameterizedTest(name = "Test resilience of RKN to active power perturbation on various IEEE networks: {0}")
+    @ParameterizedTest(name = "Test resilience of RKN to active power perturbation (extreme perturbation) on various IEEE networks: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3E30Networks")
     void testActivePowerPerturbationOnI3E30Network(NetworkProviders.NetworkPair pair) {
         String baseFilename = pair.baseFilename();
@@ -221,7 +221,8 @@ class ResilientAcLoadFlowPerturbationTest {
         Network nrNetwork = pair.nrNetwork();
         Network dcNetwork = pair.dcNetwork();
 
-        // Final perturbed load's percentage
+        // Final percentage applied to perturb the load
+        // The perturbation is intentionally extreme to trigger the logging message for P
         double alpha = 5;
 
         activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha, exportPath);
@@ -229,7 +230,7 @@ class ResilientAcLoadFlowPerturbationTest {
 
     @ParameterizedTest(name = "Test resilience of RKN to a voltage perturbation on IEEE networks: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
-    void testActivePowerPerturbationOnI3E14Network(NetworkProviders.NetworkPair pair) {
+    void testActivePowerPerturbationOnI3ENetwork(NetworkProviders.NetworkPair pair) {
         String baseFilename = pair.baseFilename();
         String exportPath = tmp.resolve("Slack_info").toString();
 
