@@ -51,7 +51,9 @@ class ResilientAcLoadFlowPerturbationTest {
         // With these parameters no outer loop are activated
         parameters = new LoadFlowParameters()
                 .setUseReactiveLimits(false)
-                .setDistributedSlack(false);
+                .setDistributedSlack(false)
+                .setVoltageInitMode(LoadFlowParameters.VoltageInitMode.UNIFORM_VALUES);
+
     }
 
     private void configureSolver(String solver) {
