@@ -211,7 +211,7 @@ class ResilientAcLoadFlowPerturbationTest {
         voltagePerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, rPU, xPU, alpha, exportPath);
     }
 
-    @ParameterizedTest(name = "Test resilience of RKN to active power perturbation (extreme perturbation) on various IEEE networks: {0}")
+    @ParameterizedTest(name = "Test resilience of RKN to active power perturbation (extreme perturbation) on IEEE30 network: {0}")
     @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3E30Networks")
     void testActivePowerPerturbationOnI3E30Network(NetworkProviders.NetworkPair pair) {
         String baseFilename = pair.baseFilename();
