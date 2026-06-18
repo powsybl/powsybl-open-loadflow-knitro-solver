@@ -18,3 +18,14 @@ org.eclipse.jdt.groovy.core.prefs
 
 # Generated readthedocs pages
 build-docs/
+Outputs/
+Slack_info/
+data/
+test_active_power_RTE/
+knitro.log
+PathToCsv.csv
+PathToCsv_optim_info.csv
+30-voltage-perturbation.xiidm
+NetworkProvidersalldata.java
+ResilientAcLoadFlowPerturbationTestAlldata.java
+_pycache_/
