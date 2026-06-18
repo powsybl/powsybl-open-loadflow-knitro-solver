@@ -188,6 +188,16 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         return new AcSolverResult(acStatus, nbIter, slackBusActivePowerMismatch);
     }
 
+    private int solverCount = 0;
+
+    public int incrementSolveCount() {
+        return solverCount++;
+    }
+
+    public int getSolveCount() {
+        return solverCount;
+    }
+
     public abstract class AbstractKnitroProblem extends KNProblem {
 
         protected static final Logger LOGGER = LoggerFactory.getLogger(AbstractKnitroProblem.class);

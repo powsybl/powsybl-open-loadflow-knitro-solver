@@ -20,7 +20,7 @@ public final class PerturbationFactory {
     private static final double BASE_100MVA = 100.0;
 
     private PerturbationFactory() {
-
+        throw new UnsupportedOperationException("Utility class");
     }
 
     /**

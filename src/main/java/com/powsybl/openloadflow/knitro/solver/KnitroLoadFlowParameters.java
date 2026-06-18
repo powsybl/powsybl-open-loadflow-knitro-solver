@@ -20,6 +20,7 @@ import java.util.Optional;
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
+
 public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParameters> {
 
     public static final String MODULE_SPECIFIC_PARAMETERS = "open-load-flow-knitro-solver-default-parameters";
@@ -37,6 +38,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     private double slackThreshold = KnitroSolverParameters.DEFAULT_SLACK_THRESHOLD;
     private KnitroSolverParameters.SolverType knitroSolverType = KnitroSolverParameters.DEFAULT_SOLVER_TYPE;
     private int threadNumber = KnitroSolverParameters.DEFAULT_THREAD_NUMBER;
+    private String exportSolution = KnitroSolverParameters.DEFAULT_EXPORT_SOLUTION;
     private double losses = KnitroSolverParameters.DEFAULT_DC_LOSSES;
 
     public static final String GRADIENT_COMPUTATION_MODE_PARAM_NAME = "gradientComputationMode";
@@ -53,6 +55,7 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
     public static final String SOLVER_TYPE_PARAM_NAME = "solverType";
     public static final String THREAD_NUMBER_PARAM_NAME = "threadNumber";
     public static final String LOSSES_NAME = "losses";
+    public static final String EXPORT_SOLUTION_NAME = "exportSolution";
 
     public double getLosses() {
         return losses;
@@ -60,6 +63,15 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
 
     public KnitroLoadFlowParameters setLosses(double losses) {
         this.losses = losses;
+        return this;
+    }
+
+    public String getExportSolution() {
+        return exportSolution;
+    }
+
+    public KnitroLoadFlowParameters setExportSolution(String exportSolution) {
+        this.exportSolution = exportSolution;
         return this;
     }
 
@@ -264,6 +276,8 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
                             .ifPresent(this::setThreadNumber);
                     config.getOptionalIntProperty(LOSSES_NAME)
                             .ifPresent(this::setLosses);
+                    config.getOptionalStringProperty(EXPORT_SOLUTION_NAME)
+                            .ifPresent(this::setExportSolution);
                 });
         return this;
     }
@@ -297,6 +311,8 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
                 .ifPresent(prop -> this.setThreadNumber(Integer.parseInt(prop)));
         Optional.ofNullable(properties.get(LOSSES_NAME))
                 .ifPresent(prop -> this.setLosses(Double.parseDouble(prop)));
+        Optional.ofNullable(properties.get(EXPORT_SOLUTION_NAME))
+                .ifPresent(this::setExportSolution);
         return this;
     }
 }

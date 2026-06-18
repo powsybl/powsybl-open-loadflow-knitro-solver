@@ -13,8 +13,7 @@ import com.powsybl.commons.PowsyblException;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.ac.equations.AcVariableType;
 import com.powsybl.openloadflow.equations.*;
-import com.powsybl.openloadflow.network.LfBus;
-import com.powsybl.openloadflow.network.LfNetwork;
+import com.powsybl.openloadflow.network.*;
 import com.powsybl.openloadflow.util.PerUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +21,12 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+
+import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.*;
 
 /**
  * Abstract class for relaxed Knitro solvers, solving the open load flow equation system by minimizing constraint violations through relaxation.
@@ -36,8 +41,15 @@ import java.util.stream.Collectors;
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  */
 public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
+    private static final String FEASIBLE = "feasible";
+    private static final String VIOLATED = "violated";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelaxedKnitroSolver.class);
+    private static final String SLACK_LOG = "Slack {}[{}] → {}";
+    private static final String CSV_EXTENSION = ".csv";
+    private static final String CSV_EXTENSION_OPTI = "_optim_info.csv";
+
+    // Variable weight
     protected double weightP1;
     protected static final double WEIGHT_Q_1 = 1.0;
     protected static final double GAMMA_FACTOR = 0.1;
@@ -60,6 +72,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     protected final Map<Integer, Integer> qEquationLocalIds;
     protected final Map<Integer, Integer> vEquationLocalIds;
 
+    // Mapping of the slack variable and info
+    private final ArrayList<SlackVariableInfo> slackContributions = new ArrayList<>();
     // Mapping of gamma : each Voltage Level is assign to a gamma depending on its nominal voltage
     protected HashMap<Double, Double> voltageLevelGammaMap;
     protected HashMap<Integer, Double> weightVMap;
@@ -71,12 +85,12 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         List<SingleEquation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedSingleEquationsToSolve();
         // Count number of equations by type
+
         this.numPEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_P).count();
         this.numQEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count();
         this.numVEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count();
 
         this.numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations);
-
         // the slack variables start after power flow variables
         this.slackPStartIndex = equationSystem.getIndex().getSortedVariablesToFind().size();
         this.slackQStartIndex = slackPStartIndex + 2 * numPEquations;
@@ -91,7 +105,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         int qCounter = 0;
         int vCounter = 0;
 
-        // MAP GAMMA : VL in kV and the corresponding gamma
+        // Map GAMMA values : for the different voltage level (kV) map the corresponding gamma value
         voltageLevelGammaMap = new HashMap<>();
         voltageLevelGammaMap.put(72.5, 39.55);
         voltageLevelGammaMap.put(145.0, 100.45);
@@ -130,7 +144,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             throw new PowsyblException("DIVIDED BY ZERO: DeltaP is equal to 0, cannot compute weightP1. Please check that the network has non-zero active power generation and load, and/or adjust the losses parameter.");
         }
 
-        // Weight P
         weightP1 = getWeightP1(activeGeneration, deltaP);
     }
 
@@ -158,11 +171,13 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         super.processSolution(solver, solution, problemInstance);
 
         List<Double> x = solution.getX();
+        int outerloopIteration = getSolveCount();
 
         // ========== Slack Logging ==========
-        logSlackValues("P", slackPStartIndex, numPEquations, x);
-        logSlackValues("Q", slackQStartIndex, numQEquations, x);
-        logSlackValues("V", slackVStartIndex, numVEquations, x);
+        LOGGER.info("== Slack informations: showing the 5 largest slack value (use DEBUG mode to display all) == ");
+        logSlackValues(SlackType.P, slackPStartIndex, numPEquations, x, outerloopIteration);
+        logSlackValues(SlackType.Q, slackQStartIndex, numQEquations, x, outerloopIteration);
+        logSlackValues(SlackType.V, slackVStartIndex, numVEquations, x, outerloopIteration);
 
         // ========== Penalty Computation ==========
         double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, weightP1);
@@ -177,8 +192,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LOGGER.info("Total penalty = {}", totalPenalty);
 
         // Weight use in the objective function
-        LOGGER.info("Total LOSSES DC =  {} MW", this.knitroParameters.getLosses());
-        LOGGER.info("Weight P1 = {}", weightP1);
+        LOGGER.info("==== Objective function weight details ====");
+        LOGGER.info("Total LOSSES DC =  {} MW", String.format("%.2f", this.knitroParameters.getLosses()));
+        LOGGER.info("Weight P1 = {}", String.format("%.2f", weightP1));
         LOGGER.info("Weight Q1 = {}", WEIGHT_Q_1);
         if (LOGGER.isInfoEnabled()) {
             String gammaStr = weightVMap.entrySet().stream()
@@ -189,6 +205,21 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
             LOGGER.info(String.format("Gamma values : %s", gammaStr));
         }
+
+        SlackVariableInfo[] slackArray = slackContributions.toArray(new SlackVariableInfo[0]); // Object with all the present slack information
+        String csvPath = this.knitroParameters.getExportSolution();
+
+        logSlackSummary(slackArray); // Generic summary of the network, number of slack of each type, number of load or generator violations
+        if (csvPath != null && !csvPath.isEmpty()) {
+            List<String> csvLines = slackInfoCsv(slackArray);
+            List<String> optimInfo = optimInfoCsv(totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver);
+
+            writeSlackInfoCsv(csvPath + CSV_EXTENSION, csvLines);
+            writeOptimInfoCsv(csvPath + CSV_EXTENSION_OPTI, optimInfo);
+        }
+
+        incrementSolveCount();
+
     }
 
     /**
@@ -199,43 +230,52 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param count The maximum number of slack variables associated to the given type.
      * @param x The variable values as returned by solver.
      */
-    protected void logSlackValues(String type, int startIndex, int count, List<Double> x) {
-        LOGGER.debug("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
+    protected void logSlackValues(SlackType type, int startIndex, int count, List<Double> x, int outerloopIteration) {
+        List<SlackVariableInfo> localContributions = new ArrayList<>();
+        LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
         for (int i = 0; i < count; i++) {
             double sm = x.get(startIndex + 2 * i);
             double sp = x.get(startIndex + 2 * i + 1);
             double epsilon = sp - sm;
 
-            // Get significant slack values above threshold
-            boolean shouldSkip = Math.abs(epsilon) <= knitroParameters.getSlackThreshold();
-            String name = null;
-            String interpretation = null;
+            if (Math.abs(epsilon) > knitroParameters.getSlackThreshold()) {
+                String name = getSlackVariableBusName(i, type);
+                var bus = network.getBusById(name);
 
-            if (!shouldSkip) {
-                name = getSlackVariableBusName(i, type);
+                if (bus == null) {
+                    LOGGER.warn("Bus {} not found while logging slack.", name);
+                    continue;
+                }
 
                 switch (type) {
-                    case "P" -> interpretation = String.format("ΔP = %.4f p.u. (%.1f MW)", epsilon, epsilon * PerUnit.SB);
-                    case "Q" -> interpretation = String.format("ΔQ = %.4f p.u. (%.1f MVAr)", epsilon, epsilon * PerUnit.SB);
-                    case "V" -> {
-                        var bus = network.getBusById(name);
-                        if (bus == null) {
-                            LOGGER.warn("Bus {} not found while logging V slack.", name);
-                            shouldSkip = true;
-                        } else {
-                            interpretation = String.format("ΔV = %.4f p.u. (%.1f kV)", epsilon, epsilon * bus.getNominalV());
-                        }
+                    case P, Q -> {
+                        localContributions.add(logSlackPowerType(bus, epsilon, type, outerloopIteration));
                     }
-                    default -> interpretation = "Unknown slack type";
+                    case V -> {
+                        localContributions.add(logSlackTypeV(bus, epsilon, type, outerloopIteration));
+                    }
                 }
             }
+        }
 
-            if (shouldSkip) {
-                continue;
+        // Add to global list
+        slackContributions.addAll(localContributions);
+
+        // Log top 5 of this type as INFO, rest as DEBUG
+        List<SlackVariableInfo> sorted = new ArrayList<>(localContributions);
+        sorted.sort(Comparator.comparingDouble(s -> -Math.abs(s.slackValuePu)));
+
+        Set<String> top5Names = sorted.stream()
+                .limit(5)
+                .map(SlackVariableInfo::busId)
+                .collect(Collectors.toSet());
+
+        for (SlackVariableInfo s : sorted) {
+            if (top5Names.contains(s.busId())) {
+                LOGGER.info(SLACK_LOG, s.type(), s.busId(), s.interpretation());
+            } else {
+                LOGGER.debug(SLACK_LOG, s.type(), s.busId(), s.interpretation());
             }
-
-            String msg = String.format("Slack %s[ %s ] → Sm = %.4f, Sp = %.4f → %s", type, name, sm, sp, interpretation);
-            LOGGER.debug(msg);
         }
     }
 
@@ -246,11 +286,12 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param type The slack variable type.
      * @return The id of the bus associated to the slack variable.
      */
-    private String getSlackVariableBusName(Integer index, String type) {
+
+    private String getSlackVariableBusName(Integer index, SlackType type) {
         Set<Map.Entry<Integer, Integer>> equationSet = switch (type) {
-            case "P" -> pEquationLocalIds.entrySet();
-            case "Q" -> qEquationLocalIds.entrySet();
-            case "V" -> vEquationLocalIds.entrySet();
+            case P -> pEquationLocalIds.entrySet();
+            case Q -> qEquationLocalIds.entrySet();
+            case V -> vEquationLocalIds.entrySet();
             default -> throw new IllegalStateException("Unexpected variable type: " + type);
         };
 
@@ -269,6 +310,252 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         LfBus bus = network.getBus(equationSystem.getIndex().getSortedSingleEquationsToSolve().get(varIndex).getElementNum());
 
         return bus.getId();
+    }
+
+    private record SlackVariableInfo(String busId, double slackValuePu, String type,
+                                         int loadViolation, int genViolation,
+                                         Collection<LfGenerator> generators, List<VoltageControl<?>> voltageControls,
+                                         Collection<LfLoad> loads, Optional<LfShunt> shunt,
+                                         Optional<TransformerVoltageControl> transformer,
+                                         String interpretation, int outerloopIteration) {
+    }
+
+    enum SlackType {
+        P("MW") {
+            double genMin(LfGenerator g) {
+                return g.getMinP(); }
+
+            double genMax(LfGenerator g) {
+                return g.getMaxP(); }
+
+            double busTarget(LfBus b) {
+                return b.getTargetP(); }
+
+            double loadTarget(LfBus b) {
+                return b.getLoadTargetP(); }
+        },
+        Q("MVAR") {
+            double genMin(LfGenerator g) {
+                return g.getMinQ(); }
+
+            double genMax(LfGenerator g) {
+                return g.getMaxQ(); }
+
+            double busTarget(LfBus b) {
+                return b.getTargetQ(); }
+
+            double loadTarget(LfBus b) {
+                return b.getLoadTargetQ(); }
+        },
+        V("kV") {
+            double genMin(LfGenerator g) {
+                throw new UnsupportedOperationException("Not applicable for V"); }
+
+            double genMax(LfGenerator g) {
+                throw new UnsupportedOperationException("Not applicable for V"); }
+
+            double busTarget(LfBus b) {
+                return b.getV(); }
+
+            double loadTarget(LfBus b) {
+                throw new UnsupportedOperationException("Not applicable for V"); }
+        };
+
+        private final String unit;
+
+        SlackType(String unit) {
+            this.unit = unit; }
+
+        String unit() {
+            return unit; }
+
+        abstract double genMin(LfGenerator g);
+
+        abstract double genMax(LfGenerator g);
+
+        abstract double busTarget(LfBus b);
+
+        abstract double loadTarget(LfBus b);
+    }
+
+    private SlackVariableInfo logSlackTypeV(LfBus bus, double epsilon, SlackType type, int outerloopIteration) {
+        StringBuilder interpretation = new StringBuilder();
+        int hasLoadViolation = 0;
+        int hasGenViolation = 0;
+        Optional<VoltageControl<?>> maybeControl = bus.getVoltageControls().stream().findAny();
+
+        if (Math.abs(epsilon) < 0.001) {
+            interpretation.append(String.format("ΔV = %f p.u. (%f kV) ", epsilon, epsilon * bus.getNominalV()));
+        } else {
+            interpretation.append(String.format("ΔV = %.4f p.u. (%.4f kV) ", epsilon, epsilon * bus.getNominalV()));
+        }
+        if (maybeControl.isPresent()) {
+            for (VoltageControl<?> vc : bus.getVoltageControls()) {
+                interpretation.append(String.format("%n\t\tVoltage Control status is: %s of type %s located at %s," +
+                        "Voltage target: %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
+                interpretation.append(String.format("%n\t\tAfter slack, voltage constraints at bus are %s ", isFeasibleV(epsilon, vc.getTargetValue()) ? FEASIBLE : VIOLATED));
+            }
+        }
+        return new SlackVariableInfo(bus.getId(), epsilon, type.toString(), hasLoadViolation, hasGenViolation, bus.getGenerators(), bus.getVoltageControls(),
+                bus.getLoads(), bus.getShunt(), bus.getTransformerVoltageControl(), interpretation.toString(), outerloopIteration
+        );
+    }
+
+    private SlackVariableInfo logSlackPowerType(LfBus bus, double epsilon, SlackType type, int outerloopIteration) {
+        StringBuilder interpretation = new StringBuilder();
+        int hasLoadViolation = 0;
+        int hasGenViolation = 0;
+
+        Optional<LfGenerator> maybeGenerator = bus.getGenerators().stream().findAny();
+        Optional<LfLoad> maybeLoad = bus.getLoads().stream().findAny();
+        Optional<LfShunt> maybeShunt = bus.getShunt().stream().findAny();
+        Optional<TransformerVoltageControl> maybeTransfo = bus.getTransformerVoltageControl().stream().findAny();
+
+        interpretation.append(String.format("Δ%s = %.4f p.u. (%.1f %s)", type, epsilon, epsilon * PerUnit.SB, type.unit()));
+        String isfeasible = "";
+
+        if (maybeGenerator.isPresent()) {
+            GenInterpretation generator = buildGenInterpretation(bus.getGenerators(), interpretation, type);
+            isfeasible = isGenFeasible(type.busTarget(bus) + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
+            interpretation.append(String.format("%n\t\tTotal generation bus range [%.2f,%.2f] %s", generator.minSum(), generator.maxSum(), type.unit()));
+            if (isfeasible.equals(VIOLATED)) {
+                interpretation.append(String.format(", Generator limits would be exceeded if this slack is applied %s", isfeasible));
+                hasGenViolation = 1;
+            }
+        }
+        if (maybeLoad.isPresent()) {
+            interpretation.append(String.format("%n\t\tLoad : %s, ", bus.getLoads()));
+            isfeasible = isLoadFeasible(epsilon * PerUnit.SB, type.loadTarget(bus)) ? FEASIBLE : VIOLATED;
+            interpretation.append(String.format("target %s: %.4f %s. If this slack is applied, load constraints are %s ", type, type.loadTarget(bus), type.unit(), isfeasible));
+            if (isfeasible.equals(VIOLATED)) {
+                interpretation.append(String.format("%n\t\tLoad after slack: %.4f %s ", bus.getLoadTargetQ() + epsilon * PerUnit.SB, type.unit()));
+                hasLoadViolation = 1;
+            }
+        }
+        if (maybeShunt.isPresent()) {
+            interpretation.append(String.format("%n\t\tShunt [%s] of susceptance: %.4f S and conductance: %.4f S ", maybeShunt.get().getId(), maybeShunt.get().getB(), maybeShunt.get().getG()));
+        }
+        if (maybeTransfo.isPresent()) {
+            interpretation.append(String.format("%n\t\tControl voltage is made by a transformer "));
+        }
+        if (maybeLoad.isEmpty() && maybeGenerator.isEmpty() && maybeShunt.isEmpty() && maybeTransfo.isEmpty()) {
+            interpretation.append(String.format("%n\t\tNo direct connected Load, Generator, Transformer Control voltage or Shunt "));
+        }
+        return new SlackVariableInfo(bus.getId(), epsilon, type.toString(), hasLoadViolation, hasGenViolation, bus.getGenerators(), bus.getVoltageControls(),
+                bus.getLoads(), bus.getShunt(), bus.getTransformerVoltageControl(), interpretation.toString(), outerloopIteration
+        );
+    }
+
+    private record GenInterpretation(double minSum, double maxSum, String interpretation) {
+
+    }
+
+    private static GenInterpretation buildGenInterpretation(List<LfGenerator> generators, StringBuilder interpretation, SlackType type) {
+        double minSum = 0.0;
+        double maxSum = 0.0;
+        interpretation.append(String.format("%n,\t\tGenerator at bus : "));
+        for (LfGenerator gen : generators) {
+            minSum += type.genMin(gen);
+            maxSum += type.genMax(gen);
+
+            interpretation.append(String.format("%n\t\tGenerator [%s] of range: [%.2f,%.2f] %s",
+                    gen.getId(), type.genMin(gen), type.genMax(gen), type.unit()
+            ));
+        }
+        return new GenInterpretation(minSum, maxSum, interpretation.toString());
+    }
+
+    private void logSlackSummary(SlackVariableInfo[] slackArray) {
+        Map<Integer, List<SlackVariableInfo>> groupedByIteration = Arrays.stream(slackArray)
+                .collect(Collectors.groupingBy(si -> si.outerloopIteration));
+        List<SlackVariableInfo> currentIterationSlacks = groupedByIteration.getOrDefault(getSolveCount(), List.of());
+
+        if (!currentIterationSlacks.isEmpty()) {
+            LOGGER.info("==== Perturbation general impact  ====");
+            LOGGER.info("Total number of Slack = {}", currentIterationSlacks.size());
+            int affectedBus = (int) currentIterationSlacks.stream()
+                    .map(si -> si.busId)
+                    .distinct().count();
+            int loadViolationCount = (int) currentIterationSlacks.stream()
+                    .filter(si -> si.loadViolation == 1)
+                    .count();
+            int genViolationCount = (int) currentIterationSlacks.stream()
+                    .filter(si -> si.genViolation == 1)
+                    .count();
+
+            LOGGER.info("Total number of bus affected = {}", affectedBus);
+            LOGGER.info("Total number of load violation = {}", loadViolationCount);
+            LOGGER.info("Total number of generator violation = {}", genViolationCount);
+
+            int busCount = network.getBuses().size();
+            if (busCount > 0) {
+                double percentAffected = 100.0 * affectedBus / busCount;
+                LOGGER.info("Percentage of affected bus = {} %", Math.round(percentAffected * 100.0) / 100.0);
+            } else {
+                LOGGER.info("No buses in the network were found.");
+            }
+        }
+    }
+
+    private List<String> slackInfoCsv(SlackVariableInfo[] slackArray) {
+        List<String> csvLines = new ArrayList<>();
+        csvLines.add("busId;type;slackValue_pu;generator;controleVoltage;transfo;shunt;load;load_violation;gen_violation;outerLoopIteration");
+        for (SlackVariableInfo si : slackArray) {
+            String genenerator = (si.generators != null && !si.generators.isEmpty()) ? si.generators.stream().map(Object::toString).collect(Collectors.joining("|")) : "";
+            String controleVoltage = (si.voltageControls != null && !si.voltageControls.isEmpty()) ? si.voltageControls.stream().map(Object::toString).collect(Collectors.joining(";")) : "";
+            int hasLoadViolation = si.loadViolation;
+            int hasGenViolation = si.genViolation;
+            String transformer = si.transformer.stream().map(Object::toString).collect(Collectors.joining("|"));
+            String shunt = si.shunt.stream().map(Object::toString).collect(Collectors.joining("|"));
+            String loads = si.loads.stream().map(Object::toString).collect(Collectors.joining("|"));
+            int outerloopIteration = si.outerloopIteration;
+            csvLines.add(String.format(java.util.Locale.US, "%s;%s;%.6f;%s;%s;%s;%s;%s;%s;%s;%d",
+                    si.busId, si.type, si.slackValuePu,
+                    genenerator, controleVoltage, transformer, shunt, loads, hasLoadViolation, hasGenViolation, outerloopIteration));
+        }
+        return csvLines;
+    }
+
+    private List<String> optimInfoCsv(double totalPenalty, double penaltyP, double penaltyQ, double penaltyV, KNSolution solution, KNSolver solver) {
+        List<String> optimInfo = new ArrayList<>();
+        optimInfo.add("total_penalty;penaltyP;penaltyQ;penaltyV;status;iterations");
+        try {
+            optimInfo.add(String.format(java.util.Locale.US, "%s;%s;%s;%s;%s;%s", totalPenalty, penaltyP, penaltyQ, penaltyV, solution.getStatus(), solver.getNumberIters()));
+        } catch (KNException e) {
+            LOGGER.warn("Failed to gather optimization info for CSV export", e);
+            return optimInfo; // header only, or skip the line
+        }
+        return optimInfo;
+    }
+
+    private void writeSlackInfoCsv(String filename, List<String> lines) {
+        try {
+            Files.write(
+                    Paths.get(filename),
+                    lines,
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+            );
+            LOGGER.info("Slack informations and contributions exported to {}", filename);
+        } catch (java.io.IOException e) {
+            LOGGER.warn("Failed to write slack CSV to {}", e.getMessage());
+        }
+    }
+
+    private void writeOptimInfoCsv(String filename, List<String> lines) {
+        try {
+            Files.write(
+                    Paths.get(filename),
+                    lines,
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+            );
+            LOGGER.info("Optimization information exported to {}", filename);
+        } catch (java.io.IOException e) {
+            LOGGER.warn("Failed to write optimization info CSV: {}", e.getMessage());
+        }
     }
 
     /**
@@ -366,7 +653,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             List<Integer> linIndexes = new ArrayList<>(); // list of indexes of the variable x
             List<Double> linCoefs = new ArrayList<>(); // list of indexes of the coefficient a
 
-            // add slack penalty terms, for each slack type, of the form: (Sp - Sm)^2 = Sp^2 + Sm^2 - 2*Sp*Sm + linear terms from the absolute value
+            // add slack penalty terms, for each slack type, linear terms from the absolute value
             addSlackObjectiveTerms(numPEquations, slackPStartIndex, weightP1, linIndexes, linCoefs);
             addSlackObjectiveTerms(numQEquations, slackQStartIndex, AbstractRelaxedKnitroSolver.WEIGHT_Q_1, linIndexes, linCoefs);
             addSlackObjectiveTermTypeV(numVEquations, slackVStartIndex, weightVMap, linIndexes, linCoefs);

@@ -27,6 +27,12 @@ public final class NetworkProviders {
         );
     }
 
+    public static Stream<NetworkPair> provideI3E30Networks() {
+        return Stream.of(
+                new NetworkPair(IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), "ieee30")
+        );
+    }
+
     public static void writeXML(Network network, String name) {
         Properties properties = new Properties();
         properties.put(XMLExporter.VERSION, "1.12");
