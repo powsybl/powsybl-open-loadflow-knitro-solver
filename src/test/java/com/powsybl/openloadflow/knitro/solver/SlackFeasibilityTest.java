@@ -12,8 +12,8 @@ class SlackFeasibilityTest {
         assertTrue(isGenFeasible(5.0, 0.0, 10.0));   // inside range 5.0 in [0.0, 10.0]
         assertFalse(isGenFeasible(-1.0, 0.0, 10.0)); // below min -1.0 not in [0.0, 10.0]
         assertFalse(isGenFeasible(11.0, 0.0, 10.0)); // above max 11.0 not in [0.0, 10.0]
-        assertTrue(isGenFeasible(5.0, 5.0, 10.0 ));  // lower boundary 5.0 in [0.0, 10.0]
-        assertTrue(isGenFeasible(10.0, 5.0, 10.0 ));  // upper boundary 10.0 in [0.0, 10.0]
+        assertTrue(isGenFeasible(5.0, 5.0, 10.0));  // lower boundary 5.0 in [0.0, 10.0]
+        assertTrue(isGenFeasible(10.0, 5.0, 10.0));  // upper boundary 10.0 in [0.0, 10.0]
     }
 
     @Test
