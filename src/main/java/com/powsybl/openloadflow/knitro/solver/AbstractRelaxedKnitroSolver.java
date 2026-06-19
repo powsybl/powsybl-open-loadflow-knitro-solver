@@ -503,7 +503,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         csvLines.add("bus_id;type;slackValue_pu;voltage_level_id;generator;controleVoltage;transfo;shunt;load;load_violation;gen_violation;outerloop_iteration");
         for (SlackVariableInfo si : slackArray) {
             String genenerator = (si.generators != null && !si.generators.isEmpty()) ? si.generators.stream().map(Object::toString).collect(Collectors.joining("|")) : "";
-            String controleVoltage = (si.voltageControls != null && !si.voltageControls.isEmpty()) ? si.voltageControls.stream().map(Object::toString).collect(Collectors.joining(";")) : "";
+            String controleVoltage = (si.voltageControls != null && !si.voltageControls.isEmpty()) ? si.voltageControls.stream().map(Object::toString).collect(Collectors.joining("|")) : "";
+            String voltageLevel = (si.voltageLevel != null && !si.voltageLevel.isEmpty())
+                    ? si.voltageLevel.replace(";", ",")
+                    : "";
             int hasLoadViolation = si.loadViolation;
             int hasGenViolation = si.genViolation;
             String transformer = si.transformer.stream().map(Object::toString).collect(Collectors.joining("|"));
@@ -511,7 +514,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             String loads = si.loads.stream().map(Object::toString).collect(Collectors.joining("|"));
             int outerloopIteration = si.outerloopIteration;
             csvLines.add(String.format(java.util.Locale.US, "%s;%s;%.6f;%s;%s;%s;%s;%s;%s;%s;%s;%d",
-                    si.busId, si.type, si.slackValuePu, si.voltageLevel,
+                    si.busId, si.type, si.slackValuePu, voltageLevel,
                     genenerator, controleVoltage, transformer, shunt, loads, hasLoadViolation, hasGenViolation, outerloopIteration));
         }
         return csvLines;
