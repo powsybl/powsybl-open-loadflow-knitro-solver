@@ -505,7 +505,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             String genenerator = (si.generators != null && !si.generators.isEmpty()) ? si.generators.stream().map(Object::toString).collect(Collectors.joining("|")) : "";
             String controleVoltage = (si.voltageControls != null && !si.voltageControls.isEmpty()) ? si.voltageControls.stream().map(Object::toString).collect(Collectors.joining("|")) : "";
             String voltageLevel = (si.voltageLevel != null && !si.voltageLevel.isEmpty())
-                    ? si.voltageLevel.replace(";", ",")
+                    ? si.voltageLevel.replace(";", "|")
                     : "";
             int hasLoadViolation = si.loadViolation;
             int hasGenViolation = si.genViolation;
