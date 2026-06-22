@@ -38,7 +38,6 @@ class ResilientAcLoadFlowPerturbationTest {
     private static final String NR = "NEWTON_RAPHSON";
     private static final String VOLTAGE_PERTURBATION = "voltage-perturbation";
     private static final String ACTIVE_POWER_PERTURBATION = "active-perturbation";
-    private static final String REACTIVE_POWER_PERTURBATION = "reactive-perturbation";
     private static final boolean EXPORT = false;
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
@@ -136,14 +135,6 @@ class ResilientAcLoadFlowPerturbationTest {
         PerturbationFactory.applyActivePowerPerturbation(nrNetwork, targetLoadID, alpha);
         PerturbationFactory.applyActivePowerPerturbation(dcNetwork, targetLoadID, alpha);
         compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, ACTIVE_POWER_PERTURBATION, test);
-    }
-
-    private void reactivePowerPerturbationTest(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename, double targetQ, String test) {
-        PerturbationFactory.ReactivePowerPerturbation perturbation = PerturbationFactory.getReactivePowerPerturbation(nrNetwork);
-        PerturbationFactory.applyReactivePowerPerturbation(rknNetwork, perturbation, targetQ);
-        PerturbationFactory.applyReactivePowerPerturbation(nrNetwork, perturbation, targetQ);
-        PerturbationFactory.applyReactivePowerPerturbation(dcNetwork, perturbation, targetQ);
-        compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, REACTIVE_POWER_PERTURBATION, test);
     }
 
     private double calculateDcLosses(Network dcNetwork) {
