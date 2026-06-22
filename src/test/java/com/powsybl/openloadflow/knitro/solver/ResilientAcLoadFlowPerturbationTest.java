@@ -243,23 +243,6 @@ class ResilientAcLoadFlowPerturbationTest {
 
         activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha, exportPath);
     }
-
-    // This Perturbation Test is an exemple on how tu use reactivePowerPerturbationTest
-    // The test is made in a certain way that demands a shunt which does not occur with the IEEE14 and IEEE30 network
-    // Both tests should be aborted: Assumption failed: No possible reactive power perturbation was found
-    @ParameterizedTest(name = "Test resilience of RKN to reactive power perturbation on various IEEE networks: {0}")
-    @MethodSource("com.powsybl.openloadflow.knitro.solver.NetworkProviders#provideI3ENetworks")
-    void testReactivePowerPerturbationOnOnVariousI3ENetworks(NetworkProviders.NetworkPair pair) {
-        String baseFilename = pair.baseFilename();
-        String exportPath = tmp.resolve("Slack_info").toString();
-
-        Network rknNetwork = pair.rknNetwork();
-        Network nrNetwork = pair.nrNetwork();
-        Network dcNetwork = pair.dcNetwork();
-
-        // Target reactive power injection by the shunt section in VArs
-        double targetQ = 3e9;
-
-        reactivePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, targetQ, exportPath);
-    }
 }
+
+
