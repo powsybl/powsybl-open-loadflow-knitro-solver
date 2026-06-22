@@ -175,6 +175,5 @@
             <artifactId>powsybl-ieee-cdf-converter</artifactId>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
 </project>
