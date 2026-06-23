@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
+ * @author Salomé Lavine {@literal <salome.lavine at artelys.com>}
  */
 
 class ResilientAcLoadFlowPerturbationTest {

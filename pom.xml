@@ -65,6 +65,12 @@
             <organization>Artelys</organization>
             <organizationUrl>http://www.artelys.com</organizationUrl>
         </developer>
+        <developer>
+            <name>Salomé Lavine</name>
+            <email>salome.lavine@artelys.com</email>
+            <organization>Artelys</organization>
+            <organizationUrl>http://www.artelys.com</organizationUrl>
+        </developer>
     </developers>
 
     <properties>
