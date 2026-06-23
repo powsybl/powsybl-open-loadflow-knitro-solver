@@ -1,5 +1,9 @@
 
 package com.powsybl.openloadflow.knitro.solver;
+/**
+ * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
+ * @author Salomé Lavine {@literal <salome.lavine at artelys.com>}
+ */
 
 public final class SlackFeasibility {
 
@@ -8,7 +12,7 @@ public final class SlackFeasibility {
     private static final double V_MIN_PU = 0.8;
     private static final double V_MAX_PU = 1.2;
 
-    //
+    //A generator constraint is feasible if the post-salck value is contained in its range
     public static boolean isGenFeasible(double newValue, double min, double max) {
         return newValue >= min && newValue <= max;
     }

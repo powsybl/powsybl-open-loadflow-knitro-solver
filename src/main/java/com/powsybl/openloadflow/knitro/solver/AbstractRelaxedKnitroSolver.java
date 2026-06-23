@@ -39,6 +39,7 @@ import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.*;
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
+ * @author Salomé Lavine {@literal <salome.lavine at artelys.com>}
  */
 public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     private static final String FEASIBLE = "feasible";

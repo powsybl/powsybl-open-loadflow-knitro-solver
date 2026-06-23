@@ -4,6 +4,10 @@ package com.powsybl.openloadflow.knitro.solver;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.*;
+/**
+ * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
+ * @author Salomé Lavine {@literal <salome.lavine at artelys.com>}
+ */
 
 class SlackFeasibilityTest {
 
