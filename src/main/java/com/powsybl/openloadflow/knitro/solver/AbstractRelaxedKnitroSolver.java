@@ -330,10 +330,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 return g.getMaxP(); }
 
             double busTarget(LfBus b) {
-                return b.getTargetP(); }
+                return b.getTargetP() * PerUnit.SB ; }
 
             double loadTarget(LfBus b) {
-                return b.getLoadTargetP(); }
+                return b.getLoadTargetP() * PerUnit.SB; }
         },
         Q("MVAR") {
             double genMin(LfGenerator g) {
@@ -343,10 +343,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 return g.getMaxQ(); }
 
             double busTarget(LfBus b) {
-                return b.getTargetQ(); }
+                return b.getTargetQ() * PerUnit.SB; }
 
             double loadTarget(LfBus b) {
-                return b.getLoadTargetQ(); }
+                return b.getLoadTargetQ() * PerUnit.SB; }
         },
         V("kV") {
             double genMin(LfGenerator g) {
@@ -426,7 +426,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
         if (maybeLoad.isPresent()) {
             interpretation.append(String.format("%n\t\tLoad : %s, ", bus.getLoads()));
-            isfeasible = isLoadFeasible(epsilon * PerUnit.SB, type.loadTarget(bus)) ? FEASIBLE : VIOLATED;
+            isfeasible = isLoadFeasible(epsilon * PerUnit.SB, type.loadTarget(bus) ) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format("target %s: %.4f %s. If this slack is applied, load constraints are %s ", type, type.loadTarget(bus), type.unit(), isfeasible));
             if (isfeasible.equals(VIOLATED)) {
                 interpretation.append(String.format("%n\t\tLoad after slack: %.4f %s ", type.loadTarget(bus) + epsilon * PerUnit.SB, type.unit()));
@@ -612,7 +612,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         double activeLoad = 0.0;
 
         for (LfBus b : network.getBuses()) {
-            activeLoad += b.getLoadTargetP() * 100.0;
+            activeLoad += b.getLoadTargetP() * PerUnit.SB;
         }
         return Math.abs(activeGeneration - activeLoad - losses); //minus total Losses
     }
@@ -627,7 +627,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         double activeGeneration = 0.0;
 
         for (LfBus b : network.getBuses()) {
-            activeGeneration += b.getGenerationTargetP() * 100.0;
+            activeGeneration += b.getGenerationTargetP() * PerUnit.SB;
         }
         return activeGeneration;
     }
