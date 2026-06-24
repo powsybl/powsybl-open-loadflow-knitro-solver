@@ -325,10 +325,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     enum SlackType {
         P("MW") {
             double genMin(LfGenerator g) {
-                return g.getMinP(); }
+                return g.getMinP() * PerUnit.SB; }
 
             double genMax(LfGenerator g) {
-                return g.getMaxP(); }
+                return g.getMaxP() * PerUnit.SB; }
 
             double busTarget(LfBus b) {
                 return b.getTargetP() * PerUnit.SB; }
@@ -338,10 +338,10 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         },
         Q("MVAR") {
             double genMin(LfGenerator g) {
-                return g.getMinQ(); }
+                return g.getMinQ() * PerUnit.SB; }
 
             double genMax(LfGenerator g) {
-                return g.getMaxQ(); }
+                return g.getMaxQ() * PerUnit.SB; }
 
             double busTarget(LfBus b) {
                 return b.getTargetQ() * PerUnit.SB; }
