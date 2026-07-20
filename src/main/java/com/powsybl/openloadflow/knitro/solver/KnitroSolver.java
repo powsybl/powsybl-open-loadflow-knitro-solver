@@ -68,9 +68,10 @@ public class KnitroSolver extends AbstractKnitroSolver {
                               TargetVector<AcVariableType, AcEquationType> targetVector,
                               JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                               VoltageInitializer voltageInitializer,
-                              KnitroSolverParameters parameters) throws KNException {
+                              KnitroSolverParameters parameters,
+                              EquationVector<AcVariableType, AcEquationType> equationVector) throws KNException {
 
-            super(lfNetwork, equationSystem, targetVector, jacobianMatrix, parameters);
+            super(lfNetwork, equationSystem, targetVector, jacobianMatrix, parameters, equationVector);
 
             LOGGER.info("Defining {} variables", numberOfPowerFlowVariables);
 
@@ -85,10 +86,14 @@ public class KnitroSolver extends AbstractKnitroSolver {
             setObjConstPart(0.0);
 
             // callbacks of the constraints
-            setObjEvalCallback(new KnitroCallbacks.BaseCallbackEvalFC(activeConstraints, nonlinearConstraintIndexes));
+            setObjEvalCallback(new KnitroCallbacks.BaseCallbackEvalFC(activeConstraintsSingleEq, activeConstraintsArray, nonlinearConstraintIndexes, nonlinearConstraintColumnId, equationSystem, equationVector));
 
-            // set the representation of the jacobian matrix (dense or sparse)
-            setJacobianMatrix(activeConstraints, nonlinearConstraintIndexes);
+            //setObjEvalCallback(new KnitroCallbacks.BaseCallbackEvalFC(activeConstraints, nonlinearConstraintIndexes));
+
+            // set the representation of the jacobian matrix (dense or sparse
+            setJacobianMatrix(activeConstraintsSingleEq, activeConstraintsArray, nonlinearConstraintIndexes, nonlinearConstraintColumnId);
+
+           // setJacobianMatrix(activeConstraints, nonlinearConstraintIndexes);
         }
 
         @Override
