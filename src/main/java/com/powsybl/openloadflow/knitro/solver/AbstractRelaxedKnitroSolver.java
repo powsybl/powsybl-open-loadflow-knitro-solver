@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.stream.IntStream;
 
 import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.*;
 
@@ -84,19 +85,25 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                                           EquationVector<AcVariableType, AcEquationType> equationVector, boolean detailedReport) {
         super(network, knitroParameters, equationSystem, j, targetVector, equationVector, detailedReport);
 
-        List<SingleEquation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedSingleEquationsToSolve();
         // Count number of equations by type
-
+        List<Equation<AcVariableType, AcEquationType>> sortedEquations = IntStream.range(0, equationSystem.getIndex().getColumnCount())
+                .mapToObj(col -> equationSystem.getIndex().getEquationAtColumn(col))
+                .collect(Collectors.toList());
         this.numPEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_P).count();
         this.numQEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_Q).count();
         this.numVEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_V).count();
 
         this.numSlackVariables = 2 * (numPEquations + numQEquations + numVEquations);
+        LOGGER.info("number of slack variable " + numSlackVariables);
+        LOGGER.info("Number of P {}, Q{}, V {}", numPEquations, numQEquations, numVEquations);
         // the slack variables start after power flow variables
         this.slackPStartIndex = equationSystem.getIndex().getSortedVariablesToFind().size();
         this.slackQStartIndex = slackPStartIndex + 2 * numPEquations;
         this.slackVStartIndex = slackQStartIndex + 2 * numQEquations;
 
+        LOGGER.info("Start P indice " + slackPStartIndex);
+        LOGGER.info("Start Q indice " + slackQStartIndex);
+        LOGGER.info("Start V indicies " + slackVStartIndex);
         // Map equations to local indices
         this.pEquationLocalIds = new HashMap<>();
         this.qEquationLocalIds = new HashMap<>();
@@ -308,7 +315,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             throw new PowsyblException("Variable index associated with slack variable " + type + " was not found");
         }
 
-        LfBus bus = network.getBus(equationSystem.getIndex().getSortedSingleEquationsToSolve().get(varIndex).getElementNum());
+        LfBus bus = network.getBus(equationSystem.getIndex().getEquationAtColumn(varIndex).getElementNum());
 
         return bus.getId();
     }
@@ -648,8 +655,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
          */
         protected AbstractRelaxedKnitroProblem(LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                                TargetVector<AcVariableType, AcEquationType> targetVector, JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                               KnitroSolverParameters knitroParameters, int numAdditionalVariables, int numAdditionalConstraints) {
-            super(network, equationSystem, targetVector, jacobianMatrix, knitroParameters, numAdditionalVariables, numAdditionalConstraints);
+                                               KnitroSolverParameters knitroParameters, int numAdditionalVariables, int numAdditionalConstraints, EquationVector<AcVariableType, AcEquationType> equationVector) {
+            super(network, equationSystem, targetVector, jacobianMatrix, knitroParameters, numAdditionalVariables, numAdditionalConstraints, equationVector);
         }
 
         void addObjectiveFunction(int numPEquations, int slackPStartIndex, int numQEquations, int slackQStartIndex,
@@ -796,9 +803,13 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             private final AbstractRelaxedKnitroProblem problemInstance;
 
             RelaxedCallbackEvalFC(AbstractRelaxedKnitroProblem problemInstance,
-                                  List<SingleEquation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
-                                  List<Integer> nonLinearConstraintIds) {
-                super(sortedEquationsToSolve, nonLinearConstraintIds);
+                                  List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve,
+                                  List<EquationArray<AcVariableType, AcEquationType>> sortedEquationsArrayToSolve,
+                                  List<Integer> nonLinearConstraintIds,
+                                  List<Integer> nonLinearConstraintColumnId,
+                                  EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                                  EquationVector equationVector) {
+                super(sortedSingleEquationsToSolve, sortedEquationsArrayToSolve, nonLinearConstraintIds, nonLinearConstraintColumnId, equationSystem, equationVector);
                 this.problemInstance = problemInstance;
             }
 
