@@ -50,14 +50,20 @@ public final class KnitroCallbacks {
      */
     public static class BaseCallbackEvalFC extends KNEvalFCCallback {
 
-        protected final List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve;
+        protected final List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve;
         protected final List<Integer> nonLinearConstraintIds;
+        protected final EquationSystem<AcVariableType, AcEquationType> equationSystem;
+        protected final EquationVector<AcVariableType, AcEquationType> equationVector;
 
         public BaseCallbackEvalFC(
-                List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve,
-                List<Integer> nonLinearConstraintIds) {
-            this.sortedSingleEquationsToSolve = sortedSingleEquationsToSolve;
+                List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+                List<Integer> nonLinearConstraintIds,
+                EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                EquationVector<AcVariableType, AcEquationType> equationVector) {
+            this.sortedEquationsToSolve = sortedEquationsToSolve;
             this.nonLinearConstraintIds = nonLinearConstraintIds;
+            this.equationSystem = equationSystem;
+            this.equationVector = equationVector;
         }
 
         /**
@@ -71,30 +77,21 @@ public final class KnitroCallbacks {
         public void evaluateFC(final List<Double> x, final List<Double> obj, final List<Double> c) {
             LOGGER.trace("============ Knitro evaluating callback function ============");
 
-            StateVector currentState = new StateVector(toArray(x));
-            LOGGER.trace("Current state vector: {}", currentState.get());
+            // move the equation system to the current point; f(x) (equation left-hand sides, by column) is recomputed
+            // lazily from the state vector, transparently whether the equation system is vectorized or not
+            equationSystem.getStateVector().set(toArray(x));
+            double[] fx = equationVector.getArray();
             LOGGER.trace("Evaluating {} non-linear constraints", nonLinearConstraintIds.size());
 
             int callbackConstraintIndex = 0;
 
             for (int equationId : nonLinearConstraintIds) {
-                SingleEquation<AcVariableType, AcEquationType> equation = sortedSingleEquationsToSolve.get(equationId);
+                Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
                 AcEquationType type = equation.getType();
 
-                // Ensure the constraint is non-linear
-                if (NonLinearExternalSolverUtils.isLinear(type, equation.getTerms())) {
-                    throw new IllegalArgumentException(
-                            "Equation of type " + type + " is linear but passed to the non-linear callback");
-                }
-
-                // Evaluate equation using the current state
-                double constraintValue = 0.0;
-                for (SingleEquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                    term.setStateVector(currentState);
-                    if (term.isActive()) {
-                        constraintValue += term.eval();
-                    }
-                }
+                // the constraint index is the equation column: read the pre-evaluated left-hand side when available,
+                // otherwise evaluate the equation (e.g. equations added on top of the open load flow system)
+                double constraintValue = equationId < fx.length ? fx[equationId] : equation.eval();
 
                 // Allow subclasses to add slack contributions
                 constraintValue += addModificationOfNonLinearConstraints(equationId, type, x);

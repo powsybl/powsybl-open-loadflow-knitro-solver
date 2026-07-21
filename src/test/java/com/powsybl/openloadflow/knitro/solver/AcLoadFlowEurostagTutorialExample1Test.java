@@ -70,7 +70,7 @@ class AcLoadFlowEurostagTutorialExample1Test {
                 .setDistributedSlack(false);
         parametersExt = OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.FIRST)
-//                .setGradientComputationModeKnitro(2)
+                //.setGradientComputationModeKnitro(2)
                 .setAcSolverType(KnitroSolverFactory.NAME);
     }
 

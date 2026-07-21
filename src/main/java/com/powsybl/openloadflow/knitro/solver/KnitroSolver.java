@@ -85,7 +85,7 @@ public class KnitroSolver extends AbstractKnitroSolver {
             setObjConstPart(0.0);
 
             // callbacks of the constraints
-            setObjEvalCallback(new KnitroCallbacks.BaseCallbackEvalFC(activeConstraints, nonlinearConstraintIndexes));
+            setObjEvalCallback(new KnitroCallbacks.BaseCallbackEvalFC(activeConstraints, nonlinearConstraintIndexes, equationSystem, equationVector));
 
             // set the representation of the jacobian matrix (dense or sparse)
             setJacobianMatrix(activeConstraints, nonlinearConstraintIndexes);
