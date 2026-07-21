@@ -12,12 +12,12 @@ public final class SlackFeasibility {
     private static final double V_MIN_PU = 0.8;
     private static final double V_MAX_PU = 1.2;
 
-    //A generator constraint is feasible if the post-salck value is contained in its range
+    // A generator constraint is feasible if the post-salck value is contained in its range
     public static boolean isGenFeasible(double newValue, double min, double max) {
         return newValue >= min && newValue <= max;
     }
 
-    //A load is feasible if the post-slack values stays >= 0
+    // A load is feasible if the post-slack values stays >= 0
     public static boolean isLoadFeasible(double slack, double loadTarget) {
         return slack + loadTarget >= 0;
     }
