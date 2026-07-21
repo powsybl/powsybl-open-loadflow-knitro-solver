@@ -63,17 +63,6 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Checkout open-loadflow not-vectorized sources
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          repository: powsybl/powsybl-open-loadflow
-          ref: olf-2.1.1-not-vectorized
-          path: powsybl-open-loadflow
-      - name: Build open-loadflow not-vectorized
-        run: |
-          mvn -batch-mode --no-transfer-progress clean install -DskipTests
-        working-directory: ./powsybl-open-loadflow
-
       - name: Build with Maven (Ubuntu and macOS)
         if: matrix.os != 'windows-latest'
         run: |

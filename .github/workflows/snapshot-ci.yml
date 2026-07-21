@@ -2,9 +2,8 @@ name: Snapshot CI
 
 on:
   workflow_dispatch:
-# note: scheduled run is disabled until EquationSystem vectorization support is properly implemented
-#  schedule:
-#    - cron: '30 3 * * *'
+  schedule:
+    - cron: '30 3 * * *'
 
 jobs:
   build:
