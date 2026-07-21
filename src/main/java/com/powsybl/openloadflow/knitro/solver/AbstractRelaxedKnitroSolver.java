@@ -741,7 +741,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         @Override
         protected void addAdditionalJacobianVariables(int constraintIndex,
-                                                      SingleEquation<AcVariableType, AcEquationType> equation,
+                                                      Equation<AcVariableType, AcEquationType> equation,
                                                       List<Integer> variableIndices) {
             AcEquationType equationType = equation.getType();
             // get slack variable local index (within its equation type)
