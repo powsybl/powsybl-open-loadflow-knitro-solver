@@ -31,7 +31,7 @@ class AcLoadFlowBoundaryTest {
     private Network network;
     private Bus bus1;
     private Bus bus2;
-    private DanglingLine dl1;
+    private BoundaryLine dl1;
     private Generator g1;
 
     private LoadFlow.Runner loadFlowRunner;
@@ -45,7 +45,7 @@ class AcLoadFlowBoundaryTest {
         network = BoundaryFactory.create();
         bus1 = network.getBusBreakerView().getBus("b1");
         bus2 = network.getBusBreakerView().getBus("b2");
-        dl1 = network.getDanglingLine("dl1");
+        dl1 = network.getBoundaryLine("bl1");
         g1 = network.getGenerator("g1");
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
         parameters = new LoadFlowParameters()
@@ -134,8 +134,8 @@ class AcLoadFlowBoundaryTest {
         assertReactivePowerEquals(0.0044, network.getLine("l34").getTerminal2());
 
         TieLine line = network.getTieLine("t12");
-        line.getDanglingLine1().getTerminal().disconnect();
-        line.getDanglingLine1().getTerminal().disconnect();
+        line.getBoundaryLine1().getTerminal().disconnect();
+        line.getBoundaryLine1().getTerminal().disconnect();
         loadFlowRunner.run(network, parameters);
         assertVoltageEquals(400.0, network.getBusBreakerView().getBus("b3"));
         System.out.println(network.getLine("l34").getTerminal2().getQ());

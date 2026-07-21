@@ -461,7 +461,7 @@ class AcLoadFlowTransformerVoltageControlTest {
         assertVoltageEquals(33, bus4);
         assertEquals(1, t2wt.getRatioTapChanger().getSolvedTapPosition());
         assertEquals(0, t2wt.getRatioTapChanger().getTapPosition());
-//        assertReactivePowerEquals(-1.172, g4.getTerminal()); //FIXME
+        //assertReactivePowerEquals(-1.172, g4.getTerminal()); //FIXME
 
         //////////////////////////////////////////////////////////////////////////////////////////
         loadFlowRunner.run(network, parameters);
