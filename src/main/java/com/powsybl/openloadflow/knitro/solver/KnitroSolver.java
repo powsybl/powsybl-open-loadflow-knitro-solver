@@ -46,7 +46,7 @@ public class KnitroSolver extends AbstractKnitroSolver {
     @Override
     protected KNProblem createKnitroProblem(VoltageInitializer voltageInitializer) {
         try {
-            return new KnitroProblem(network, equationSystem, targetVector, j, voltageInitializer, knitroParameters);
+            return new KnitroProblem(network, equationSystem, targetVector, j, voltageInitializer, knitroParameters, equationVector);
         } catch (KNException e) {
             throw new PowsyblException("Failed to create Knitro problem", e);
         }
