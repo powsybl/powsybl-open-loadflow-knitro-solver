@@ -491,179 +491,148 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 //                    knitroParameters, numberOfPowerFlowVariables);
 //        }
 
-            for (int i = 0; i < numBusesWithFiniteQLimits; i++) {
-                vInfSuppList.add(compVarStartIndex + 5 * i); // vInf
-                vInfSuppList.add(compVarStartIndex + 5 * i + 1); // vSup
-                bVarList.add(compVarStartIndex + 5 * i + 3); // bUp
-                bVarList.add(compVarStartIndex + 5 * i + 2); // bLow
-            }
-
-            // add the complementary conditions
-            // 0 <= bLow perp vSup >= 0 and 0 <= bUp perp vInf >= 0
-            setCompConstraintsTypes(listTypeVar);
-            setCompConstraintsParts(bVarList, vInfSuppList);
-        }
-
-        private int getComplementarityVarBaseIndex(int equationId) {
-            return compVarStartIndex + 5 * vSuppEquationLocalIds.get(equationId);
-        }
-
-        private int getElemNumControlledBus(int elemNum) {
-            return elemNumControlledControllerBus.get(elemNum);
-        }
-
-        @Override
-        protected KNEvalGACallback createGradientCallback(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                                          List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
-                                                          List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) {
-
-            return new UseReactiveLimitsCallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
-                    listNonZerosCtsSparse, listNonZerosVarsSparse, network, equationSystem,
-                    knitroParameters, numberOfPowerFlowVariables);
-        }
-
-        @Override
-        protected void addAdditionalJacobianVariables(int constraintIndex,
-                                                      SingleEquation<AcVariableType, AcEquationType> equation,
-                                                      List<Integer> variableIndices) {
-            super.addAdditionalJacobianVariables(constraintIndex, equation, variableIndices);
-            int numberLFEq = completeEquationsToSolve.size() - 3 * vSuppEquationLocalIds.size();
-            AcEquationType equationType = equation.getType();
-            // Add complementarity constraints' variables if the constraint type has them
-            int compVarStart;
-            // Case of inactive Q equations, we take the V equation associated to it to get the right index used to order the equation system
-            if (equationType == BUS_TARGET_Q && !equation.isActive()) {
-                int elemNumControlledBus = elemNumControlledControllerBus.get(equation.getElementNum());        // Controller bus
-                List<SingleEquation<AcVariableType, AcEquationType>> listEqControlledBus = equationSystem             // Equations of the Controller bus
-                        .getEquations(ElementType.BUS, elemNumControlledBus);
-                SingleEquation<AcVariableType, AcEquationType> eqVControlledBus = listEqControlledBus.stream()        // Take the one on V
-                        .filter(e -> e.getType() == BUS_TARGET_V).toList().getFirst();
-                int indexEqVAssociated = equationSystem.getIndex().getSortedSingleEquationsToSolve().indexOf(eqVControlledBus);   // Find the index of the V equation associated
-
-                compVarStart = vSuppEquationLocalIds.get(indexEqVAssociated);
-                if (constraintIndex < numberLFEq + 2 * vSuppEquationLocalIds.size()) {
-                    variableIndices.add(compVarStartIndex + 5 * compVarStart + 2); // b_low
-                } else {
-                    variableIndices.add(compVarStartIndex + 5 * compVarStart + 3); // b_up
-                }
-            }
-        }
-
-        /**
-         * Callback used by Knitro to evaluate the non-linear parts of the objective and constraint functions.
-         */
-        private static final class UseReactiveLimitsCallbackEvalFC extends RelaxedCallbackEvalFC {
-
-            private final UseReactiveLimitsKnitroProblem problemInstance;
-
-            private UseReactiveLimitsCallbackEvalFC(UseReactiveLimitsKnitroProblem problemInstance,
-                                          List<SingleEquation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
-                                          List<Integer> nonLinearConstraintIds) {
-                super(problemInstance, sortedEquationsToSolve, nonLinearConstraintIds);
-                this.problemInstance = problemInstance;
-            }
-
-            @Override
-            protected double addModificationOfNonLinearConstraints(int equationId, AcEquationType equationType,
-                                                                   List<Double> x) {
-                double constraintValue = 0;
-                SingleEquation<AcVariableType, AcEquationType> equation = sortedSingleEquationsToSolve.get(equationId);
-                // if the equation is active, then it is treated as an open load flow constraint
-                if (equation.isActive()) {
-                    // add relaxation if necessary
-                    constraintValue += super.addModificationOfNonLinearConstraints(equationId, equationType, x);
-
-                // otherwise, these are bLow and bUp constraints and the term must be added
-                } else {
-                    int numNotActiveEquations = sortedSingleEquationsToSolve.stream().filter(
-                            e -> !e.isActive()).toList().size();
-                    int elemNum = equation.getElementNum();
-                    int elemNumControlledBus = problemInstance.getElemNumControlledBus(elemNum);
-                    List<SingleEquation<AcVariableType, AcEquationType>> controlledBusEquations = sortedSingleEquationsToSolve.stream()
-                            .filter(e -> e.getElementNum() == elemNumControlledBus).toList();
-                    // the voltage set point equation
-                    Equation<AcVariableType, AcEquationType> equationV = controlledBusEquations.stream().filter(e -> e.getType() == BUS_TARGET_V).toList().getFirst();
-                    int equationVId = sortedSingleEquationsToSolve.indexOf(equationV);                                        //Index of V equation
-                    int compVarBaseIndex = problemInstance.getComplementarityVarBaseIndex(equationVId);
-                    // bLow constraint
-                    if (equationId - sortedSingleEquationsToSolve.size() + numNotActiveEquations / 2 < 0) {
-                        double bLow = x.get(compVarBaseIndex + 2);
-                        constraintValue -= bLow;
-                    // bUp Constraint
-                    } else {
-                        double bUp = x.get(compVarBaseIndex + 3);
-                        constraintValue += bUp;
-                    }
-                }
-
-                return constraintValue;
-            }
-        }
-
-        /**
-         * Callback used by Knitro to evaluate the gradient (Jacobian matrix) of the constraints.
-         * Only constraints (no objective) are handled here.
-         */
-        private static final class UseReactiveLimitsCallbackEvalG extends RelaxedCallbackEvalG {
-
-            private final int numLFVar;
-            private final int numVEq;
-            private final int numPQEq;
-
-            private final Map<Integer, Variable<AcVariableType>> indRowVariable = new LinkedHashMap<>();
-
-            private UseReactiveLimitsCallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                    List<Integer> denseConstraintIndices, List<Integer> denseVariableIndices, List<Integer> sparseConstraintIndices,
-                    List<Integer> sparseVariableIndices, LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
-                    KnitroSolverParameters knitroParameters, int numLFVariables) {
-
-                super(jacobianMatrix, denseConstraintIndices, denseVariableIndices, sparseConstraintIndices, sparseVariableIndices,
-                        network, equationSystem, knitroParameters, numLFVariables);
-
-                this.numLFVar = equationSystem.getIndex().getSortedVariablesToFind().size();
-
-                this.numVEq = equationSystem.getIndex().getSortedSingleEquationsToSolve().stream().filter(
-                        e -> e.getType() == BUS_TARGET_V).toList().size();
-
-                this.numPQEq = equationSystem.getIndex().getSortedSingleEquationsToSolve().stream().filter(
-                        e -> e.getType() == BUS_TARGET_Q || e.getType() == BUS_TARGET_P).toList().size();
-
-                List<Variable<AcVariableType>> listVar = equationSystem.getVariableSet().getVariables().stream().toList();
-                for (Variable<AcVariableType> variable : listVar) {
-                    indRowVariable.put(variable.getRow(), variable);
-                }
-            }
-
-            @Override
-            protected double computeAddedConstraintJacobianValue(int variableIndex, int constraintIndex) {
-                // Case of Unactivated Q equations
-                // If var is a LF variable : derivate non-activated equations
-                double value = 0.0;
-                Equation<AcVariableType, AcEquationType> equation = INDEQUNACTIVEQ.get(constraintIndex);
-                if (variableIndex < numLFVar) {
-                    // add non-linear terms
-                    for (Map.Entry<Variable<AcVariableType>, List<EquationTerm<AcVariableType, AcEquationType>>> e : equation.getTermsByVariable().entrySet()) {
-                        for (EquationTerm<AcVariableType, AcEquationType> term : e.getValue()) {
-                            Variable<AcVariableType> v = e.getKey();
-                            if (indRowVariable.get(variableIndex) == v) {
-                                value += term.isActive() ? term.der(v) : 0;
-                            }
-                        }
-                    }
-                }
-                // Check if var is a b_low or b_up var
-                if (variableIndex >= numLFVar + 2 * (numPQEq + numVEq)) {
-                    int rest = (variableIndex - numLFVar - 2 * (numPQEq + numVEq)) % 5;
-                    if (rest == 2) {
-                        // set Jacobian entry to -1.0 if variable is b_low
-                        value = -1.0;
-                    } else if (rest == 3) {
-                        // set Jacobian entry to 1.0 if variable is b_up
-                        value = 1.0;
-                    }
-                }
-                return value;
-            }
-        }
-    }
-}
+//        @Override
+//        protected void addAdditionalJacobianVariables(int constraintIndex,
+//                                                      SingleEquation<AcVariableType, AcEquationType> equation,
+//                                                      List<Integer> variableIndices) {
+//            super.addAdditionalJacobianVariables(constraintIndex, equation, variableIndices);
+//            int numberLFEq = completeEquationsToSolve.size() - 3 * vSuppEquationLocalIds.size();
+//            AcEquationType equationType = equation.getType();
+//            // Add complementarity constraints' variables if the constraint type has them
+//            int compVarStart;
+//            // Case of inactive Q equations, we take the V equation associated to it to get the right index used to order the equation system
+//            if (equationType == BUS_TARGET_Q && !equation.isActive()) {
+//                int elemNumControlledBus = elemNumControlledControllerBus.get(equation.getElementNum());        // Controller bus
+//                List<SingleEquation<AcVariableType, AcEquationType>> listEqControlledBus = equationSystem             // Equations of the Controller bus
+//                        .getEquations(ElementType.BUS, elemNumControlledBus);
+//                SingleEquation<AcVariableType, AcEquationType> eqVControlledBus = listEqControlledBus.stream()        // Take the one on V
+//                        .filter(e -> e.getType() == BUS_TARGET_V).toList().getFirst();
+//                int indexEqVAssociated = equationSystem.getIndex().getSortedSingleEquationsToSolve().indexOf(eqVControlledBus);   // Find the index of the V equation associated
+//
+//                compVarStart = vSuppEquationLocalIds.get(indexEqVAssociated);
+//                if (constraintIndex < numberLFEq + 2 * vSuppEquationLocalIds.size()) {
+//                    variableIndices.add(compVarStartIndex + 5 * compVarStart + 2); // b_low
+//                } else {
+//                    variableIndices.add(compVarStartIndex + 5 * compVarStart + 3); // b_up
+//                }
+//            }
+//        }
+//
+//        /**
+//         * Callback used by Knitro to evaluate the non-linear parts of the objective and constraint functions.
+//         */
+//        private static final class UseReactiveLimitsCallbackEvalFC extends RelaxedCallbackEvalFC {
+//
+//            private final UseReactiveLimitsKnitroProblem problemInstance;
+//
+//            private UseReactiveLimitsCallbackEvalFC(UseReactiveLimitsKnitroProblem problemInstance,
+//                                          List<SingleEquation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+//                                          List<Integer> nonLinearConstraintIds) {
+//                super(problemInstance, sortedEquationsToSolve, nonLinearConstraintIds);
+//                this.problemInstance = problemInstance;
+//            }
+//
+//            @Override
+//            protected double addModificationOfNonLinearConstraints(int equationId, AcEquationType equationType,
+//                                                                   List<Double> x) {
+//                double constraintValue = 0;
+//                SingleEquation<AcVariableType, AcEquationType> equation = sortedSingleEquationsToSolve.get(equationId);
+//                // if the equation is active, then it is treated as an open load flow constraint
+//                if (equation.isActive()) {
+//                    // add relaxation if necessary
+//                    constraintValue += super.addModificationOfNonLinearConstraints(equationId, equationType, x);
+//
+//                // otherwise, these are bLow and bUp constraints and the term must be added
+//                } else {
+//                    int numNotActiveEquations = sortedSingleEquationsToSolve.stream().filter(
+//                            e -> !e.isActive()).toList().size();
+//                    int elemNum = equation.getElementNum();
+//                    int elemNumControlledBus = problemInstance.getElemNumControlledBus(elemNum);
+//                    List<SingleEquation<AcVariableType, AcEquationType>> controlledBusEquations = sortedSingleEquationsToSolve.stream()
+//                            .filter(e -> e.getElementNum() == elemNumControlledBus).toList();
+//                    // the voltage set point equation
+//                    Equation<AcVariableType, AcEquationType> equationV = controlledBusEquations.stream().filter(e -> e.getType() == BUS_TARGET_V).toList().getFirst();
+//                    int equationVId = sortedSingleEquationsToSolve.indexOf(equationV);                                        //Index of V equation
+//                    int compVarBaseIndex = problemInstance.getComplementarityVarBaseIndex(equationVId);
+//                    // bLow constraint
+//                    if (equationId - sortedSingleEquationsToSolve.size() + numNotActiveEquations / 2 < 0) {
+//                        double bLow = x.get(compVarBaseIndex + 2);
+//                        constraintValue -= bLow;
+//                    // bUp Constraint
+//                    } else {
+//                        double bUp = x.get(compVarBaseIndex + 3);
+//                        constraintValue += bUp;
+//                    }
+//                }
+//
+//                return constraintValue;
+//            }
+//        }
+//
+//        /**
+//         * Callback used by Knitro to evaluate the gradient (Jacobian matrix) of the constraints.
+//         * Only constraints (no objective) are handled here.
+//         */
+//        private static final class UseReactiveLimitsCallbackEvalG extends RelaxedCallbackEvalG {
+//
+//            private final int numLFVar;
+//            private final int numVEq;
+//            private final int numPQEq;
+//
+//            private final Map<Integer, Variable<AcVariableType>> indRowVariable = new LinkedHashMap<>();
+//
+//            private UseReactiveLimitsCallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
+//                    List<Integer> denseConstraintIndices, List<Integer> denseVariableIndices, List<Integer> sparseConstraintIndices,
+//                    List<Integer> sparseVariableIndices, LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
+//                    KnitroSolverParameters knitroParameters, int numLFVariables) {
+//
+//                super(jacobianMatrix, denseConstraintIndices, denseVariableIndices, sparseConstraintIndices, sparseVariableIndices,
+//                        network, equationSystem, knitroParameters, numLFVariables);
+//
+//                this.numLFVar = equationSystem.getIndex().getSortedVariablesToFind().size();
+//
+//                this.numVEq = equationSystem.getIndex().getSortedSingleEquationsToSolve().stream().filter(
+//                        e -> e.getType() == BUS_TARGET_V).toList().size();
+//
+//                this.numPQEq = equationSystem.getIndex().getSortedSingleEquationsToSolve().stream().filter(
+//                        e -> e.getType() == BUS_TARGET_Q || e.getType() == BUS_TARGET_P).toList().size();
+//
+//                List<Variable<AcVariableType>> listVar = equationSystem.getVariableSet().getVariables().stream().toList();
+//                for (Variable<AcVariableType> variable : listVar) {
+//                    indRowVariable.put(variable.getRow(), variable);
+//                }
+//            }
+//
+//            @Override
+//            protected double computeAddedConstraintJacobianValue(int variableIndex, int constraintIndex) {
+//                // Case of Unactivated Q equations
+//                // If var is a LF variable : derivate non-activated equations
+//                double value = 0.0;
+//                Equation<AcVariableType, AcEquationType> equation = INDEQUNACTIVEQ.get(constraintIndex);
+//                if (variableIndex < numLFVar) {
+//                    // add non-linear terms
+//                    for (Map.Entry<Variable<AcVariableType>, List<EquationTerm<AcVariableType, AcEquationType>>> e : equation.getTermsByVariable().entrySet()) {
+//                        for (EquationTerm<AcVariableType, AcEquationType> term : e.getValue()) {
+//                            Variable<AcVariableType> v = e.getKey();
+//                            if (indRowVariable.get(variableIndex) == v) {
+//                                value += term.isActive() ? term.der(v) : 0;
+//                            }
+//                        }
+//                    }
+//                }
+//                // Check if var is a b_low or b_up var
+//                if (variableIndex >= numLFVar + 2 * (numPQEq + numVEq)) {
+//                    int rest = (variableIndex - numLFVar - 2 * (numPQEq + numVEq)) % 5;
+//                    if (rest == 2) {
+//                        // set Jacobian entry to -1.0 if variable is b_low
+//                        value = -1.0;
+//                    } else if (rest == 3) {
+//                        // set Jacobian entry to 1.0 if variable is b_up
+//                        value = 1.0;
+//                    }
+//                }
+//                return value;
+//            }
+//        }
+//    }
+//}

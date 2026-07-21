@@ -113,6 +113,19 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         LOGGER.info("==== Solution Summary ====");
         LOGGER.info("Optimal objective value  = {}", solution.getObjValue());
         try {
+            LOGGER.debug("Optimal x");
+            for (int i = 0; i < solution.getX().size(); i++) {
+                LOGGER.debug(" x[{}] = {}", i, solution.getX().get(i));
+            }
+            LOGGER.debug("Optimal constraint values (with corresponding multiplier)");
+            List<Double> constraintValues = solver.getConstraintValues();
+            for (int i = 0; i < problemInstance.getNumCons(); i++) {
+                LOGGER.debug(" c[{}] = {} (lambda = {} )", i, constraintValues.get(i), solution.getLambda().get(i));
+            }
+            LOGGER.debug("Constraint violation");
+            for (int i = 0; i < problemInstance.getNumCons(); i++) {
+                LOGGER.debug(" violation[{}] = {} ", i, solver.getConViol(i));
+            }
             LOGGER.info("Feasibility violation    = {}", solver.getAbsFeasError());
             LOGGER.info("Optimality violation     = {}", solver.getAbsOptError());
         } catch (KNException e) {
@@ -575,6 +588,9 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
                                 .distinct()
                                 .sorted()
                                 .toList());
+
+                //LOGGER.debug("CT col={} type={} vars(before extra) count={} vars={}",
+                //    col, equation.getType(), uniqueListVarsCurrentCt.size(), uniqueListVarsCurrentCt);
 
                 // Allow subclasses to add additional variables (e.g., slack variables)
                 addAdditionalJacobianVariables(col, equation, uniqueListVarsCurrentCt);
