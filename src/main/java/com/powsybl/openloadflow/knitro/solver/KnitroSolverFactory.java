@@ -88,12 +88,14 @@ public class KnitroSolverFactory implements AcSolverFactory {
         if (knitroLoadFlowParameters != null && knitroLoadFlowParameters.getKnitroSolverType() == KnitroSolverParameters.SolverType.USE_REACTIVE_LIMITS) {
             // since reactive limits are taken into account in the Knitro solver, there is no need to activate the outer loop
             if (loadFlowParameters.isUseReactiveLimits()) {
-                throw new PowsyblException("Knitro generator reactive limits and reactive limits outer loop cannot work simultaneously: useReactiveLimits LoadFlowParameter should be switched to false");
+                throw new PowsyblException("Knitro generator reactive limits and reactive limits outer loop cannot work simultaneously: "
+                        + "useReactiveLimits LoadFlowParameter should be switched to false");
             }
 
             // exact dense Jacobian computation mode is not supported by Knitro generator reactive limits solver
             if (knitroLoadFlowParameters.getGradientComputationMode() == 1 && knitroLoadFlowParameters.getGradientUserRoutine() == 1) {
-                throw new PowsyblException("Knitro generator reactive limits is incompatible with exact dense jacobian computation mode: gradientUserRoutine KnitroLoadFlowParameters should be switched to 1");
+                throw new PowsyblException("Knitro generator reactive limits is incompatible with exact dense jacobian computation mode: "
+                        + "gradientUserRoutine KnitroLoadFlowParameters should be switched to 1");
             }
         }
     }

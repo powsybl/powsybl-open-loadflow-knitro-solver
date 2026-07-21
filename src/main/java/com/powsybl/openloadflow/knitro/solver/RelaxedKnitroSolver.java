@@ -71,7 +71,7 @@ public class RelaxedKnitroSolver extends AbstractRelaxedKnitroSolver {
             setupConstraints();
 
             // callbacks of the constraints
-            setObjEvalCallback(new RelaxedCallbackEvalFC(this, activeConstraints, nonlinearConstraintIndexes));
+            setObjEvalCallback(new RelaxedCallbackEvalFC(this, activeConstraints, nonlinearConstraintIndexes, equationSystem, equationVector));
 
             // set the representation of the Jacobian matrix (dense or sparse)
             setJacobianMatrix(activeConstraints, nonlinearConstraintIndexes);

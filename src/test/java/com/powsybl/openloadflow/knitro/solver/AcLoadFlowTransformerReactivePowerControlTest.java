@@ -148,7 +148,7 @@ class AcLoadFlowTransformerReactivePowerControlTest {
                             Network balance: active generation=3 MW, active load=5 MW, reactive generation=0 MVar, reactive load=0 MVar
                             Angle reference bus: b1_vl_0
                             Slack bus: b1_vl_0
-                         Outer loop VoltageMonitoring
+                         Voltage initialization with method Uniform Values
                          + Outer loop ReactiveLimits
                             + Outer loop iteration 1
                                + 1 bus(es) with remote reactive power controller switched PQ
@@ -160,11 +160,7 @@ class AcLoadFlowTransformerReactivePowerControlTest {
                                1 transformers reached their tap maximum position
                             + Outer loop iteration 3
                                1 reactive power-controlled branches are outside of their target deadbands
-                         Outer loop VoltageMonitoring
                          Outer loop ReactiveLimits
-                         + Outer loop IncrementalTransformerReactivePowerControl
-                            + Outer loop iteration 3
-                               1 reactive power-controlled branches are outside of their target deadbands
                          AC load flow completed successfully (solverStatus=CONVERGED, outerloopStatus=STABLE)
                 """;
 
@@ -223,13 +219,11 @@ class AcLoadFlowTransformerReactivePowerControlTest {
                             Network balance: active generation=3 MW, active load=5 MW, reactive generation=0 MVar, reactive load=0 MVar
                             Angle reference bus: b1_vl_0
                             Slack bus: b1_vl_0
-                         Outer loop VoltageMonitoring
+                         Voltage initialization with method Uniform Values
                          + Outer loop ReactiveLimits
                             + Outer loop iteration 1
                                + 1 bus(es) with remote reactive power controller switched PQ
                                   Remote reactive power controller bus 'b4_vl_0' -> PQ, q=-3.497508 < minQ=-3
-                         Outer loop VoltageMonitoring
-                         Outer loop ReactiveLimits
                          AC load flow completed successfully (solverStatus=CONVERGED, outerloopStatus=STABLE)
                 """;
 
@@ -520,7 +514,7 @@ class AcLoadFlowTransformerReactivePowerControlTest {
 
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
-        assertReactivePowerEquals(3.891, network.getLine("LINE_12").getTerminal1());
+        assertReactivePowerEquals(3.893, network.getLine("LINE_12").getTerminal1());
         assertEquals(0, t2wt2.getRatioTapChanger().getSolvedTapPosition());
         assertEquals(2, t2wt2.getRatioTapChanger().getTapPosition());
     }
