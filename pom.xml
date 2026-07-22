@@ -42,7 +42,7 @@
 
     <developers>
         <developer>
-            <name>Jeanne ARCHAMBAULT</name>
+            <name>Jeanne Archambault</name>
             <email>jeanne.archambault@artelys.com</email>
             <organization>Artelys</organization>
             <organizationUrl>http://www.artelys.com</organizationUrl>
@@ -62,6 +62,12 @@
         <developer>
             <name>Pierre Arvy</name>
             <email>pierre.arvy@artelys.com</email>
+            <organization>Artelys</organization>
+            <organizationUrl>http://www.artelys.com</organizationUrl>
+        </developer>
+        <developer>
+            <name>Salomé Lavine</name>
+            <email>salome.lavine@artelys.com</email>
             <organization>Artelys</organization>
             <organizationUrl>http://www.artelys.com</organizationUrl>
         </developer>
