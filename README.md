@@ -37,7 +37,7 @@ To use the PowSyBl Open Load Flow Knitro Solver extension, a valid Knitro instal
 
 ### Platform compatibility
 
-PowSyBl Open Load Flow Knitro Solver supports Linux, Windows, and macOS.
+Knitro supports Linux, Windows, and macOS; however, its Java bindings are currently available only on Linux and Windows.
 
 ### Installing Knitro
 
@@ -235,7 +235,7 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
 
 8. **Maximum Iterations**:
    - Default: **200**
-   - Modify using `setMaxIterations`.
+   - Modify using `setmaxKnitroIterations`.
 
 9. **Slack Threshold**:
     - Default value: $10^{-6}$ p.u : defines a slack values threshold below which we ignore insignificant activated slack variables.
@@ -247,6 +247,16 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
      - Use `setThreadNumber` in the `KnitroLoadFlowParameters` extension.
      - Warning: for options `2 (forward)` and `3 (central)` set the solver's number of threads to 1.
 
+11. **DC Losses approximation**:
+    - Default value: 10 MW
+    - Can be set manually or computed by running a DC Load Flow on the network.
+    - Use `setLosses`.
+
+12. **Export Solution**
+    - Default value: export disabled 
+    - When enabled, a CSV file is exported containing information for each slack (type, value, location...), which can be used afterward for visualization.
+    - Use `setExportSolution`.
+    
 ### Constraint Handling
 
 Constraints are categorized into two types:

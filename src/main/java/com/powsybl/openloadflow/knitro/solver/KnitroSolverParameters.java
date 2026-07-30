@@ -27,7 +27,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final int DEFAULT_HESSIAN_COMPUTATION_MODE = 6; // Specifies how the Hessian matrix is computed. 6 means that the Hessian is approximated using the L-BFGS method, which is a quasi-Newton method.
     public static final double DEFAULT_LOWER_VOLTAGE_BOUND = 0.5; // Lower bound for voltage magnitude
     public static final double DEFAULT_UPPER_VOLTAGE_BOUND = 1.5; // Upper bound for voltage magnitude
-    public static final int DEFAULT_MAX_ITERATIONS = 200;
+    public static final int DEFAULT_MAX_KNITRO_ITERATIONS = 200;
     public static final double DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA = Math.pow(10, -6);
     public static final double DEFAULT_ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA = Math.pow(10, -3);
     public static final double DEFAULT_RELATIVE_OPTIMALITY_STOPPING_CRITERIA = Math.pow(10, -6);
@@ -37,6 +37,10 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
     public static final SolverType DEFAULT_SOLVER_TYPE = SolverType.STANDARD;
     public static final int DEFAULT_THREAD_NUMBER = -1;
+    public static final double DEFAULT_DC_LOSSES = 10.0; // MW
+    public static final String DEFAULT_EXPORT_SOLUTION = ""; //  empty => no CSV export
+
+    private String exportSolution = DEFAULT_EXPORT_SOLUTION;
 
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
 
@@ -60,7 +64,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     private boolean alwaysUpdateNetwork = ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE;
 
-    private int maxIterations = DEFAULT_MAX_ITERATIONS;
+    private int maxKnitroIterations = DEFAULT_MAX_KNITRO_ITERATIONS;
 
     private double relConvEps = DEFAULT_RELATIVE_FEASIBILITY_STOPPING_CRITERIA;
 
@@ -75,6 +79,26 @@ public class KnitroSolverParameters implements AcSolverParameters {
     private SolverType solverType = DEFAULT_SOLVER_TYPE;
 
     private int threadNumber = DEFAULT_THREAD_NUMBER; // Specifies the number of threads used by the solver. -1 lets the solver decide
+
+    private double losses = DEFAULT_DC_LOSSES;
+
+    public double getLosses() {
+        return losses;
+    }
+
+    public KnitroSolverParameters setLosses(double losses) {
+        this.losses = losses;
+        return this;
+    }
+
+    public String getExportSolution() {
+        return exportSolution;
+    }
+
+    public KnitroSolverParameters setExportSolution(String exportSolution) {
+        this.exportSolution = exportSolution;
+        return this;
+    }
 
     public int getGradientComputationMode() {
         return gradientComputationMode;
@@ -194,12 +218,12 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return this;
     }
 
-    public int getMaxIterations() {
-        return maxIterations;
+    public int getMaxKnitroIterations() {
+        return maxKnitroIterations;
     }
 
-    public KnitroSolverParameters setMaxIterations(int maxIterations) {
-        this.maxIterations = maxIterations;
+    public KnitroSolverParameters setMaxKnitroIterations(int maxKnitroIterations) {
+        this.maxKnitroIterations = maxKnitroIterations;
         return this;
     }
 
@@ -288,7 +312,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
                 ", minRealisticVoltage=" + lowerVoltageBound +
                 ", maxRealisticVoltage=" + upperVoltageBound +
                 ", alwaysUpdateNetwork=" + alwaysUpdateNetwork +
-                ", maxIterations=" + maxIterations +
+                ", maxIterations=" + maxKnitroIterations +
                 ", threadNumber=" + threadNumber +
                 ')';
     }
