@@ -235,7 +235,7 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
 
 8. **Maximum Iterations**:
    - Default: **200**
-   - Modify using `setMaxIterations`.
+   - Modify using `setmaxKnitroIterations`.
 
 9. **Slack Threshold**:
     - Default value: $10^{-6}$ p.u : defines a slack values threshold below which we ignore insignificant activated slack variables.
