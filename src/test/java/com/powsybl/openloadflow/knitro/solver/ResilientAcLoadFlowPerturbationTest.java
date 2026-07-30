@@ -33,8 +33,8 @@ import org.slf4j.LoggerFactory;
  * @author Salomé Lavine {@literal <salome.lavine at artelys.com>}
  */
 
-class ResilientAcLoadFlowPerturbationTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ResilientAcLoadFlowPerturbationTest.class);
+class RelaxedAcLoadFlowPerturbationTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RelaxedAcLoadFlowPerturbationTest.class);
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
     private static final String VOLTAGE_PERTURBATION = "voltage-perturbation";
