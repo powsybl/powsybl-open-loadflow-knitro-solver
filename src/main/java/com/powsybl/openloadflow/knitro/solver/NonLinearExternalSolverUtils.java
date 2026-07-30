@@ -9,6 +9,7 @@ package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.openloadflow.ac.equations.AcVariableType;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
+import com.powsybl.openloadflow.equations.EquationTerm;
 import com.powsybl.openloadflow.equations.SingleEquationTerm;
 import com.powsybl.openloadflow.equations.VariableEquationTerm;
 
@@ -34,7 +35,7 @@ public final class NonLinearExternalSolverUtils {
     ));
 
     // Classifies a constraint as linear or non-linear based on its type and terms
-    public static boolean isLinear(AcEquationType typeEq, List<SingleEquationTerm<AcVariableType, AcEquationType>> terms) {
+    public static boolean isLinear(AcEquationType typeEq, List<EquationTerm<AcVariableType, AcEquationType>> terms) {
         // Check if the constraint type is BUS_TARGET_V
         if (typeEq == AcEquationType.BUS_TARGET_V) {
             return terms.size() == 1; // If there's only one term, it is linear
@@ -43,7 +44,7 @@ public final class NonLinearExternalSolverUtils {
     }
 
     // Return lists of variables and coefficients to pass to Knitro for a linear constraint
-    public VarAndCoefList getLinearConstraint(AcEquationType typeEq, List<SingleEquationTerm<AcVariableType, AcEquationType>> terms) throws UnsupportedOperationException {
+    public VarAndCoefList getLinearConstraint(AcEquationType typeEq, List<EquationTerm<AcVariableType, AcEquationType>> terms) throws UnsupportedOperationException {
         VarAndCoefList varAndCoefList = null;
 
         // Check if the constraint is linear
@@ -69,24 +70,24 @@ public final class NonLinearExternalSolverUtils {
     public record VarAndCoefList(List<Integer> listIdVar, List<Double> listCoef) {
     }
 
-    public VarAndCoefList addConstraintConstantTarget(List<SingleEquationTerm<AcVariableType, AcEquationType>> terms) {
+    public VarAndCoefList addConstraintConstantTarget(List<EquationTerm<AcVariableType, AcEquationType>> terms) {
         // get the variable V/Theta/DummyP/DummyQ/... corresponding to the constraint
         int idVar = terms.get(0).getVariables().get(0).getRow();
         return new VarAndCoefList(List.of(idVar), List.of(1.0));
     }
 
-    public VarAndCoefList addConstraintZero(List<SingleEquationTerm<AcVariableType, AcEquationType>> terms) {
+    public VarAndCoefList addConstraintZero(List<EquationTerm<AcVariableType, AcEquationType>> terms) {
         // get the variables Vi and Vj / Thetai and Thetaj corresponding to the constraint
         int idVari = terms.get(0).getVariables().get(0).getRow();
         int idVarj = terms.get(1).getVariables().get(0).getRow();
         return new VarAndCoefList(Arrays.asList(idVari, idVarj), Arrays.asList(1.0, -1.0));
     }
 
-    public VarAndCoefList addConstraintDistrQ(List<SingleEquationTerm<AcVariableType, AcEquationType>> terms) {
+    public VarAndCoefList addConstraintDistrQ(List<EquationTerm<AcVariableType, AcEquationType>> terms) {
         // get the variables corresponding to the constraint
         List<Integer> listVar = new ArrayList<>();
         List<Double> listCoef = new ArrayList<>();
-        for (SingleEquationTerm<AcVariableType, AcEquationType> equationTerm : terms) {
+        for (EquationTerm<AcVariableType, AcEquationType> equationTerm : terms) {
             double scalar = 0.0;
             if (((SingleEquationTerm.MultiplyByScalarEquationTerm) equationTerm).getChildren().get(0) instanceof VariableEquationTerm<?, ?>) {
                 scalar = ((SingleEquationTerm.MultiplyByScalarEquationTerm) equationTerm).getScalar();

@@ -51,13 +51,26 @@ public final class KnitroCallbacks {
     public static class BaseCallbackEvalFC extends KNEvalFCCallback {
 
         protected final List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve;
+        protected final List<EquationArray<AcVariableType, AcEquationType>> activeConstraintsEqArray;
         protected final List<Integer> nonLinearConstraintIds;
+        protected final List<Integer> nonLinearConstraintColumnId;
+        protected final EquationSystem<AcVariableType, AcEquationType> equationSystem;
+        protected final EquationVector<AcVariableType, AcEquationType> equationVector;
 
         public BaseCallbackEvalFC(
                 List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve,
-                List<Integer> nonLinearConstraintIds) {
+                List<EquationArray<AcVariableType, AcEquationType>> activeConstraintsEqArray,
+                List<Integer> nonLinearConstraintIds,
+                List<Integer> nonlinearConstraintColumnId,
+                EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                EquationVector<AcVariableType, AcEquationType> equationVector) {
+
             this.sortedSingleEquationsToSolve = sortedSingleEquationsToSolve;
+            this.activeConstraintsEqArray = activeConstraintsEqArray;
             this.nonLinearConstraintIds = nonLinearConstraintIds;
+            this.nonLinearConstraintColumnId = nonlinearConstraintColumnId;
+            this.equationSystem = equationSystem;
+            this.equationVector = equationVector;
         }
 
         /**
@@ -69,44 +82,37 @@ public final class KnitroCallbacks {
          */
         @Override
         public void evaluateFC(final List<Double> x, final List<Double> obj, final List<Double> c) {
-            LOGGER.trace("============ Knitro evaluating callback function ============");
-
+            //  LOGGER.info("============ Knitro evaluating callback function ============");
             StateVector currentState = new StateVector(toArray(x));
-            LOGGER.trace("Current state vector: {}", currentState.get());
-            LOGGER.trace("Evaluating {} non-linear constraints", nonLinearConstraintIds.size());
+            equationSystem.getStateVector().set(toArray(x));
+//            StateVector currentState = equationSystem.getStateVector(); // optional local alias
+            //  LOGGER.info("Current state vector: {}", currentState.get());
+            //        LOGGER.info("Evaluating {} Equation Array ", activeConstraintsEqArray.size());
+            int totalElements = nonLinearConstraintColumnId.size();
+            //LOGGER.info("Evaluating {} non linear equation", totalElements);
+            //LOGGER.info("size de c "+ c.size());
+            //LOGGER.info(" # equ lineaire {} ", currentState.get().length - nonLinearConstraintColumnId.size() );
+            int startIndex = currentState.get().length - totalElements;
+            equationSystem.getStateVector().set(toArray(x));
+            double[] lhs = equationVector.getArray();
 
-            int callbackConstraintIndex = 0;
-
-            for (int equationId : nonLinearConstraintIds) {
-                SingleEquation<AcVariableType, AcEquationType> equation = sortedSingleEquationsToSolve.get(equationId);
-                AcEquationType type = equation.getType();
-
-                // Ensure the constraint is non-linear
-                if (NonLinearExternalSolverUtils.isLinear(type, equation.getTerms())) {
-                    throw new IllegalArgumentException(
-                            "Equation of type " + type + " is linear but passed to the non-linear callback");
-                }
-
-                // Evaluate equation using the current state
-                double constraintValue = 0.0;
-                for (SingleEquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                    term.setStateVector(currentState);
-                    if (term.isActive()) {
-                        constraintValue += term.eval();
-                    }
-                }
-
-                // Allow subclasses to add slack contributions
-                constraintValue += addModificationOfNonLinearConstraints(equationId, type, x);
-
+            for (int k = 0; k < nonLinearConstraintColumnId.size(); k++) {
+                int col = nonLinearConstraintColumnId.get(k);
+                AcEquationType type = equationSystem.getIndex().getEquationAtColumn(col).getType();
+                double constraintValue = addModificationOfNonLinearConstraints(col, type, x);
+                //           addModificationOfNonLinearConstraints(col, equationSystem.getIndex().getEquationAtColumn(col).getType(), x );
                 try {
-                    c.set(callbackConstraintIndex, constraintValue);
-                    LOGGER.trace("Added non-linear constraint #{} (type: {}) = {}", equationId, type, constraintValue);
-                } catch (Exception e) {
-                    throw new PowsyblException("Error while adding non-linear constraint #" + equationId, e);
-                }
+                    c.set(k, lhs[col] + constraintValue);
+//                    if (type == DISTR_Q) {
+//                        LOGGER.info("c[{}] col={} type={} lhs={} modif={} total={}", k, col, type, lhs[col], constraintValue, lhs[col] + constraintValue);
+//                    }
+///                            c.set(k, lhs[col]);
+//                    LOGGER.debug("c[{}] <= lhs[col={}] = {}", k, col, lhs[col]);
+//                    LOGGER.debug("equation type " + equationSystem.getIndex().getEquationAtColumn(col));
 
-                callbackConstraintIndex++;
+                } catch (Exception e) {
+                    throw new PowsyblException("Error while adding non-linear constraint #" + k, e);
+                }
             }
         }
 
