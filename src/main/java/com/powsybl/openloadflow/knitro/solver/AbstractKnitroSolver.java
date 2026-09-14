@@ -79,9 +79,8 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
         solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
-        solver.setParam(KNConstants.KN_PARAM_OUTMODE, 1);
         solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, knitroParameters.getThreadNumber());
-        solver.setParam(KNConstants.KN_PARAM_PRESOLVEOP_TIGHTEN, 4);
+        solver.setParam(KNConstants.KN_PARAM_PRESOLVEOP_TIGHTEN, KNConstants.KN_PRESOLVEOP_TIGHTEN_ALL);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, OPTTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),

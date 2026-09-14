@@ -1,8 +1,17 @@
+/**
+ * Copyright (c) 2025, Artelys (http://www.artelys.com/)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
+ */
 package com.powsybl.openloadflow.knitro.solver;
 
+import com.powsybl.iidm.network.Branch;
 import com.powsybl.iidm.network.Line;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.Terminal;
+import com.powsybl.iidm.network.TwoWindingsTransformer;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
@@ -21,7 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.powsybl.openloadflow.knitro.solver.NetworkProviders.NetworkPair;
 import org.slf4j.Logger;
@@ -91,7 +100,7 @@ class RelaxedAcLoadFlowPerturbationTest {
         LOGGER.info("Algorithm : NR");
         LOGGER.info("Type : {}", perturbationType);
         LOGGER.info("Network name : {}", baseFilename);
-        assumeFalse(isConvergedNR && !isFailedNR, baseFilename + ": NR should not converge");
+        assertFalse(isConvergedNR && !isFailedNR, baseFilename + ": NR should not converge");
 
         // DC Load Flow
         LoadFlowParameters dcParameters = new LoadFlowParameters()
@@ -141,14 +150,16 @@ class RelaxedAcLoadFlowPerturbationTest {
     private double calculateDcLosses(Network dcNetwork) {
         double totalLosses = 0.0;
 
-        for (Line line : dcNetwork.getLines()) {
-            Terminal terminal1 = line.getTerminal1();
+        // Branches, not just lines: IEEE networks also carry two-winding transformers with a non-zero
+        // resistance, which would otherwise be left out of the estimate.
+        for (Branch<?> branch : dcNetwork.getBranches()) {
+            Terminal terminal1 = branch.getTerminal1();
             double p1 = terminal1.getP(); // MW
-            double r = line.getR(); // Ohms
+            double r = getResistance(branch); // Ohms
             if (r == 0) {
                 continue;
             } else if (Double.isNaN(p1)) {
-                LOGGER.warn("Line {}: P1 is NaN, skipping loss calculation for this line", line.getId());
+                LOGGER.warn("Branch {}: P1 is NaN, skipping loss calculation for this branch", branch.getId());
                 continue;
             }
             double vnom1 = terminal1.getVoltageLevel().getNominalV(); // kV
@@ -157,6 +168,15 @@ class RelaxedAcLoadFlowPerturbationTest {
         }
         LOGGER.info("Total DC losses: {}", totalLosses);
         return totalLosses;
+    }
+
+    private static double getResistance(Branch<?> branch) {
+        if (branch instanceof Line line) {
+            return line.getR();
+        } else if (branch instanceof TwoWindingsTransformer transformer) {
+            return transformer.getR();
+        }
+        return 0.0;
     }
 
     @TempDir
@@ -230,8 +250,10 @@ class RelaxedAcLoadFlowPerturbationTest {
         Network nrNetwork = pair.nrNetwork();
         Network dcNetwork = pair.dcNetwork();
 
-        // Final perturbed load's percentage
-        double alpha = 0.10;
+        // Multiplier applied to the total active load of the network to perturb the target load.
+        // It has to be at least 6 for Newton-Raphson to diverge on every network of the provider:
+        // IEEE30 already diverges at 5, but IEEE14 still converges up to 5 included.
+        double alpha = 6.0;
 
         activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha, exportPath);
     }

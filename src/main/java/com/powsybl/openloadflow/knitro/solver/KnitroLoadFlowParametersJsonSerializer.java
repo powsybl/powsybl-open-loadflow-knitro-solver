@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2025, Artelys (http://www.artelys.com/)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
+ */
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -11,10 +18,12 @@ import com.google.auto.service.AutoService;
 import com.powsybl.commons.extensions.ExtensionJsonSerializer;
 import com.powsybl.commons.json.JsonUtil;
 import com.powsybl.loadflow.LoadFlowParameters;
-import com.powsybl.openloadflow.OpenLoadFlowParameters;
 
 import java.io.IOException;
 
+/**
+ * @author Salomé Lavine {@literal <salome.lavine at artelys.com>}
+ */
 @AutoService(ExtensionJsonSerializer.class)
 public class KnitroLoadFlowParametersJsonSerializer implements ExtensionJsonSerializer<LoadFlowParameters, KnitroLoadFlowParameters> {
 
@@ -29,7 +38,7 @@ public class KnitroLoadFlowParametersJsonSerializer implements ExtensionJsonSeri
     }
 
     /**
-     * Specifies serialization for our extension: ignore name et extendable
+     * Specifies serialization for our extension: ignore name and extendable.
      */
     private interface SerializationSpec {
 
@@ -37,12 +46,12 @@ public class KnitroLoadFlowParametersJsonSerializer implements ExtensionJsonSeri
         String getName();
 
         @JsonIgnore
-        OpenLoadFlowParameters getExtendable();
+        LoadFlowParameters getExtendable();
     }
 
     private static ObjectMapper createMapper() {
         return JsonUtil.createObjectMapper()
-            .addMixIn(OpenLoadFlowParameters.class, KnitroLoadFlowParametersJsonSerializer.SerializationSpec.class);
+            .addMixIn(KnitroLoadFlowParameters.class, KnitroLoadFlowParametersJsonSerializer.SerializationSpec.class);
     }
 
     @Override

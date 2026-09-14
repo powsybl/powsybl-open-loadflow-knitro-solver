@@ -312,7 +312,7 @@ public class KnitroSolverParameters implements AcSolverParameters {
                 ", minRealisticVoltage=" + lowerVoltageBound +
                 ", maxRealisticVoltage=" + upperVoltageBound +
                 ", alwaysUpdateNetwork=" + alwaysUpdateNetwork +
-                ", maxIterations=" + maxKnitroIterations +
+                ", maxKnitroIterations=" + maxKnitroIterations +
                 ", threadNumber=" + threadNumber +
                 ')';
     }

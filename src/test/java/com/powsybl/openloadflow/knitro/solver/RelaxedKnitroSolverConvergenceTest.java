@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RelaxedKnitroSolverConvergenceTest {
     private Network network;
+
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
     private KnitroLoadFlowParameters knitroParams;
@@ -37,6 +38,7 @@ class RelaxedKnitroSolverConvergenceTest {
     @BeforeEach
     void setUp() {
         network = IeeeCdfNetworkFactory.create14();
+
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
         parameters = new LoadFlowParameters()
                 .setUseReactiveLimits(false)

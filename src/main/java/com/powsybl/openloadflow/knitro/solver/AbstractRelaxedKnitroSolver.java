@@ -55,6 +55,24 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     protected static final double WEIGHT_Q_1 = 1.0;
     protected static final double GAMMA_FACTOR = 0.1;
 
+    // Bounds applied to weightP1. The upper bound keeps the P penalty from dwarfing the Q and V ones when
+    // deltaP is close to zero; the lower bound keeps it strictly positive, so that P slacks stay penalised
+    // even on a network with no (or negative) net generation.
+    protected static final double MIN_WEIGHT_P_1 = 1.0;
+    protected static final double MAX_WEIGHT_P_1 = 1000.0;
+
+    // Gamma weights per voltage class, used to build the V penalty term of the objective function.
+    // Each nominal voltage is mapped to the gamma of the closest voltage class below.
+    private static final double GAMMA_72_5_KV = 39.55;
+    private static final double GAMMA_145_KV = 100.45;
+    private static final double GAMMA_245_KV = 212.18;
+    private static final double GAMMA_420_KV = 458.30;
+
+    // Upper bound (inclusive, in kV) of each voltage class, aligned with the gamma values above.
+    private static final double MAX_NOMINAL_V_72_5_KV = 85.0;
+    private static final double MAX_NOMINAL_V_145_KV = 200.0;
+    private static final double MAX_NOMINAL_V_245_KV = 350.0;
+
     // Total number of variables (including power flow and slack variables)
     protected int numSlackVariables;
 
@@ -75,8 +93,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     // Mapping of the slack variable and info
     private final ArrayList<SlackVariableInfo> slackContributions = new ArrayList<>();
-    // Mapping of gamma : each Voltage Level is assign to a gamma depending on its nominal voltage
-    protected HashMap<Double, Double> voltageLevelGammaMap;
+    // One optimization info CSV row per solve, kept so that the export covers every outer loop iteration
+    private final List<String> optimContributions = new ArrayList<>();
+    // Gamma weight of each V slack variable, indexed by its local V index
     protected HashMap<Integer, Double> weightVMap;
 
     protected AbstractRelaxedKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
@@ -106,30 +125,18 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         int qCounter = 0;
         int vCounter = 0;
 
-        // Map GAMMA values : for the different voltage level (kV) map the corresponding gamma value
-        voltageLevelGammaMap = new HashMap<>();
-        voltageLevelGammaMap.put(72.5, 39.55);
-        voltageLevelGammaMap.put(145.0, 100.45);
-        voltageLevelGammaMap.put(245.0, 212.18);
-        voltageLevelGammaMap.put(420.0, 458.30);
-
         weightVMap = new HashMap<>();
 
         for (int i = 0; i < sortedEquations.size(); i++) {
             AcEquationType type = sortedEquations.get(i).getType();
-            double gammaValue = 0.0;
 
             switch (type) {
                 case BUS_TARGET_P -> pEquationLocalIds.put(i, pCounter++);
                 case BUS_TARGET_Q -> qEquationLocalIds.put(i, qCounter++);
                 case BUS_TARGET_V -> {
-                    // Set WEIGHT_V_1 based on the nominal voltage of the bus and the corresponding gamma
+                    // Set the V weight based on the nominal voltage of the bus and the corresponding gamma
                     LfBus vlInfo = network.getBus(sortedEquations.get(i).getElementNum());
-                    gammaValue = getGammaValues(vlInfo);
-                    if (gammaValue == 0.0 || Double.isNaN(gammaValue) || Double.isInfinite(gammaValue)) {
-                        throw new PowsyblException("Gamma value is not define for bus " + vlInfo.getId() + " with nominal voltage " + vlInfo.getNominalV() + " kV. Please check the voltage level gamma mapping.");
-                    }
-                    weightVMap.put(vCounter, gammaValue); // for each index of V  I have the corresponding gamma
+                    weightVMap.put(vCounter, getGammaValue(vlInfo)); // for each index of V, the corresponding gamma
                     vEquationLocalIds.put(i, vCounter++);
                 }
                 default -> {
@@ -141,30 +148,50 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         // Weight P
         double activeGeneration = computeActiveGeneration(network);
         double deltaP = computeDeltaP(network, activeGeneration, this.knitroParameters.getLosses());
-        if (deltaP == 0 || Double.isNaN(deltaP)) {
-            throw new PowsyblException("DIVIDED BY ZERO: DeltaP is equal to 0, cannot compute weightP1. Please check that the network has non-zero active power generation and load, and/or adjust the losses parameter.");
-        }
-
-        weightP1 = getWeightP1(activeGeneration, deltaP);
+        weightP1 = computeWeightP1(activeGeneration, deltaP);
     }
 
-    protected double getGammaValues(LfBus vlInfo) {
-        double gamma = 0.0;
-        if (vlInfo.getNominalV() <= 85.0) {
-            gamma = voltageLevelGammaMap.get(72.5);
-        } else if (vlInfo.getNominalV() > 85.0 && vlInfo.getNominalV() <= 200.0) {
-            gamma = voltageLevelGammaMap.get(145.0);
-        } else if (vlInfo.getNominalV() > 200.0 && vlInfo.getNominalV() <= 350.0) {
-            gamma = voltageLevelGammaMap.get(245.0);
-        } else if (vlInfo.getNominalV() > 350.0) {
-            gamma = voltageLevelGammaMap.get(420.0);
+    /**
+     * Returns the gamma weight of a bus, based on the voltage class its nominal voltage falls into.
+     * A bus whose nominal voltage is undefined falls back to the lowest voltage class rather than aborting
+     * the solve, since gamma only weights the V penalty term.
+     *
+     * @param bus The bus to weight.
+     * @return The gamma value of the matching voltage class.
+     */
+    protected double getGammaValue(LfBus bus) {
+        double nominalV = bus.getNominalV();
+        if (Double.isNaN(nominalV) || Double.isInfinite(nominalV)) {
+            LOGGER.warn("Undefined nominal voltage for bus {}, falling back to the {} kV gamma value.", bus.getId(), MAX_NOMINAL_V_72_5_KV);
+            return GAMMA_72_5_KV;
         }
-        return gamma;
+        if (nominalV <= MAX_NOMINAL_V_72_5_KV) {
+            return GAMMA_72_5_KV;
+        } else if (nominalV <= MAX_NOMINAL_V_145_KV) {
+            return GAMMA_145_KV;
+        } else if (nominalV <= MAX_NOMINAL_V_245_KV) {
+            return GAMMA_245_KV;
+        }
+        return GAMMA_420_KV;
     }
 
-    private double getWeightP1(double activeGeneration, double deltaP) {
-        weightP1 = Math.min(activeGeneration / (10 * deltaP), 1000);
-        return weightP1;
+    /**
+     * Computes the weight applied to the P slack variables in the objective function, clamped to
+     * [{@value MIN_WEIGHT_P_1}, {@value MAX_WEIGHT_P_1}].
+     * Clamping also covers the degenerate cases: a zero deltaP (balanced network) yields an infinite ratio
+     * capped at the upper bound, and a zero or negative active generation is raised to the lower bound so
+     * that P slacks always keep a strictly positive cost.
+     *
+     * @param activeGeneration The total active power generation in the network, in MW.
+     * @param deltaP           The active power imbalance of the network, in MW.
+     * @return The weight applied to the P slack variables.
+     */
+    private static double computeWeightP1(double activeGeneration, double deltaP) {
+        double weight = activeGeneration / (10 * deltaP);
+        if (Double.isNaN(weight)) {
+            return MIN_WEIGHT_P_1;
+        }
+        return Math.clamp(weight, MIN_WEIGHT_P_1, MAX_WEIGHT_P_1);
     }
 
     @Override
@@ -311,7 +338,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     private record SlackVariableInfo(String busId, double slackValuePu, String type,
                                          String voltageLevel,
-                                         int loadViolation, int genViolation,
+                                         int loadViolation, int genViolation, int voltageViolation,
                                          Collection<LfGenerator> generators, List<VoltageControl<?>> voltageControls,
                                          Collection<LfLoad> loads, Optional<LfShunt> shunt,
                                          Optional<TransformerVoltageControl> transformer,
@@ -326,8 +353,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             double genMax(LfGenerator g) {
                 return g.getMaxP() * PerUnit.SB; }
 
-            double busTarget(LfBus b) {
-                return b.getTargetP() * PerUnit.SB; }
+            double generationTarget(LfBus b) {
+                return b.getGenerationTargetP() * PerUnit.SB; }
 
             double loadTarget(LfBus b) {
                 return b.getLoadTargetP() * PerUnit.SB; }
@@ -339,8 +366,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             double genMax(LfGenerator g) {
                 return g.getMaxQ() * PerUnit.SB; }
 
-            double busTarget(LfBus b) {
-                return b.getTargetQ() * PerUnit.SB; }
+            double generationTarget(LfBus b) {
+                return b.getGenerationTargetQ() * PerUnit.SB; }
 
             double loadTarget(LfBus b) {
                 return b.getLoadTargetQ() * PerUnit.SB; }
@@ -352,8 +379,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             double genMax(LfGenerator g) {
                 throw new UnsupportedOperationException("Not applicable for V"); }
 
-            double busTarget(LfBus b) {
-                return b.getV(); }
+            double generationTarget(LfBus b) {
+                throw new UnsupportedOperationException("Not applicable for V"); }
 
             double loadTarget(LfBus b) {
                 throw new UnsupportedOperationException("Not applicable for V"); }
@@ -371,30 +398,36 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         abstract double genMax(LfGenerator g);
 
-        abstract double busTarget(LfBus b);
+        /**
+         * The generation target of the bus, in physical units. This is the quantity to compare against the
+         * generator limits: {@link LfBus#getTargetP()} would be the net injection, i.e. generation minus load.
+         */
+        abstract double generationTarget(LfBus b);
 
         abstract double loadTarget(LfBus b);
     }
 
     private SlackVariableInfo logSlackTypeV(LfBus bus, double epsilon, SlackType type, int outerloopIteration) {
         StringBuilder interpretation = new StringBuilder();
-        int hasLoadViolation = 0;
-        int hasGenViolation = 0;
-        Optional<VoltageControl<?>> maybeControl = bus.getVoltageControls().stream().findAny();
+        int hasVoltageViolation = 0;
+        double vMinPu = knitroParameters.getLowerVoltageBound();
+        double vMaxPu = knitroParameters.getUpperVoltageBound();
 
         if (Math.abs(epsilon) < 0.001) {
             interpretation.append(String.format("ΔV = %f p.u. (%f kV) ", epsilon, epsilon * bus.getNominalV()));
         } else {
             interpretation.append(String.format("ΔV = %.4f p.u. (%.4f kV) ", epsilon, epsilon * bus.getNominalV()));
         }
-        if (maybeControl.isPresent()) {
-            for (VoltageControl<?> vc : bus.getVoltageControls()) {
-                interpretation.append(String.format("%n\t\tVoltage Control status is: %s of type %s located at %s," +
-                        "Voltage target: %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
-                interpretation.append(String.format("%n\t\tAfter slack, voltage constraints at bus are %s ", isFeasibleV(epsilon, vc.getTargetValue()) ? FEASIBLE : VIOLATED));
+        for (VoltageControl<?> vc : bus.getVoltageControls()) {
+            boolean feasible = isFeasibleV(epsilon, vc.getTargetValue(), vMinPu, vMaxPu);
+            if (!feasible) {
+                hasVoltageViolation = 1;
             }
+            interpretation.append(String.format("%n\t\tVoltage Control status is: %s of type %s located at %s," +
+                    "Voltage target: %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
+            interpretation.append(String.format("%n\t\tAfter slack, voltage constraints at bus are %s ", feasible ? FEASIBLE : VIOLATED));
         }
-        return new SlackVariableInfo(bus.getId(), epsilon, type.toString(), bus.getVoltageLevelId(), hasLoadViolation, hasGenViolation, bus.getGenerators(), bus.getVoltageControls(),
+        return new SlackVariableInfo(bus.getId(), epsilon, type.toString(), bus.getVoltageLevelId(), 0, 0, hasVoltageViolation, bus.getGenerators(), bus.getVoltageControls(),
                 bus.getLoads(), bus.getShunt(), bus.getTransformerVoltageControl(), interpretation.toString(), outerloopIteration
         );
     }
@@ -414,7 +447,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         if (maybeGenerator.isPresent()) {
             GenInterpretation generator = buildGenInterpretation(bus.getGenerators(), interpretation, type);
-            isfeasible = isGenFeasible(type.busTarget(bus) + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
+            isfeasible = isGenFeasible(type.generationTarget(bus) + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format("%n\t\tTotal generation bus range [%.2f,%.2f] %s", generator.minSum(), generator.maxSum(), type.unit()));
             if (isfeasible.equals(VIOLATED)) {
                 interpretation.append(String.format(", Generator limits would be exceeded if this slack is applied %s", isfeasible));
@@ -439,7 +472,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         if (maybeLoad.isEmpty() && maybeGenerator.isEmpty() && maybeShunt.isEmpty() && maybeTransfo.isEmpty()) {
             interpretation.append(String.format("%n\t\tNo direct connected Load, Generator, Transformer Control voltage or Shunt "));
         }
-        return new SlackVariableInfo(bus.getId(), epsilon, type.toString(), bus.getVoltageLevelId(), hasLoadViolation, hasGenViolation, bus.getGenerators(), bus.getVoltageControls(),
+        return new SlackVariableInfo(bus.getId(), epsilon, type.toString(), bus.getVoltageLevelId(), hasLoadViolation, hasGenViolation, 0, bus.getGenerators(), bus.getVoltageControls(),
                 bus.getLoads(), bus.getShunt(), bus.getTransformerVoltageControl(), interpretation.toString(), outerloopIteration
         );
     }
@@ -480,10 +513,14 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             int genViolationCount = (int) currentIterationSlacks.stream()
                     .filter(si -> si.genViolation == 1)
                     .count();
+            int voltageViolationCount = (int) currentIterationSlacks.stream()
+                    .filter(si -> si.voltageViolation == 1)
+                    .count();
 
             LOGGER.info("Total number of bus affected = {}", affectedBus);
             LOGGER.info("Total number of load violation = {}", loadViolationCount);
             LOGGER.info("Total number of generator violation = {}", genViolationCount);
+            LOGGER.info("Total number of voltage violation = {}", voltageViolationCount);
 
             int busCount = network.getBuses().size();
             if (busCount > 0) {
@@ -495,37 +532,53 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
     }
 
+    /**
+     * Escapes a value before writing it into a ';'-delimited CSV field, so that an element id containing the
+     * delimiter cannot shift every following column.
+     *
+     * @param value The raw field value, possibly null.
+     * @return The field value, with any delimiter replaced.
+     */
+    private static String toCsvField(String value) {
+        return value == null ? "" : value.replace(";", "|");
+    }
+
+    /**
+     * Joins a collection into a single CSV field, escaping each element.
+     */
+    private static String toCsvField(Collection<?> values) {
+        return values == null ? "" : values.stream()
+                .map(v -> toCsvField(String.valueOf(v)))
+                .collect(Collectors.joining("|"));
+    }
+
     private List<String> slackInfoCsv(SlackVariableInfo[] slackArray) {
         List<String> csvLines = new ArrayList<>();
-        csvLines.add("bus_id;type;slackValue_pu;voltage_level_id;generator;controleVoltage;transfo;shunt;load;load_violation;gen_violation;outerloop_iteration");
+        csvLines.add("bus_id;type;slackValue_pu;voltage_level_id;generator;controleVoltage;transfo;shunt;load;load_violation;gen_violation;voltage_violation;outerloop_iteration");
         for (SlackVariableInfo si : slackArray) {
-            String genenerator = (si.generators != null && !si.generators.isEmpty()) ? si.generators.stream().map(Object::toString).collect(Collectors.joining("|")) : "";
-            String controleVoltage = (si.voltageControls != null && !si.voltageControls.isEmpty()) ? si.voltageControls.stream().map(Object::toString).collect(Collectors.joining("|")) : "";
-            String voltageLevel = (si.voltageLevel != null && !si.voltageLevel.isEmpty())
-                    ? si.voltageLevel.replace(";", "|")
-                    : "";
-            int hasLoadViolation = si.loadViolation;
-            int hasGenViolation = si.genViolation;
-            String transformer = si.transformer.stream().map(Object::toString).collect(Collectors.joining("|"));
-            String shunt = si.shunt.stream().map(Object::toString).collect(Collectors.joining("|"));
-            String loads = si.loads.stream().map(Object::toString).collect(Collectors.joining("|"));
-            int outerloopIteration = si.outerloopIteration;
-            csvLines.add(String.format(java.util.Locale.US, "%s;%s;%.6f;%s;%s;%s;%s;%s;%s;%s;%s;%d",
-                    si.busId, si.type, si.slackValuePu, voltageLevel,
-                    genenerator, controleVoltage, transformer, shunt, loads, hasLoadViolation, hasGenViolation, outerloopIteration));
+            csvLines.add(String.format(java.util.Locale.US, "%s;%s;%.6f;%s;%s;%s;%s;%s;%s;%d;%d;%d;%d",
+                    toCsvField(si.busId), toCsvField(si.type), si.slackValuePu, toCsvField(si.voltageLevel),
+                    toCsvField(si.generators), toCsvField(si.voltageControls), toCsvField(si.transformer.stream().toList()),
+                    toCsvField(si.shunt.stream().toList()), toCsvField(si.loads),
+                    si.loadViolation, si.genViolation, si.voltageViolation, si.outerloopIteration));
         }
         return csvLines;
     }
 
+    /**
+     * Appends the optimization info of the current solve to {@link #optimContributions}, and returns the CSV
+     * lines covering every solve so far. Like the slack CSV, the file is rewritten in full on each solve, so
+     * that both exports keep the same per-iteration history and can be joined on outerloop_iteration.
+     */
     private List<String> optimInfoCsv(double totalPenalty, double penaltyP, double penaltyQ, double penaltyV, KNSolution solution, KNSolver solver) {
-        List<String> optimInfo = new ArrayList<>();
-        optimInfo.add("total_penalty;penaltyP;penaltyQ;penaltyV;status;iterations");
         try {
-            optimInfo.add(String.format(java.util.Locale.US, "%s;%s;%s;%s;%s;%s", totalPenalty, penaltyP, penaltyQ, penaltyV, solution.getStatus(), solver.getNumberIters()));
+            optimContributions.add(String.format(java.util.Locale.US, "%s;%s;%s;%s;%s;%s;%d", totalPenalty, penaltyP, penaltyQ, penaltyV, solution.getStatus(), solver.getNumberIters(), getSolveCount()));
         } catch (KNException e) {
             LOGGER.warn("Failed to gather optimization info for CSV export", e);
-            return optimInfo; // header only, or skip the line
         }
+        List<String> optimInfo = new ArrayList<>();
+        optimInfo.add("total_penalty;penaltyP;penaltyQ;penaltyV;status;iterations;outerloop_iteration");
+        optimInfo.addAll(optimContributions);
         return optimInfo;
     }
 
@@ -540,7 +593,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             );
             LOGGER.info("Slack informations and contributions exported to {}", filename);
         } catch (java.io.IOException e) {
-            LOGGER.warn("Failed to write slack CSV to {}", e.getMessage());
+            LOGGER.warn("Failed to write slack CSV to {}: {}", filename, e.getMessage());
         }
     }
 
@@ -555,7 +608,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             );
             LOGGER.info("Optimization information exported to {}", filename);
         } catch (java.io.IOException e) {
-            LOGGER.warn("Failed to write optimization info CSV: {}", e.getMessage());
+            LOGGER.warn("Failed to write optimization info CSV to {}: {}", filename, e.getMessage());
         }
     }
 

@@ -235,7 +235,7 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
 
 8. **Maximum Iterations**:
    - Default: **200**
-   - Modify using `setmaxKnitroIterations`.
+   - Modify using `setMaxKnitroIterations`.
 
 9. **Slack Threshold**:
     - Default value: $10^{-6}$ p.u : defines a slack values threshold below which we ignore insignificant activated slack variables.
@@ -249,12 +249,12 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
 
 11. **DC Losses approximation**:
     - Default value: 10 MW
-    - Can be set manually or computed by running a DC Load Flow on the network.
+    - Must be set manually: the solver does not compute it. A DC load flow on the network is a convenient way to obtain an estimate.
     - Use `setLosses`.
 
 12. **Export Solution**
     - Default value: export disabled 
-    - When enabled, a CSV file is exported containing information for each slack (type, value, location...), which can be used afterward for visualization.
+    - When enabled, two CSV files are exported: one with the information of each slack (type, value, location...) and one with the optimization summary, both usable afterward for visualization.
     - Use `setExportSolution`.
     
 ### Constraint Handling

@@ -12,11 +12,18 @@ import com.google.common.jimfs.Jimfs;
 import com.powsybl.commons.config.InMemoryPlatformConfig;
 import com.powsybl.commons.config.MapModuleConfig;
 import com.powsybl.commons.test.AbstractSerDeTest;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.powsybl.commons.json.JsonUtil;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParameters;
+import com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParametersJsonSerializer;
 import com.powsybl.openloadflow.knitro.solver.KnitroSolverParameters;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.io.StringWriter;
 import java.nio.file.FileSystem;
 import java.util.HashMap;
 import java.util.Map;
@@ -222,7 +229,7 @@ class KnitroSolverParametersTest extends AbstractSerDeTest {
     @Test
     void testToString() {
         KnitroSolverParameters parameters = new KnitroSolverParameters();
-        assertEquals("KnitroSolverParameters(solverType=STANDARD, gradientComputationMode=1, gradientUserRoutine=2, hessianComputationMode=6, relativeFeasibilityStoppingCriteria=1.0E-6, absoluteFeasibilityStoppingCriteria=0.001, relativeOptimalityStoppingCriteria=1.0E-6, absoluteOptimalityStoppingCriteria=0.001, optimalityStoppingCriteria=1.0E-6, slackThreshold=1.0E-6, minRealisticVoltage=0.5, maxRealisticVoltage=1.5, alwaysUpdateNetwork=false, maxIterations=200, threadNumber=-1)",
+        assertEquals("KnitroSolverParameters(solverType=STANDARD, gradientComputationMode=1, gradientUserRoutine=2, hessianComputationMode=6, relativeFeasibilityStoppingCriteria=1.0E-6, absoluteFeasibilityStoppingCriteria=0.001, relativeOptimalityStoppingCriteria=1.0E-6, absoluteOptimalityStoppingCriteria=0.001, optimalityStoppingCriteria=1.0E-6, slackThreshold=1.0E-6, minRealisticVoltage=0.5, maxRealisticVoltage=1.5, alwaysUpdateNetwork=false, maxKnitroIterations=200, threadNumber=-1)",
                 parameters.toString());
     }
 
@@ -269,5 +276,52 @@ class KnitroSolverParametersTest extends AbstractSerDeTest {
         assertEquals(2, knitroLoadFlowParameters.getGradientComputationMode());
         assertEquals(KnitroSolverParameters.SolverType.RELAXED, knitroLoadFlowParameters.getKnitroSolverType());
         assertEquals(2.0, knitroLoadFlowParameters.getLowerVoltageBound());
+    }
+
+    /**
+     * Exercises {@link KnitroLoadFlowParametersJsonSerializer} directly. Note that the serializer is not
+     * reachable through {@code JsonLoadFlowParameters.write/read}: that path only collects serializers
+     * returned by {@code LoadFlowProvider.getSpecificParametersSerializer()}, and OpenLoadFlowProvider
+     * already declares OpenLoadFlowParameters there.
+     */
+    @Test
+    void testJsonRoundTrip() throws IOException {
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters()
+                .setKnitroSolverType(KnitroSolverParameters.SolverType.RELAXED)
+                .setGradientComputationMode(2)
+                .setMaxKnitroIterations(400)
+                .setLowerVoltageBound(0.9)
+                .setUpperVoltageBound(1.1)
+                .setLosses(12.5)
+                .setExportSolution("some/path");
+        // An extension carries a back-reference to the parameters it extends: serializing it must not follow it.
+        LoadFlowParameters parameters = new LoadFlowParameters();
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
+
+        KnitroLoadFlowParametersJsonSerializer serializer = new KnitroLoadFlowParametersJsonSerializer();
+        ObjectMapper mapper = JsonUtil.createObjectMapper();
+
+        StringWriter writer = new StringWriter();
+        try (JsonGenerator generator = mapper.getFactory().createGenerator(writer)) {
+            serializer.serialize(knitroLoadFlowParameters, generator, mapper.getSerializerProviderInstance());
+        }
+        String json = writer.toString();
+
+        // "name" and "extendable" must be excluded, otherwise the back-reference makes serialization recurse
+        assertFalse(json.contains("\"name\""), "name should not be serialized: " + json);
+        assertFalse(json.contains("\"extendable\""), "extendable should not be serialized: " + json);
+
+        KnitroLoadFlowParameters readExtension;
+        try (JsonParser parser = mapper.getFactory().createParser(json)) {
+            readExtension = serializer.deserialize(parser, null);
+        }
+
+        assertEquals(KnitroSolverParameters.SolverType.RELAXED, readExtension.getKnitroSolverType());
+        assertEquals(2, readExtension.getGradientComputationMode());
+        assertEquals(400, readExtension.getMaxKnitroIterations());
+        assertEquals(0.9, readExtension.getLowerVoltageBound());
+        assertEquals(1.1, readExtension.getUpperVoltageBound());
+        assertEquals(12.5, readExtension.getLosses());
+        assertEquals("some/path", readExtension.getExportSolution());
     }
 }

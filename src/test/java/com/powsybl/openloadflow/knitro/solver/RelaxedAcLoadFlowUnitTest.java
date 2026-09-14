@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2025, Artelys (http://www.artelys.com/)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * SPDX-License-Identifier: MPL-2.0
+ */
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.iidm.network.*;
@@ -100,7 +107,7 @@ class RelaxedAcLoadFlowUnitTest {
             double v1 = bus1.getV() / bus1.getVoltageLevel().getNominalV();
             double v2 = bus2.getV() / bus2.getVoltageLevel().getNominalV();
             double phi1 = bus1.getAngle();
-            double phi2 = bus1.getAngle();
+            double phi2 = bus2.getAngle();
 
             assertEquals(v1, v2, tolerance, "Mismatch on V for bus " + bus1.getId());
             assertEquals(phi1, phi2, tolerance, "Mismatch on Phi for bus " + bus1.getId());
