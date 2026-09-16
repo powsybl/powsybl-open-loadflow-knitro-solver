@@ -7,17 +7,27 @@
  */
 package com.powsybl.openloadflow.knitro.solver.utils;
 
+import com.google.common.jimfs.Configuration;
+import com.google.common.jimfs.Jimfs;
+import com.powsybl.commons.config.InMemoryPlatformConfig;
+import com.powsybl.commons.config.MapModuleConfig;
+import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParameters;
 import com.powsybl.openloadflow.knitro.solver.KnitroSolverParameters;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import java.nio.file.FileSystem;
+import java.util.HashMap;
+import java.util.Map;
+
+import static com.powsybl.openloadflow.knitro.solver.KnitroLoadFlowParameters.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * @author Pierre Arvy {@literal <pierre.arvy at artelys.com>}
  * @author Jeanne Archambault {@literal <jeanne.archambault at artelys.com>}
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
+ * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
  */
 class KnitroSolverParametersTest {
 
@@ -81,13 +91,13 @@ class KnitroSolverParametersTest {
     void testMaxIterationsIntegrity() {
         KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
         // check default max iterations value
-        assertEquals(200, knitroLoadFlowParameters.getMaxIterations());
+        assertEquals(200, knitroLoadFlowParameters.getMaxKnitroIterations());
 
         // set other value
-        knitroLoadFlowParameters.setMaxIterations(400);
-        assertEquals(400, knitroLoadFlowParameters.getMaxIterations());
+        knitroLoadFlowParameters.setMaxKnitroIterations(400);
+        assertEquals(400, knitroLoadFlowParameters.getMaxKnitroIterations());
 
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setMaxIterations(-1));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> knitroLoadFlowParameters.setMaxKnitroIterations(-1));
         assertEquals("Max iterations parameter must be greater than 0", e.getMessage());
     }
 
@@ -212,8 +222,52 @@ class KnitroSolverParametersTest {
     @Test
     void testToString() {
         KnitroSolverParameters parameters = new KnitroSolverParameters();
-        assertEquals("KnitroSolverParameters(solverType=STANDARD, gradientComputationMode=1, gradientUserRoutine=2, hessianComputationMode=6, relativeFeasibilityStoppingCriteria=1.0E-6, absoluteFeasibilityStoppingCriteria=0.001, relativeOptimalityStoppingCriteria=1.0E-6, absoluteOptimalityStoppingCriteria=0.001, optimalityStoppingCriteria=1.0E-6, slackThreshold=1.0E-6, minRealisticVoltage=0.5, maxRealisticVoltage=1.5, alwaysUpdateNetwork=false, maxIterations=200, threadNumber=-1)",
+        assertEquals("KnitroSolverParameters(solverType=STANDARD, gradientComputationMode=1, gradientUserRoutine=2, hessianComputationMode=6, relativeFeasibilityStoppingCriteria=1.0E-6, absoluteFeasibilityStoppingCriteria=0.001, relativeOptimalityStoppingCriteria=1.0E-6, absoluteOptimalityStoppingCriteria=0.001, optimalityStoppingCriteria=1.0E-6, slackThreshold=1.0E-6, minRealisticVoltage=0.5, maxRealisticVoltage=1.5, alwaysUpdateNetwork=false, maxKnitroIterations=200, threadNumber=-1)",
                 parameters.toString());
     }
 
+    @Test
+    void testUpdateParametersFromPlatformConfig() {
+        LoadFlowParameters parameters = new LoadFlowParameters();
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
+
+        assertEquals(KnitroSolverParameters.DEFAULT_SOLVER_TYPE, knitroLoadFlowParameters.getKnitroSolverType());
+        assertEquals(KnitroSolverParameters.DEFAULT_GRADIENT_COMPUTATION_MODE, knitroLoadFlowParameters.getGradientComputationMode());
+        assertEquals(KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND, knitroLoadFlowParameters.getLowerVoltageBound());
+
+        FileSystem fileSystem = Jimfs.newFileSystem(Configuration.unix());
+        InMemoryPlatformConfig platformConfig = new InMemoryPlatformConfig(fileSystem);
+
+        MapModuleConfig moduleConfig = platformConfig.createModuleConfig(MODULE_SPECIFIC_PARAMETERS);
+        moduleConfig.setStringProperty(GRADIENT_COMPUTATION_MODE_PARAM_NAME, String.valueOf(2));
+        moduleConfig.setStringProperty(LOWER_VOLTAGE_BOUND_PARAM_NAME, String.valueOf(2.0));
+        moduleConfig.setStringProperty(SOLVER_TYPE_PARAM_NAME, KnitroSolverParameters.SolverType.RELAXED.name());
+        knitroLoadFlowParameters.update(platformConfig);
+
+        assertEquals(2, knitroLoadFlowParameters.getGradientComputationMode());
+        assertEquals(KnitroSolverParameters.SolverType.RELAXED, knitroLoadFlowParameters.getKnitroSolverType());
+        assertEquals(2.0, knitroLoadFlowParameters.getLowerVoltageBound());
+    }
+
+    @Test
+    void testUpdateParametersFromMap() {
+        LoadFlowParameters parameters = new LoadFlowParameters();
+        KnitroLoadFlowParameters knitroLoadFlowParameters = new KnitroLoadFlowParameters();
+        parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
+
+        assertEquals(KnitroSolverParameters.DEFAULT_SOLVER_TYPE, knitroLoadFlowParameters.getKnitroSolverType());
+        assertEquals(KnitroSolverParameters.DEFAULT_GRADIENT_COMPUTATION_MODE, knitroLoadFlowParameters.getGradientComputationMode());
+        assertEquals(KnitroSolverParameters.DEFAULT_LOWER_VOLTAGE_BOUND, knitroLoadFlowParameters.getLowerVoltageBound());
+
+        Map<String, String> properties = new HashMap<>();
+        properties.put(GRADIENT_COMPUTATION_MODE_PARAM_NAME, String.valueOf(2));
+        properties.put(LOWER_VOLTAGE_BOUND_PARAM_NAME, String.valueOf(2.0));
+        properties.put(SOLVER_TYPE_PARAM_NAME, KnitroSolverParameters.SolverType.RELAXED.name());
+        knitroLoadFlowParameters.update(properties);
+
+        assertEquals(2, knitroLoadFlowParameters.getGradientComputationMode());
+        assertEquals(KnitroSolverParameters.SolverType.RELAXED, knitroLoadFlowParameters.getKnitroSolverType());
+        assertEquals(2.0, knitroLoadFlowParameters.getLowerVoltageBound());
+    }
 }
