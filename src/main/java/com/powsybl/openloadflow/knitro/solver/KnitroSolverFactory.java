@@ -47,7 +47,9 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 .setLineSearchStateVectorScalingStepFold(parametersExt.getLineSearchStateVectorScalingStepFold())
                 .setMaxVoltageChangeStateVectorScalingMaxDv(parametersExt.getMaxVoltageChangeStateVectorScalingMaxDv())
                 .setMaxVoltageChangeStateVectorScalingMaxDphi(parametersExt.getMaxVoltageChangeStateVectorScalingMaxDphi())
-                .setAlwaysUpdateNetwork(parametersExt.isAlwaysUpdateNetwork());
+                .setAlwaysUpdateNetwork(parametersExt.isAlwaysUpdateNetwork())
+                .setUseTransformerRatio(parameters.isDcUseTransformerRatio())
+                .setDcApproximationType(parametersExt.getDcApproximationType());
         KnitroLoadFlowParameters knitroLoadFlowParameters;
         if (parameters.getExtension(KnitroLoadFlowParameters.class) != null) {
             knitroLoadFlowParameters = parameters.getExtension(KnitroLoadFlowParameters.class);
