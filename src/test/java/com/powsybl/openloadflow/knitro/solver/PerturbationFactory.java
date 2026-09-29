@@ -10,6 +10,7 @@ package com.powsybl.openloadflow.knitro.solver;
 import com.powsybl.iidm.modification.SetGeneratorToLocalRegulation;
 import com.powsybl.iidm.modification.topology.RemoveFeederBay;
 import com.powsybl.iidm.network.*;
+import com.powsybl.openloadflow.util.PerUnit;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 public final class PerturbationFactory {
-    private static final double BASE_100MVA = 100.0;
+    private static final double BASE_100MVA = PerUnit.SB;
 
     private PerturbationFactory() {
         throw new UnsupportedOperationException("Utility class");

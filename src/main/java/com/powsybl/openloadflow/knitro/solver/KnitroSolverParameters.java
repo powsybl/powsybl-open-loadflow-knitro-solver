@@ -7,10 +7,13 @@
  */
 package com.powsybl.openloadflow.knitro.solver;
 
+import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.openloadflow.ac.solver.AcSolverParameters;
 import com.powsybl.openloadflow.ac.solver.LineSearchStateVectorScaling;
 import com.powsybl.openloadflow.ac.solver.MaxVoltageChangeStateVectorScaling;
 import com.powsybl.openloadflow.ac.solver.StateVectorScalingMode;
+import com.powsybl.openloadflow.dc.equations.DcApproximationType;
+import com.powsybl.openloadflow.dc.equations.DcEquationSystemCreationParameters;
 
 import java.util.Objects;
 
@@ -37,7 +40,6 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
     public static final SolverType DEFAULT_SOLVER_TYPE = SolverType.STANDARD;
     public static final int DEFAULT_THREAD_NUMBER = -1;
-    public static final double DEFAULT_DC_LOSSES = 10.0; // MW
     public static final String DEFAULT_EXPORT_SOLUTION = ""; //  empty => no CSV export
 
     private String exportSolution = DEFAULT_EXPORT_SOLUTION;
@@ -80,14 +82,36 @@ public class KnitroSolverParameters implements AcSolverParameters {
 
     private int threadNumber = DEFAULT_THREAD_NUMBER; // Specifies the number of threads used by the solver. -1 lets the solver decide
 
-    private double losses = DEFAULT_DC_LOSSES;
+    private Double losses = null;
 
-    public double getLosses() {
+    private boolean useTransformerRatio = LoadFlowParameters.DEFAULT_DC_USE_TRANSFORMER_RATIO_DEFAULT;
+
+    private DcApproximationType dcApproximationType = DcEquationSystemCreationParameters.DC_APPROXIMATION_TYPE_DEFAULT_VALUE;
+
+    public Double getLosses() {
         return losses;
     }
 
-    public KnitroSolverParameters setLosses(double losses) {
+    public KnitroSolverParameters setLosses(Double losses) {
         this.losses = losses;
+        return this;
+    }
+
+    public boolean isUseTransformerRatio() {
+        return useTransformerRatio;
+    }
+
+    public KnitroSolverParameters setUseTransformerRatio(boolean useTransformerRatio) {
+        this.useTransformerRatio = useTransformerRatio;
+        return this;
+    }
+
+    public DcApproximationType getDcApproximationType() {
+        return dcApproximationType;
+    }
+
+    public KnitroSolverParameters setDcApproximationType(DcApproximationType dcApproximationType) {
+        this.dcApproximationType = Objects.requireNonNull(dcApproximationType);
         return this;
     }
 
@@ -314,6 +338,8 @@ public class KnitroSolverParameters implements AcSolverParameters {
                 ", alwaysUpdateNetwork=" + alwaysUpdateNetwork +
                 ", maxKnitroIterations=" + maxKnitroIterations +
                 ", threadNumber=" + threadNumber +
+                ", useTransformerRatio=" + useTransformerRatio +
+                ", dcApproximationType=" + dcApproximationType +
                 ')';
     }
 

@@ -12,8 +12,14 @@ import com.artelys.knitro.api.callbacks.KNEvalGACallback;
 import com.powsybl.commons.PowsyblException;
 import com.powsybl.openloadflow.ac.equations.AcEquationType;
 import com.powsybl.openloadflow.ac.equations.AcVariableType;
+import com.powsybl.openloadflow.dc.DcLoadFlowContext;
+import com.powsybl.openloadflow.dc.DcLoadFlowEngine;
+import com.powsybl.openloadflow.dc.DcLoadFlowParameters;
+import com.powsybl.openloadflow.dc.equations.DcApproximationType;
+import com.powsybl.openloadflow.dc.equations.DcEquationSystemCreationParameters;
 import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.network.*;
+import com.powsybl.openloadflow.util.Evaluable;
 import com.powsybl.openloadflow.util.PerUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,10 +27,11 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Path;
+
+import de.siegmar.fastcsv.writer.CsvWriter;
 
 import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.*;
 
@@ -52,6 +59,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     // Variable weight
     protected double weightP1;
+    protected double losses;
     protected static final double WEIGHT_Q_1 = 1.0;
     protected static final double GAMMA_FACTOR = 0.1;
 
@@ -94,7 +102,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     // Mapping of the slack variable and info
     private final ArrayList<SlackVariableInfo> slackContributions = new ArrayList<>();
     // One optimization info CSV row per solve, kept so that the export covers every outer loop iteration
-    private final List<String> optimContributions = new ArrayList<>();
+    private final List<String[]> optimContributions = new ArrayList<>();
     // Gamma weight of each V slack variable, indexed by its local V index
     protected HashMap<Integer, Double> weightVMap;
 
@@ -144,11 +152,98 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 }
             }
         }
+        resolveWeightP1(network);
+    }
 
-        // Weight P
+    /**
+     * Resolves the losses estimate and the P slack weight.
+     */
+    protected void resolveWeightP1(LfNetwork network) {
         double activeGeneration = computeActiveGeneration(network);
-        double deltaP = computeDeltaP(network, activeGeneration, this.knitroParameters.getLosses());
+        losses = this.knitroParameters.getLosses() != null ? this.knitroParameters.getLosses()
+                : estimateDcLosses(network, knitroParameters.isUseTransformerRatio(), knitroParameters.getDcApproximationType());
+        double deltaP = computeDeltaP(network, activeGeneration, losses);
         weightP1 = computeWeightP1(activeGeneration, deltaP);
+    }
+
+    /**
+     * Returns the estimated losses from a DC approximation of the Network
+     * in case they were no user specified losses.
+     */
+    static double estimateDcLosses(LfNetwork network, boolean useTransformerRatio, DcApproximationType dcApproximationType) {
+        NetworkState stateBackup = NetworkState.save(network);
+
+        Map<LfBus, Evaluable> busPBackup = new LinkedHashMap<>();
+        for (LfBus bus : network.getBuses()) {
+            busPBackup.put(bus, bus.getP());
+        }
+        Map<LfBranch, BranchFlowsBackup> branchFlowsBackup = new LinkedHashMap<>();
+        for (LfBranch branch : network.getBranches()) {
+            branchFlowsBackup.put(branch, BranchFlowsBackup.save(branch));
+        }
+        Map<LfHvdc, Evaluable> hvdcP1Backup = new LinkedHashMap<>();
+        Map<LfHvdc, Evaluable> hvdcP2Backup = new LinkedHashMap<>();
+        for (LfHvdc hvdc : network.getHvdcs()) {
+            hvdcP1Backup.put(hvdc, hvdc.getP1());
+            hvdcP2Backup.put(hvdc, hvdc.getP2());
+        }
+        try {
+            DcEquationSystemCreationParameters creationParameters = new DcEquationSystemCreationParameters()
+                    .setUseTransformerRatio(useTransformerRatio)
+                    .setDcApproximationType(dcApproximationType);
+            DcLoadFlowParameters dcParameters = new DcLoadFlowParameters()
+                    .setEquationSystemCreationParameters(creationParameters)
+                    .setDistributedSlack(false);
+            try (DcLoadFlowContext dcContext = new DcLoadFlowContext(network, dcParameters)) {
+                new DcLoadFlowEngine(dcContext).run();
+
+                double totalLossesPu = 0.0;
+                for (LfBranch branch : network.getBranches()) {
+                    double r = branch.getPiModel().getR();
+                    if (r == 0) {
+                        continue;
+                    }
+                    double p1 = branch.getP1().eval();
+                    if (Double.isNaN(p1)) {
+                        continue;
+                    }
+                    totalLossesPu += r * p1 * p1;
+                }
+                return totalLossesPu * PerUnit.SB;
+            }
+        } finally {
+            busPBackup.forEach(LfBus::setP);
+            branchFlowsBackup.forEach((branch, backup) -> backup.restore(branch));
+            hvdcP1Backup.forEach(LfHvdc::setP1);
+            hvdcP2Backup.forEach(LfHvdc::setP2);
+            stateBackup.restore();
+        }
+    }
+
+    /**
+     * Snapshot of every Evaluable reference field {@code DcEquationSystemCreator} may rewire onto a branch
+     * (flows, currents, and phase-shift angle), so {@link #estimateDcLosses} can put them back exactly as
+     * they were before its internal DC solve touched them.
+     */
+    private record BranchFlowsBackup(Evaluable a1, Evaluable p1, Evaluable q1, Evaluable p2, Evaluable q2,
+                                     Evaluable i1, Evaluable i2, Evaluable closedP1, Evaluable closedP2) {
+
+        static BranchFlowsBackup save(LfBranch branch) {
+            return new BranchFlowsBackup(branch.getA1(), branch.getP1(), branch.getQ1(), branch.getP2(), branch.getQ2(),
+                    branch.getI1(), branch.getI2(), branch.getClosedP1(), branch.getClosedP2());
+        }
+
+        void restore(LfBranch branch) {
+            branch.setA1(a1);
+            branch.setP1(p1);
+            branch.setQ1(q1);
+            branch.setP2(p2);
+            branch.setQ2(q2);
+            branch.setI1(i1);
+            branch.setI2(i2);
+            branch.setClosedP1(closedP1);
+            branch.setClosedP2(closedP2);
+        }
     }
 
     /**
@@ -221,7 +316,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         // Weight use in the objective function
         LOGGER.info("==== Objective function weight details ====");
-        LOGGER.info("Total LOSSES DC =  {} MW", String.format("%.2f", this.knitroParameters.getLosses()));
+        LOGGER.info("Total LOSSES DC =  {} MW", String.format("%.2f", this.losses));
         LOGGER.info("Weight P1 = {}", String.format("%.2f", weightP1));
         LOGGER.info("Weight Q1 = {}", WEIGHT_Q_1);
         if (LOGGER.isInfoEnabled()) {
@@ -239,11 +334,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         logSlackSummary(slackArray); // Generic summary of the network, number of slack of each type, number of load or generator violations
         if (csvPath != null && !csvPath.isEmpty()) {
-            List<String> csvLines = slackInfoCsv(slackArray);
-            List<String> optimInfo = optimInfoCsv(totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver);
-
-            writeSlackInfoCsv(csvPath + CSV_EXTENSION, csvLines);
-            writeOptimInfoCsv(csvPath + CSV_EXTENSION_OPTI, optimInfo);
+            writeSlackInfoCsv(csvPath + CSV_EXTENSION, slackArray);
+            writeOptimInfoCsv(csvPath + CSV_EXTENSION_OPTI, totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver);
         }
 
         incrementSolveCount();
@@ -552,62 +644,52 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 .collect(Collectors.joining("|"));
     }
 
-    private List<String> slackInfoCsv(SlackVariableInfo[] slackArray) {
-        List<String> csvLines = new ArrayList<>();
-        csvLines.add("bus_id;type;slackValue_pu;voltage_level_id;generator;controleVoltage;transfo;shunt;load;load_violation;gen_violation;voltage_violation;outerloop_iteration");
-        for (SlackVariableInfo si : slackArray) {
-            csvLines.add(String.format(java.util.Locale.US, "%s;%s;%.6f;%s;%s;%s;%s;%s;%s;%d;%d;%d;%d",
-                    toCsvField(si.busId), toCsvField(si.type), si.slackValuePu, toCsvField(si.voltageLevel),
-                    toCsvField(si.generators), toCsvField(si.voltageControls), toCsvField(si.transformer.stream().toList()),
-                    toCsvField(si.shunt.stream().toList()), toCsvField(si.loads),
-                    si.loadViolation, si.genViolation, si.voltageViolation, si.outerloopIteration));
-        }
-        return csvLines;
-    }
+    private void writeSlackInfoCsv(String filename, SlackVariableInfo[] slackArray) {
+        Path file = Path.of(filename);
+        try (CsvWriter csv = CsvWriter.builder().fieldSeparator(';').build(file)) {
+            csv.writeRecord("bus_id", "type", "slackValue_pu", "voltage_level_id", "generator", "controleVoltage", "transfo", "shunt", "load", "load_violation", "gen_violation", "voltage_violation", "outerloop_iteration");
 
-    /**
-     * Appends the optimization info of the current solve to {@link #optimContributions}, and returns the CSV
-     * lines covering every solve so far. Like the slack CSV, the file is rewritten in full on each solve, so
-     * that both exports keep the same per-iteration history and can be joined on outerloop_iteration.
-     */
-    private List<String> optimInfoCsv(double totalPenalty, double penaltyP, double penaltyQ, double penaltyV, KNSolution solution, KNSolver solver) {
-        try {
-            optimContributions.add(String.format(java.util.Locale.US, "%s;%s;%s;%s;%s;%s;%d", totalPenalty, penaltyP, penaltyQ, penaltyV, solution.getStatus(), solver.getNumberIters(), getSolveCount()));
-        } catch (KNException e) {
-            LOGGER.warn("Failed to gather optimization info for CSV export", e);
-        }
-        List<String> optimInfo = new ArrayList<>();
-        optimInfo.add("total_penalty;penaltyP;penaltyQ;penaltyV;status;iterations;outerloop_iteration");
-        optimInfo.addAll(optimContributions);
-        return optimInfo;
-    }
-
-    private void writeSlackInfoCsv(String filename, List<String> lines) {
-        try {
-            Files.write(
-                    Paths.get(filename),
-                    lines,
-                    StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING
-            );
+            for (SlackVariableInfo si : slackArray) {
+                csv.writeRecord(
+                        toCsvField(si.busId), toCsvField(si.type), String.format(Locale.US, "%.6f", si.slackValuePu), toCsvField(si.voltageLevel),
+                        toCsvField(si.generators), toCsvField(si.voltageControls), toCsvField(si.transformer.stream().toList()),
+                        toCsvField(si.shunt.stream().toList()), toCsvField(si.loads),
+                        String.valueOf(si.loadViolation), String.valueOf(si.genViolation), String.valueOf(si.voltageViolation), String.valueOf(si.outerloopIteration));
+            }
             LOGGER.info("Slack informations and contributions exported to {}", filename);
-        } catch (java.io.IOException e) {
+        } catch (IOException | UncheckedIOException e) {
             LOGGER.warn("Failed to write slack CSV to {}: {}", filename, e.getMessage());
         }
     }
 
-    private void writeOptimInfoCsv(String filename, List<String> lines) {
+    /**
+     * Appends the optimization info of the current solve to {@link #optimContributions} and rewrites the CSV
+     * in full, so that it covers every solve so far. Like the slack CSV, it keeps the per-iteration history and
+     * can be joined on outerloop_iteration.
+     */
+    private void writeOptimInfoCsv(String filename, double totalPenalty, double penaltyP, double penaltyQ, double penaltyV, KNSolution solution, KNSolver solver) {
         try {
-            Files.write(
-                    Paths.get(filename),
-                    lines,
-                    StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING
-            );
+            optimContributions.add(new String[] {
+                String.valueOf(totalPenalty),
+                String.valueOf(penaltyP),
+                String.valueOf(penaltyQ),
+                String.valueOf(penaltyV),
+                String.valueOf(solution.getStatus()),
+                String.valueOf(solver.getNumberIters()),
+                String.valueOf(getSolveCount())
+            });
+        } catch (KNException e) {
+            LOGGER.warn("Failed to gather optimization info for CSV export", e);
+        }
+
+        Path file = Path.of(filename);
+        try (CsvWriter csv = CsvWriter.builder().fieldSeparator(';').build(file)) {
+            csv.writeRecord("total_penalty", "penaltyP", "penaltyQ", "penaltyV", "status", "iterations", "outerloop_iteration");
+            for (String[] row : optimContributions) {
+                csv.writeRecord(row);
+            }
             LOGGER.info("Optimization information exported to {}", filename);
-        } catch (java.io.IOException e) {
+        } catch (IOException | UncheckedIOException e) {
             LOGGER.warn("Failed to write optimization info CSV to {}: {}", filename, e.getMessage());
         }
     }

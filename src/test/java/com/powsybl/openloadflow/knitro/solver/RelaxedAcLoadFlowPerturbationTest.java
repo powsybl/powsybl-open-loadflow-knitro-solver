@@ -7,17 +7,14 @@
  */
 package com.powsybl.openloadflow.knitro.solver;
 
-import com.powsybl.iidm.network.Branch;
-import com.powsybl.iidm.network.Line;
 import com.powsybl.iidm.network.Network;
-import com.powsybl.iidm.network.Terminal;
-import com.powsybl.iidm.network.TwoWindingsTransformer;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
 import com.powsybl.math.matrix.SparseMatrixFactory;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
+import com.powsybl.openloadflow.ac.solver.NewtonRaphsonFactory;
 import com.powsybl.openloadflow.network.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
@@ -44,14 +41,13 @@ import org.slf4j.LoggerFactory;
 
 class RelaxedAcLoadFlowPerturbationTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(RelaxedAcLoadFlowPerturbationTest.class);
-    private static final String RKN = "KNITRO";
-    private static final String NR = "NEWTON_RAPHSON";
+    private static final String RKN = KnitroSolverFactory.NAME;
+    private static final String NR = NewtonRaphsonFactory.NAME;
     private static final String VOLTAGE_PERTURBATION = "voltage-perturbation";
     private static final String ACTIVE_POWER_PERTURBATION = "active-perturbation";
     private static final boolean EXPORT = false;
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
-    private double losses;
     private String exportSolution;
 
     @BeforeEach
@@ -74,7 +70,6 @@ class RelaxedAcLoadFlowPerturbationTest {
             KnitroLoadFlowParameters knitroParams = new KnitroLoadFlowParameters();
             // Set the Knitro solver type to RELAXED
             knitroParams.setKnitroSolverType(KnitroSolverParameters.SolverType.RELAXED);
-            knitroParams.setLosses(losses);
             knitroParams.setExportSolution(exportSolution);
             parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
         }
@@ -101,19 +96,6 @@ class RelaxedAcLoadFlowPerturbationTest {
         LOGGER.info("Type : {}", perturbationType);
         LOGGER.info("Network name : {}", baseFilename);
         assertFalse(isConvergedNR && !isFailedNR, baseFilename + ": NR should not converge");
-
-        // DC Load Flow
-        LoadFlowParameters dcParameters = new LoadFlowParameters()
-                .setDc(true);
-        LoadFlowResult resultsDC = LoadFlow.run(dcNetwork, dcParameters);
-        boolean isConvergedDC = resultsDC.isFullyConverged();
-        LOGGER.info("==== Test Information ====");
-        LOGGER.info("Algorithm : DC Load Flow");
-        LOGGER.info("Type : {}", perturbationType);
-        LOGGER.info("Network name : {}", baseFilename);
-        assertTrue(isConvergedDC, baseFilename + ": DC load flow should converge");
-
-        this.losses = calculateDcLosses(dcNetwork);
 
         // Knitro Resilient
         configureSolver(RKN);
@@ -145,38 +127,6 @@ class RelaxedAcLoadFlowPerturbationTest {
         PerturbationFactory.applyActivePowerPerturbation(nrNetwork, targetLoadID, alpha);
         PerturbationFactory.applyActivePowerPerturbation(dcNetwork, targetLoadID, alpha);
         compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, ACTIVE_POWER_PERTURBATION, test);
-    }
-
-    private double calculateDcLosses(Network dcNetwork) {
-        double totalLosses = 0.0;
-
-        // Branches, not just lines: IEEE networks also carry two-winding transformers with a non-zero
-        // resistance, which would otherwise be left out of the estimate.
-        for (Branch<?> branch : dcNetwork.getBranches()) {
-            Terminal terminal1 = branch.getTerminal1();
-            double p1 = terminal1.getP(); // MW
-            double r = getResistance(branch); // Ohms
-            if (r == 0) {
-                continue;
-            } else if (Double.isNaN(p1)) {
-                LOGGER.warn("Branch {}: P1 is NaN, skipping loss calculation for this branch", branch.getId());
-                continue;
-            }
-            double vnom1 = terminal1.getVoltageLevel().getNominalV(); // kV
-            double loss = r * (Math.abs(p1) * Math.abs(p1)) / (vnom1 * vnom1);
-            totalLosses += loss;
-        }
-        LOGGER.info("Total DC losses: {}", totalLosses);
-        return totalLosses;
-    }
-
-    private static double getResistance(Branch<?> branch) {
-        if (branch instanceof Line line) {
-            return line.getR();
-        } else if (branch instanceof TwoWindingsTransformer transformer) {
-            return transformer.getR();
-        }
-        return 0.0;
     }
 
     @TempDir
