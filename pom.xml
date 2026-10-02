@@ -34,7 +34,7 @@
 
     <developers>
         <developer>
-            <name>Jeanne ARCHAMBAULT</name>
+            <name>Jeanne Archambault</name>
             <email>jeanne.archambault@artelys.com</email>
             <organization>Artelys</organization>
             <organizationUrl>http://www.artelys.com</organizationUrl>
@@ -54,6 +54,12 @@
         <developer>
             <name>Pierre Arvy</name>
             <email>pierre.arvy@artelys.com</email>
+            <organization>Artelys</organization>
+            <organizationUrl>http://www.artelys.com</organizationUrl>
+        </developer>
+        <developer>
+            <name>Salomé Lavine</name>
+            <email>salome.lavine@artelys.com</email>
             <organization>Artelys</organization>
             <organizationUrl>http://www.artelys.com</organizationUrl>
         </developer>
@@ -127,6 +133,11 @@
             <groupId>net.java.dev.jna</groupId>
             <artifactId>jna-platform</artifactId>
             <version>${jna.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>de.siegmar</groupId>
+            <artifactId>fastcsv</artifactId>
+            <version>4.4.0</version>
         </dependency>
 
         <!-- Test dependencies -->

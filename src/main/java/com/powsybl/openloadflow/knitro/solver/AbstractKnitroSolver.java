@@ -75,18 +75,19 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         solver.setParam(KNConstants.KN_PARAM_FEASTOLABS, knitroParameters.getAbsConvEps());
         solver.setParam(KNConstants.KN_PARAM_OPTTOL, knitroParameters.getRelOptEps());
         solver.setParam(KNConstants.KN_PARAM_OPTTOLABS, knitroParameters.getAbsOptEps());
-        solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxIterations());
+        solver.setParam(KNConstants.KN_PARAM_MAXIT, knitroParameters.getMaxKnitroIterations());
         solver.setParam(KNConstants.KN_PARAM_HESSOPT, knitroParameters.getHessianComputationMode());
         solver.setParam(KNConstants.KN_PARAM_SOLTYPE, KNConstants.KN_SOLTYPE_BESTFEAS);
         solver.setParam(KNConstants.KN_PARAM_OUTLEV, 3);
         solver.setParam(KNConstants.KN_PARAM_NUMTHREADS, knitroParameters.getThreadNumber());
+        solver.setParam(KNConstants.KN_PARAM_PRESOLVEOP_TIGHTEN, KNConstants.KN_PRESOLVEOP_TIGHTEN_ALL);
 
         LOGGER.info("Knitro parameters set: GRADOPT={}, HESSOPT={}, FEASTOL={}, OPTTOL={}, MAXIT={}",
                 knitroParameters.getGradientComputationMode(),
                 knitroParameters.getHessianComputationMode(),
                 knitroParameters.getRelConvEps(),
                 knitroParameters.getRelOptEps(),
-                knitroParameters.getMaxIterations());
+                knitroParameters.getMaxKnitroIterations());
     }
 
     /**
@@ -113,20 +114,6 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         try {
             LOGGER.info("Feasibility violation    = {}", solver.getAbsFeasError());
             LOGGER.info("Optimality violation     = {}", solver.getAbsOptError());
-
-            LOGGER.debug("Optimal x");
-            for (int i = 0; i < solution.getX().size(); i++) {
-                LOGGER.debug(" x[{}] = {}", i, solution.getX().get(i));
-            }
-            LOGGER.debug("Optimal constraint values (with corresponding multiplier)");
-            List<Double> constraintValues = solver.getConstraintValues();
-            for (int i = 0; i < problemInstance.getNumCons(); i++) {
-                LOGGER.debug(" c[{}] = {} (lambda = {} )", i, constraintValues.get(i), solution.getLambda().get(i));
-            }
-            LOGGER.debug("Constraint violation");
-            for (int i = 0; i < problemInstance.getNumCons(); i++) {
-                LOGGER.debug(" violation[{}] = {} ", i, solver.getConViol(i));
-            }
         } catch (KNException e) {
             LOGGER.warn("Failed to get some solution details", e);
         }
@@ -198,6 +185,16 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
                 .mapToDouble(LfBus::getMismatchP)
                 .sum();
         return new AcSolverResult(acStatus, nbIter, slackBusActivePowerMismatch);
+    }
+
+    private int solverCount = 0;
+
+    public int incrementSolveCount() {
+        return solverCount++;
+    }
+
+    public int getSolveCount() {
+        return solverCount;
     }
 
     public abstract class AbstractKnitroProblem extends KNProblem {
@@ -387,7 +384,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
         /**
          * Configures the Jacobian matrix for the Knitro problem, using either a dense or sparse representation.
          *
-         * @param sortedEquationsToSolve The list of equations to solve.
+         * @param sortedSingleEquationsToSolve The list of equations to solve.
          * @param listNonLinearConsts The list of non-linear constraint ids.
          */
         protected void setJacobianMatrix(List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve, List<Integer> listNonLinearConsts) {
@@ -451,7 +448,7 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          * Builds the sparse Jacobian matrix by identifying non-zero entries for each non-linear constraint.
          * Can be overridden by subclasses to include additional variables (e.g., slack variables).
          *
-         * @param sortedEquationsToSolve Ordered list of equations to solve.
+         * @param sortedSingleEquationsToSolve Ordered list of equations to solve.
          * @param nonLinearConstraintIds Indices of non-linear constraints within the sorted equation list.
          * @param jacobianRowIndices Output: row indices (constraints) of non-zero Jacobian entries.
          * @param jacobianColumnIndices Output: column indices (variables) of non-zero Jacobian entries.
