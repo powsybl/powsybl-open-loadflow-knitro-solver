@@ -71,6 +71,7 @@
         <powsybl-open-loadflow.version>2.1.1-not-vectorized</powsybl-open-loadflow.version>
         <knitro-interfaces.version>15.1.0</knitro-interfaces.version>
         <jna.version>5.17.0</jna.version>
+        <fastcsv.version>4.4.0</fastcsv.version>
     </properties>
 
     <build>
@@ -137,7 +138,7 @@
         <dependency>
             <groupId>de.siegmar</groupId>
             <artifactId>fastcsv</artifactId>
-            <version>4.4.0</version>
+            <version>${fastcsv.version}</version>
         </dependency>
 
         <!-- Test dependencies -->

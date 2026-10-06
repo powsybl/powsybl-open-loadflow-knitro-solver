@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @author Mael Verbois {@literal <mael.verbois at artelys.com>}
  */
-class RelaxedKnitroSolverPowerSlackTest {
+class RelaxedKnitroSolverCsvTest {
 
     // Columns of the slack CSV export
     private static final int TYPE = 1;
@@ -77,15 +77,15 @@ class RelaxedKnitroSolverPowerSlackTest {
     /**
      * Runs the load flow and returns the P (or Q) slack exported for B2.
      */
-    private String[] runAndGetSlack(Network network, LoadFlowParameters parameters, String type) throws IOException {
+    private String[] runAndGetSlack(Network network, LoadFlowParameters parameters) throws IOException {
         assertTrue(new LoadFlow.Runner(new OpenLoadFlowProvider(new SparseMatrixFactory())).run(network, parameters).isFullyConverged());
 
         String exportPath = parameters.getExtension(KnitroLoadFlowParameters.class).getExportSolution();
         return Files.readAllLines(Path.of(exportPath + ".csv")).stream()
                 .map(line -> line.split(";", -1))
-                .filter(row -> row[0].equals("VL2_0") && row[TYPE].equals(type))
+                .filter(row -> row[0].equals("VL2_0") && row[TYPE].equals("P"))
                 .findFirst()
-                .orElseThrow(() -> new AssertionError("No " + type + " slack exported for VL2_0"));
+                .orElseThrow(() -> new AssertionError("No " + "P" + " slack exported for VL2_0"));
     }
 
     @Test
@@ -99,7 +99,7 @@ class RelaxedKnitroSolverPowerSlackTest {
         vl2.newShuntCompensator().setId("SH2").setBus("B2").setSectionCount(1)
                 .newLinearModel().setBPerSection(1e-5).setMaximumSectionCount(1).add().add();
 
-        String[] slackP = runAndGetSlack(network, createParameters(), "P");
+        String[] slackP = runAndGetSlack(network, createParameters());
         assertEquals("0", slackP[LOAD_VIOLATION]);
         assertEquals("1", slackP[GEN_VIOLATION]);
         assertFalse(slackP[SHUNT].isEmpty());
@@ -129,7 +129,7 @@ class RelaxedKnitroSolverPowerSlackTest {
         OpenLoadFlowParameters.get(parameters)
                 .setTransformerVoltageControlMode(OpenLoadFlowParameters.TransformerVoltageControlMode.INCREMENTAL_VOLTAGE_CONTROL);
 
-        String[] slackP = runAndGetSlack(network, parameters, "P");
+        String[] slackP = runAndGetSlack(network, parameters);
         assertEquals("1", slackP[LOAD_VIOLATION]);
         assertFalse(slackP[TRANSFO].isEmpty());
     }
@@ -141,7 +141,7 @@ class RelaxedKnitroSolverPowerSlackTest {
         Network network = createNetwork();
         network.getLine("L12").setG2(10.0 / 1600);
 
-        String[] slackP = runAndGetSlack(network, createParameters(), "P");
+        String[] slackP = runAndGetSlack(network, createParameters());
         assertEquals("0", slackP[LOAD_VIOLATION]);
         assertEquals("0", slackP[GEN_VIOLATION]);
     }

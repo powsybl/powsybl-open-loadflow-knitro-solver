@@ -220,11 +220,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
     }
 
-    /**
-     * Snapshot of every Evaluable reference field {@code DcEquationSystemCreator} may rewire onto a branch
-     * (flows, currents, and phase-shift angle), so {@link #estimateDcLosses} can put them back exactly as
-     * they were before its internal DC solve touched them.
-     */
     private record BranchFlowsBackup(Evaluable a1, Evaluable p1, Evaluable q1, Evaluable p2, Evaluable q2,
                                      Evaluable i1, Evaluable i2, Evaluable closedP1, Evaluable closedP2) {
 
@@ -662,11 +657,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
     }
 
-    /**
-     * Appends the optimization info of the current solve to {@link #optimContributions} and rewrites the CSV
-     * in full, so that it covers every solve so far. Like the slack CSV, it keeps the per-iteration history and
-     * can be joined on outerloop_iteration.
-     */
     private void writeOptimInfoCsv(String filename, double totalPenalty, double penaltyP, double penaltyQ, double penaltyV, KNSolution solution, KNSolver solver) {
         try {
             optimContributions.add(new String[] {
