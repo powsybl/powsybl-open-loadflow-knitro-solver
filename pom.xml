@@ -34,7 +34,7 @@
 
     <developers>
         <developer>
-            <name>Jeanne ARCHAMBAULT</name>
+            <name>Jeanne Archambault</name>
             <email>jeanne.archambault@artelys.com</email>
             <organization>Artelys</organization>
             <organizationUrl>http://www.artelys.com</organizationUrl>
@@ -57,6 +57,12 @@
             <organization>Artelys</organization>
             <organizationUrl>http://www.artelys.com</organizationUrl>
         </developer>
+        <developer>
+            <name>Salomé Lavine</name>
+            <email>salome.lavine@artelys.com</email>
+            <organization>Artelys</organization>
+            <organizationUrl>http://www.artelys.com</organizationUrl>
+        </developer>
     </developers>
 
     <properties>
@@ -65,6 +71,7 @@
         <powsybl-open-loadflow.version>2.1.1-not-vectorized</powsybl-open-loadflow.version>
         <knitro-interfaces.version>15.1.0</knitro-interfaces.version>
         <jna.version>5.17.0</jna.version>
+        <fastcsv.version>4.4.0</fastcsv.version>
     </properties>
 
     <build>
@@ -127,6 +134,11 @@
             <groupId>net.java.dev.jna</groupId>
             <artifactId>jna-platform</artifactId>
             <version>${jna.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>de.siegmar</groupId>
+            <artifactId>fastcsv</artifactId>
+            <version>${fastcsv.version}</version>
         </dependency>
 
         <!-- Test dependencies -->
