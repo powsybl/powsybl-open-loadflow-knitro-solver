@@ -194,7 +194,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             DcLoadFlowParameters dcParameters = new DcLoadFlowParameters()
                     .setEquationSystemCreationParameters(creationParameters)
                     .setDistributedSlack(false);
-            try (DcLoadFlowContext dcContext = new DcLoadFlowContext(network, dcParameters)) {
+            try (DcLoadFlowContext dcContext = new DcLoadFlowContext(network, dcParameters, false)) {
                 new DcLoadFlowEngine(dcContext).run();
 
                 double totalLossesPu = 0.0;
