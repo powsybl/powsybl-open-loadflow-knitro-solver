@@ -248,8 +248,8 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
      - Warning: for options `2 (forward)` and `3 (central)` set the solver's number of threads to 1.
 
 11. **DC Losses approximation**:
-    - Default value: 10 MW
-    - Must be set manually: the solver does not compute it. A DC load flow on the network is a convenient way to obtain an estimate.
+    - Default value: auto-estimated using a DC load flow on the network. 
+    - If set manually the estimation is skipped and the provided value is used as is.
     - Use `setLosses`.
 
 12. **Export Directory**
