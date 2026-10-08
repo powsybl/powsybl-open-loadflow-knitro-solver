@@ -285,6 +285,12 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     }
 
     @Override
+    protected void setSolverParameters(KNSolver solver) throws KNException {
+        super.setSolverParameters(solver);
+        solver.setParam(KNConstants.KN_PARAM_PRESOLVEOP_TIGHTEN, KNConstants.KN_PRESOLVEOP_TIGHTEN_ALL);
+    }
+
+    @Override
     protected void processSolution(KNSolver solver, KNSolution solution, KNProblem problemInstance) {
         super.processSolution(solver, solution, problemInstance);
 
