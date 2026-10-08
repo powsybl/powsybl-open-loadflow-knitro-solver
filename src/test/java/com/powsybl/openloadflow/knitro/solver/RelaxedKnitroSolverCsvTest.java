@@ -106,6 +106,23 @@ class RelaxedKnitroSolverCsvTest {
     }
 
     @Test
+    void testSlackOnBusWithLoadGeneratorAndShuntRaisedMaxP() throws IOException {
+        // The 1000 MW load is cut by the slack (the load stays positive), which would bring the generator below its minP
+        Network network = createNetwork();
+        VoltageLevel vl2 = network.getVoltageLevel("VL2");
+        vl2.newLoad().setId("L2").setBus("B2").setP0(1000).setQ0(100).add();
+        vl2.newGenerator().setId("G2").setBus("B2").setMinP(0).setMaxP(2000).setTargetP(10).setTargetQ(0)
+                .setVoltageRegulatorOn(false).add();
+        vl2.newShuntCompensator().setId("SH2").setBus("B2").setSectionCount(1)
+                .newLinearModel().setBPerSection(1e-5).setMaximumSectionCount(1).add().add();
+
+        String[] slackP = runAndGetSlack(network, createParameters());
+        assertEquals("0", slackP[LOAD_VIOLATION]);
+        assertEquals("0", slackP[GEN_VIOLATION]);
+        assertFalse(slackP[SHUNT].isEmpty());
+    }
+
+    @Test
     void testSlackOnTransformerControlledBusViolatingLoad() throws IOException {
         // A transformer, whose ratio tap changer regulates B2, is added in parallel to the line. The 1000 MW are drawn
         // by a generator acting as a consumer (e.g. pumping), so the slack exceeds the 10 MW load

@@ -534,7 +534,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         if (maybeGenerator.isPresent()) {
             GenInterpretation generator = buildGenInterpretation(bus.getGenerators(), interpretation, type);
-            isfeasible = isGenFeasible(type.generationTarget(bus) + epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
+            isfeasible = isGenFeasible(type.generationTarget(bus) - epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
             interpretation.append(String.format("%n\t\tTotal generation bus range [%.2f,%.2f] %s", generator.minSum(), generator.maxSum(), type.unit()));
             if (isfeasible.equals(VIOLATED)) {
                 interpretation.append(String.format(", Generator limits would be exceeded if this slack is applied %s", isfeasible));
