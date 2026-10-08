@@ -40,9 +40,9 @@ public class KnitroSolverParameters implements AcSolverParameters {
     public static final boolean ALWAYS_UPDATE_NETWORK_DEFAULT_VALUE = false;
     public static final SolverType DEFAULT_SOLVER_TYPE = SolverType.STANDARD;
     public static final int DEFAULT_THREAD_NUMBER = -1;
-    public static final String DEFAULT_EXPORT_SOLUTION = ""; //  empty => no CSV export
+    public static final String DEFAULT_EXPORT_DIRECTORY = ""; // empty => no CSV export
 
-    private String exportSolution = DEFAULT_EXPORT_SOLUTION;
+    private String exportDirectory = DEFAULT_EXPORT_DIRECTORY;
 
     private StateVectorScalingMode stateVectorScalingMode = DEFAULT_STATE_VECTOR_SCALING_MODE;
 
@@ -115,12 +115,12 @@ public class KnitroSolverParameters implements AcSolverParameters {
         return this;
     }
 
-    public String getExportSolution() {
-        return exportSolution;
+    public String getExportDirectory() {
+        return exportDirectory;
     }
 
-    public KnitroSolverParameters setExportSolution(String exportSolution) {
-        this.exportSolution = exportSolution;
+    public KnitroSolverParameters setExportDirectory(String exportDirectory) {
+        this.exportDirectory = exportDirectory;
         return this;
     }
 

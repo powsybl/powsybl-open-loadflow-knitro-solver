@@ -70,7 +70,7 @@ class RelaxedKnitroSolverCsvTest {
                 .setAcSolverType(KnitroSolverFactory.NAME);
         parameters.addExtension(KnitroLoadFlowParameters.class, new KnitroLoadFlowParameters()
                 .setKnitroSolverType(KnitroSolverParameters.SolverType.RELAXED)
-                .setExportSolution(tmp.resolve("slacks").toString()));
+                .setExportDirectory(tmp.toString()));
         return parameters;
     }
 
@@ -80,8 +80,7 @@ class RelaxedKnitroSolverCsvTest {
     private String[] runAndGetSlack(Network network, LoadFlowParameters parameters) throws IOException {
         assertTrue(new LoadFlow.Runner(new OpenLoadFlowProvider(new SparseMatrixFactory())).run(network, parameters).isFullyConverged());
 
-        String exportPath = parameters.getExtension(KnitroLoadFlowParameters.class).getExportSolution();
-        return Files.readAllLines(Path.of(exportPath + ".csv")).stream()
+        return Files.readAllLines(tmp.resolve("cc0_sc0_slacks.csv")).stream()
                 .map(line -> line.split(";", -1))
                 .filter(row -> row[0].equals("VL2_0") && row[TYPE].equals("P"))
                 .findFirst()

@@ -54,8 +54,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelaxedKnitroSolver.class);
     private static final String SLACK_LOG = "Slack {}[{}] → {}";
-    private static final String CSV_EXTENSION = ".csv";
-    private static final String CSV_EXTENSION_OPTI = "_optim_info.csv";
+    private static final String CSV_SUFFIX_SLACKS = "_slacks.csv";
+    private static final String CSV_SUFFIX_OPTI = "_optim_info.csv";
 
     // Variable weight
     protected double weightP1;
@@ -325,12 +325,15 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
 
         SlackVariableInfo[] slackArray = slackContributions.toArray(new SlackVariableInfo[0]); // Object with all the present slack information
-        String csvPath = this.knitroParameters.getExportSolution();
+        String exportDirectory = this.knitroParameters.getExportDirectory();
 
         logSlackSummary(slackArray); // Generic summary of the network, number of slack of each type, number of load or generator violations
-        if (csvPath != null && !csvPath.isEmpty()) {
-            writeSlackInfoCsv(csvPath + CSV_EXTENSION, slackArray);
-            writeOptimInfoCsv(csvPath + CSV_EXTENSION_OPTI, totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver);
+        if (exportDirectory != null && !exportDirectory.isBlank()) {
+            // One file pair per network component, so that the components solved in a same load flow do not overwrite each other
+            String componentId = "cc" + network.getNumCC() + "_sc" + network.getNumSC();
+            Path directory = Path.of(exportDirectory);
+            writeSlackInfoCsv(directory.resolve(componentId + CSV_SUFFIX_SLACKS), slackArray);
+            writeOptimInfoCsv(directory.resolve(componentId + CSV_SUFFIX_OPTI), totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver);
         }
 
         incrementSolveCount();
@@ -639,8 +642,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 .collect(Collectors.joining("|"));
     }
 
-    private void writeSlackInfoCsv(String filename, SlackVariableInfo[] slackArray) {
-        Path file = Path.of(filename);
+    private void writeSlackInfoCsv(Path file, SlackVariableInfo[] slackArray) {
         try (CsvWriter csv = CsvWriter.builder().fieldSeparator(';').build(file)) {
             csv.writeRecord("bus_id", "type", "slackValue_pu", "voltage_level_id", "generator", "controleVoltage", "transfo", "shunt", "load", "load_violation", "gen_violation", "voltage_violation", "outerloop_iteration");
 
@@ -651,13 +653,13 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                         toCsvField(si.shunt.stream().toList()), toCsvField(si.loads),
                         String.valueOf(si.loadViolation), String.valueOf(si.genViolation), String.valueOf(si.voltageViolation), String.valueOf(si.outerloopIteration));
             }
-            LOGGER.info("Slack informations and contributions exported to {}", filename);
+            LOGGER.info("Slack informations and contributions exported to {}", file);
         } catch (IOException | UncheckedIOException e) {
-            LOGGER.warn("Failed to write slack CSV to {}: {}", filename, e.getMessage());
+            LOGGER.warn("Failed to write slack CSV to {}: {}", file, e.getMessage());
         }
     }
 
-    private void writeOptimInfoCsv(String filename, double totalPenalty, double penaltyP, double penaltyQ, double penaltyV, KNSolution solution, KNSolver solver) {
+    private void writeOptimInfoCsv(Path file, double totalPenalty, double penaltyP, double penaltyQ, double penaltyV, KNSolution solution, KNSolver solver) {
         try {
             optimContributions.add(new String[] {
                 String.valueOf(totalPenalty),
@@ -672,15 +674,14 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             LOGGER.warn("Failed to gather optimization info for CSV export", e);
         }
 
-        Path file = Path.of(filename);
         try (CsvWriter csv = CsvWriter.builder().fieldSeparator(';').build(file)) {
             csv.writeRecord("total_penalty", "penaltyP", "penaltyQ", "penaltyV", "status", "iterations", "outerloop_iteration");
             for (String[] row : optimContributions) {
                 csv.writeRecord(row);
             }
-            LOGGER.info("Optimization information exported to {}", filename);
+            LOGGER.info("Optimization information exported to {}", file);
         } catch (IOException | UncheckedIOException e) {
-            LOGGER.warn("Failed to write optimization info CSV to {}: {}", filename, e.getMessage());
+            LOGGER.warn("Failed to write optimization info CSV to {}: {}", file, e.getMessage());
         }
     }
 

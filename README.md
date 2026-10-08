@@ -252,10 +252,11 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
     - Must be set manually: the solver does not compute it. A DC load flow on the network is a convenient way to obtain an estimate.
     - Use `setLosses`.
 
-12. **Export Solution**
-    - Default value: export disabled 
-    - When enabled, two CSV files are exported: one with the information of each slack (type, value, location...) and one with the optimization summary, both usable afterward for visualization.
-    - Use `setExportSolution`.
+12. **Export Directory**
+    - Default value: export disabled (empty)
+    - When set to a directory (which must exist), two CSV files are exported for each network component: `ccX_scY_slacks.csv`, with the information of each slack (type, value, location...), and `ccX_scY_optim_info.csv`, with the optimization summary, both usable afterward for visualization.
+    - The files are rewritten after each solve and hold all the outer loop iterations of the load flow. A later load flow exporting to the same directory overwrites them.
+    - Use `setExportDirectory`.
     
 ### Constraint Handling
 

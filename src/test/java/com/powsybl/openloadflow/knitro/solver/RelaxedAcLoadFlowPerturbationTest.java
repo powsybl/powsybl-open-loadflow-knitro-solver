@@ -48,7 +48,7 @@ class RelaxedAcLoadFlowPerturbationTest {
     private static final boolean EXPORT = false;
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
-    private String exportSolution;
+    private String exportDirectory;
 
     @BeforeEach
     void setUp() {
@@ -70,21 +70,20 @@ class RelaxedAcLoadFlowPerturbationTest {
             KnitroLoadFlowParameters knitroParams = new KnitroLoadFlowParameters();
             // Set the Knitro solver type to RELAXED
             knitroParams.setKnitroSolverType(KnitroSolverParameters.SolverType.RELAXED);
-            knitroParams.setExportSolution(exportSolution);
+            knitroParams.setExportDirectory(exportDirectory);
             parameters.addExtension(KnitroLoadFlowParameters.class, knitroParams);
         }
     }
 
     private void compareResilience(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename, String perturbationType, String test) {
         // Path to export Slack info CSV
-        Path path = Path.of(test, baseFilename);
-        Path filePath = path.resolve(baseFilename + "_" + perturbationType);
+        Path directory = Path.of(test, baseFilename, perturbationType);
         try {
-            Files.createDirectories(filePath.getParent());
+            Files.createDirectories(directory);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        this.exportSolution = filePath.toString();
+        this.exportDirectory = directory.toString();
 
         // Newton-Raphson
         configureSolver(NR);
@@ -105,7 +104,7 @@ class RelaxedAcLoadFlowPerturbationTest {
         LOGGER.info("Algorithm : RKN");
         LOGGER.info("Type : {}", perturbationType);
         LOGGER.info("Network name : {}", baseFilename);
-        LOGGER.info("CSV name : {}", exportSolution);
+        LOGGER.info("CSV directory : {}", exportDirectory);
         assertTrue(isConvergedRKN, baseFilename + ": Knitro should converge");
 
         if (EXPORT) {

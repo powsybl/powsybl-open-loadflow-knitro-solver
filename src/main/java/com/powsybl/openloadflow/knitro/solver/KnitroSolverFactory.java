@@ -71,7 +71,7 @@ public class KnitroSolverFactory implements AcSolverFactory {
                     .setSolverType(knitroLoadFlowParameters.getKnitroSolverType())
                     .setThreadNumber(knitroLoadFlowParameters.getThreadNumber())
                     .setLosses(knitroLoadFlowParameters.getLosses())
-                    .setExportSolution(knitroLoadFlowParameters.getExportSolution());
+                    .setExportDirectory(knitroLoadFlowParameters.getExportDirectory());
         return knitroSolverParameters;
     }
 
