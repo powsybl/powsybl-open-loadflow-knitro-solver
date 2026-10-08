@@ -158,7 +158,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     /**
      * Resolves the losses estimate and the P slack weight.
      */
-    protected void resolveWeightP1(LfNetwork network) {
+    private void resolveWeightP1(LfNetwork network) {
         double activeGeneration = computeActiveGeneration(network);
         losses = this.knitroParameters.getLosses() != null ? this.knitroParameters.getLosses()
                 : estimateDcLosses(network, knitroParameters.isUseTransformerRatio(), knitroParameters.getDcApproximationType());
