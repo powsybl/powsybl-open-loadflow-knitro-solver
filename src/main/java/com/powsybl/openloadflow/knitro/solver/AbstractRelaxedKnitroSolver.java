@@ -51,6 +51,7 @@ import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.*;
 public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     private static final String FEASIBLE = "feasible";
     private static final String VIOLATED = "violated";
+    private static final double UNBOUNDED_LIMIT = 1e10;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRelaxedKnitroSolver.class);
     private static final String SLACK_LOG = "Slack {}[{}] → {}";
@@ -554,7 +555,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         if (maybeGenerator.isPresent()) {
             GenInterpretation generator = buildGenInterpretation(bus.getGenerators(), interpretation, type);
             isfeasible = isGenFeasible(type.generationTarget(bus) - epsilon * PerUnit.SB, generator.minSum(), generator.maxSum()) ? FEASIBLE : VIOLATED;
-            interpretation.append(String.format("%n\t\tTotal generation bus range [%.2f,%.2f] %s", generator.minSum(), generator.maxSum(), type.unit()));
+            interpretation.append(String.format("%n\t\tTotal generation bus range [%s,%s] %s", formatLimit(generator.minSum()), formatLimit(generator.maxSum()), type.unit()));
             if (isfeasible.equals(VIOLATED)) {
                 interpretation.append(String.format(", Generator limits would be exceeded if this slack is applied %s", isfeasible));
                 hasGenViolation = 1;
@@ -595,11 +596,21 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             minSum += type.genMin(gen);
             maxSum += type.genMax(gen);
 
-            interpretation.append(String.format("%n\t\tGenerator [%s] of range: [%.2f,%.2f] %s",
-                    gen.getId(), type.genMin(gen), type.genMax(gen), type.unit()
+            interpretation.append(String.format("%n\t\tGenerator [%s] of range: [%s,%s] %s",
+                    gen.getId(), formatLimit(type.genMin(gen)), formatLimit(type.genMax(gen)), type.unit()
             ));
         }
         return new GenInterpretation(minSum, maxSum, interpretation.toString());
+    }
+
+    /**
+     * Formats a generator limit, displaying unbounded limits as ±inf. 
+     */
+    private static String formatLimit(double limit) {
+        if (Math.abs(limit) >= UNBOUNDED_LIMIT) {
+            return limit > 0 ? "+inf" : "-inf";
+        }
+        return String.format("%.2f", limit);
     }
 
     private void logSlackSummary(SlackVariableInfo[] slackArray) {
