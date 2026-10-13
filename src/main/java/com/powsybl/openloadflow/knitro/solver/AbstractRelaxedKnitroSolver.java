@@ -106,6 +106,16 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     // Gamma weight of each V slack variable, indexed by its local V index
     protected HashMap<Integer, Double> weightVMap;
 
+    private int solverCount = 0;
+
+    public int incrementSolveCount() {
+        return solverCount++;
+    }
+
+    public int getSolveCount() {
+        return solverCount;
+    }
+
     protected AbstractRelaxedKnitroSolver(LfNetwork network, KnitroSolverParameters knitroParameters, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                           JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
                                           EquationVector<AcVariableType, AcEquationType> equationVector, boolean detailedReport) {
