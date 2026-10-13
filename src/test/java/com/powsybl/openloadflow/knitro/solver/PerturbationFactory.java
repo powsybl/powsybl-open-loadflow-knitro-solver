@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
  * @author Amine Makhen {@literal <amine.makhen at artelys.com>}
  */
 public final class PerturbationFactory {
-    private static final double BASE_100MVA = PerUnit.SB;
 
     private PerturbationFactory() {
         throw new UnsupportedOperationException("Utility class");
@@ -180,8 +179,8 @@ public final class PerturbationFactory {
         generator.setVoltageRegulatorOn(true);
 
         // Changing line parameters by setting their reactance and shunt admittance to 0
-        double r = rPU * vNomGenerator * vNomNoGenerator / BASE_100MVA;
-        double x = xPU * vNomGenerator * vNomNoGenerator / BASE_100MVA;
+        double r = rPU * vNomGenerator * vNomNoGenerator / PerUnit.SB;
+        double x = xPU * vNomGenerator * vNomNoGenerator / PerUnit.SB;
 
         lowImpedanceLine.setR(r)
                 .setX(x)

@@ -21,6 +21,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.powsybl.openloadflow.util.PerUnit;
 
 import static com.powsybl.openloadflow.knitro.solver.NetworkProviders.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class RelaxedAcLoadFlowUnitTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(RelaxedAcLoadFlowUnitTest.class);
     private static final double DEFAULT_TOLERANCE = 1e-3;
-    private static final double BASE_100MVA = 100.0;
     private static final boolean EXPORT = false;
     private static final String RKN = "KNITRO";
     private static final String NR = "NEWTON_RAPHSON";
@@ -74,10 +74,10 @@ class RelaxedAcLoadFlowUnitTest {
             Terminal t1 = g1.getTerminal();
             Terminal t2 = g2.getTerminal();
 
-            double p1 = t1.getP() / BASE_100MVA;
-            double p2 = t2.getP() / BASE_100MVA;
-            double q1 = t1.getQ() / BASE_100MVA;
-            double q2 = t2.getQ() / BASE_100MVA;
+            double p1 = t1.getP() / PerUnit.SB;
+            double p2 = t2.getP() / PerUnit.SB;
+            double q1 = t1.getQ() / PerUnit.SB;
+            double q2 = t2.getQ() / PerUnit.SB;
 
             assertEquals(p1, p2, tolerance, "Mismatch on P for generator " + g1.getId());
             assertEquals(q1, q2, tolerance, "Mismatch on Q for generator " + g1.getId());
@@ -90,10 +90,10 @@ class RelaxedAcLoadFlowUnitTest {
             Terminal t1 = l1.getTerminal();
             Terminal t2 = l2.getTerminal();
 
-            double p1 = t1.getP() / BASE_100MVA;
-            double p2 = t2.getP() / BASE_100MVA;
-            double q1 = t1.getQ() / BASE_100MVA;
-            double q2 = t2.getQ() / BASE_100MVA;
+            double p1 = t1.getP() / PerUnit.SB;
+            double p2 = t2.getP() / PerUnit.SB;
+            double q1 = t1.getQ() / PerUnit.SB;
+            double q2 = t2.getQ() / PerUnit.SB;
 
             assertEquals(p1, p2, tolerance, "Mismatch on P for load " + l1.getId());
             assertEquals(q1, q2, tolerance, "Mismatch on Q for load " + l1.getId());
@@ -137,7 +137,7 @@ class RelaxedAcLoadFlowUnitTest {
     }
 
     double computePerUnitCurrent(double vNom, double i) {
-        return ((Math.sqrt(3) * vNom) / (BASE_100MVA * 1e3)) * i;
+        return ((Math.sqrt(3) * vNom) / (PerUnit.SB * 1e3)) * i;
     }
 
     private void compareSolvers(Network rknNetwork, Network nrNetwork, String baseFilename) {
