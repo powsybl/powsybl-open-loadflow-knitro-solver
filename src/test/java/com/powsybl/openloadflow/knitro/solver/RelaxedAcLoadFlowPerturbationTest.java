@@ -75,7 +75,7 @@ class RelaxedAcLoadFlowPerturbationTest {
         }
     }
 
-    private void compareResilience(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename, String perturbationType, String test) {
+    private void compareResilience(Network rknNetwork, Network nrNetwork, String baseFilename, String perturbationType, String test) {
         // Path to export Slack info CSV
         Path directory = Path.of(test, baseFilename, perturbationType);
         try {
@@ -112,20 +112,18 @@ class RelaxedAcLoadFlowPerturbationTest {
         }
     }
 
-    private void voltagePerturbationTest(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename, double rPU, double xPU, double alpha, String test) {
+    private void voltagePerturbationTest(Network rknNetwork, Network nrNetwork, String baseFilename, double rPU, double xPU, double alpha, String test) {
         PerturbationFactory.VoltagePerturbation perturbation = PerturbationFactory.getVoltagePerturbation(nrNetwork);
         PerturbationFactory.applyVoltagePerturbation(rknNetwork, perturbation, rPU, xPU, alpha);
         PerturbationFactory.applyVoltagePerturbation(nrNetwork, perturbation, rPU, xPU, alpha);
-        PerturbationFactory.applyVoltagePerturbation(dcNetwork, perturbation, rPU, xPU, alpha);
-        compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, VOLTAGE_PERTURBATION, test);
+        compareResilience(rknNetwork, nrNetwork, baseFilename, VOLTAGE_PERTURBATION, test);
     }
 
-    private void activePowerPerturbationTest(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename, double alpha, String test) {
+    private void activePowerPerturbationTest(Network rknNetwork, Network nrNetwork, String baseFilename, double alpha, String test) {
         String targetLoadID = PerturbationFactory.getActivePowerPerturbation(nrNetwork);
         PerturbationFactory.applyActivePowerPerturbation(rknNetwork, targetLoadID, alpha);
         PerturbationFactory.applyActivePowerPerturbation(nrNetwork, targetLoadID, alpha);
-        PerturbationFactory.applyActivePowerPerturbation(dcNetwork, targetLoadID, alpha);
-        compareResilience(rknNetwork, nrNetwork, dcNetwork, baseFilename, ACTIVE_POWER_PERTURBATION, test);
+        compareResilience(rknNetwork, nrNetwork, baseFilename, ACTIVE_POWER_PERTURBATION, test);
     }
 
     @TempDir
@@ -139,14 +137,13 @@ class RelaxedAcLoadFlowPerturbationTest {
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
-        Network dcNetwork = pair.dcNetwork();
 
         // Line Characteristics in per-unit
         double rPU = 0.0;
         double xPU = 1e-5;
         // Voltage Mismatch
         double alpha = 0.95;
-        voltagePerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, rPU, xPU, alpha, exportPath);
+        voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha, exportPath);
     }
 
     // Same test but with the activation of outerloop calculation
@@ -162,14 +159,13 @@ class RelaxedAcLoadFlowPerturbationTest {
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
-        Network dcNetwork = pair.dcNetwork();
 
         // Line Characteristics in per-unit
         double rPU = 0.0;
         double xPU = 1e-5;
         // Voltage Mismatch
         double alpha = 0.95;
-        voltagePerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, rPU, xPU, alpha, exportPath);
+        voltagePerturbationTest(rknNetwork, nrNetwork, baseFilename, rPU, xPU, alpha, exportPath);
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to active power perturbation (extreme perturbation) on IEEE30 network: {0}")
@@ -180,13 +176,12 @@ class RelaxedAcLoadFlowPerturbationTest {
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
-        Network dcNetwork = pair.dcNetwork();
 
         // Final percentage applied to perturb the load
         // The perturbation is intentionally extreme to trigger the logging message for P
         double alpha = 5;
 
-        activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha, exportPath);
+        activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha, exportPath);
     }
 
     @ParameterizedTest(name = "Test resilience of RKN to a active power perturbation on IEEE networks: {0}")
@@ -197,14 +192,13 @@ class RelaxedAcLoadFlowPerturbationTest {
 
         Network rknNetwork = pair.rknNetwork();
         Network nrNetwork = pair.nrNetwork();
-        Network dcNetwork = pair.dcNetwork();
 
         // Multiplier applied to the total active load of the network to perturb the target load.
         // It has to be at least 6 for Newton-Raphson to diverge on every network of the provider:
         // IEEE30 already diverges at 5, but IEEE14 still converges up to 5 included.
         double alpha = 6.0;
 
-        activePowerPerturbationTest(rknNetwork, nrNetwork, dcNetwork, baseFilename, alpha, exportPath);
+        activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha, exportPath);
     }
 }
 

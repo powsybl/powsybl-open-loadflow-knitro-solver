@@ -28,14 +28,14 @@ public final class NetworkProviders {
 
     public static Stream<NetworkPair> provideI3ENetworks() {
         return Stream.of(
-                new NetworkPair(IeeeCdfNetworkFactory.create14(), IeeeCdfNetworkFactory.create14(), IeeeCdfNetworkFactory.create14(), "ieee14"),
-                new NetworkPair(IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), "ieee30")
+                new NetworkPair(IeeeCdfNetworkFactory.create14(), IeeeCdfNetworkFactory.create14(), "ieee14"),
+                new NetworkPair(IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), "ieee30")
         );
     }
 
     public static Stream<NetworkPair> provideI3E30Networks() {
         return Stream.of(
-                new NetworkPair(IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), "ieee30")
+                new NetworkPair(IeeeCdfNetworkFactory.create30(), IeeeCdfNetworkFactory.create30(), "ieee30")
         );
     }
 
@@ -46,7 +46,7 @@ public final class NetworkProviders {
         network.write("XIIDM", properties, path);
     }
 
-    public record NetworkPair(Network rknNetwork, Network nrNetwork, Network dcNetwork, String baseFilename) {
+    public record NetworkPair(Network rknNetwork, Network nrNetwork, String baseFilename) {
 
     }
 }
