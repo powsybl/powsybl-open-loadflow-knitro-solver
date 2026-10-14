@@ -209,11 +209,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 double totalLossesPu = 0.0;
                 for (LfBranch branch : network.getBranches()) {
                     double r = branch.getPiModel().getR();
-                    if (r == 0) {
-                        continue;
-                    }
                     double p1 = branch.getP1().eval();
-                    if (Double.isNaN(p1)) {
+                    if (r == 0 || Double.isNaN(p1)) {
                         continue;
                     }
                     totalLossesPu += r * p1 * p1;
@@ -320,18 +317,18 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         double penaltyV = computeSlackPenaltyTypeV(x, slackVStartIndex, numVEquations, weightVMap);
         double totalPenalty = penaltyP + penaltyQ + penaltyV;
 
-        LOGGER.info("==== Slack penalty details ====");
-        LOGGER.info("Penalty P = {}", penaltyP);
-        LOGGER.info("Penalty Q = {}", penaltyQ);
-        LOGGER.info("Penalty V = {}", penaltyV);
-        LOGGER.info("Total penalty = {}", totalPenalty);
-
-        // Weight use in the objective function
-        LOGGER.info("==== Objective function weight details ====");
-        LOGGER.info("Total LOSSES DC =  {} MW", String.format("%.2f", this.losses));
-        LOGGER.info("Weight P1 = {}", String.format("%.2f", weightP1));
-        LOGGER.info("Weight Q1 = {}", WEIGHT_Q_1);
         if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("==== Slack penalty details ====");
+            LOGGER.info("Penalty P = {}", penaltyP);
+            LOGGER.info("Penalty Q = {}", penaltyQ);
+            LOGGER.info("Penalty V = {}", penaltyV);
+            LOGGER.info("Total penalty = {}", totalPenalty);
+
+            // Weight use in the objective function
+            LOGGER.info("==== Objective function weight details ====");
+            LOGGER.info("Total LOSSES DC =  {} MW", String.format("%.2f", this.losses));
+            LOGGER.info("Weight P1 = {}", String.format("%.2f", weightP1));
+            LOGGER.info("Weight Q1 = {}", WEIGHT_Q_1);
             String gammaStr = weightVMap.entrySet().stream()
                     .collect(Collectors.groupingBy(Map.Entry::getValue, Collectors.counting()))
                     .entrySet().stream()
@@ -350,7 +347,14 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             Path directory = Path.of(exportDirectory);
             boolean firstSolve = outerloopIteration == 0;
             writeSlackInfoCsv(directory.resolve(componentId + CSV_SUFFIX_SLACKS), slackContributions, firstSolve);
-            writeOptimInfoCsv(directory.resolve(componentId + CSV_SUFFIX_OPTI), totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver, firstSolve);
+            OptimInfo optimInfo;
+            try {
+                optimInfo = new OptimInfo(totalPenalty, penaltyP, penaltyQ, penaltyV, solution.getStatus(), solver.getNumberIters(), outerloopIteration);
+            } catch (KNException e) {
+                LOGGER.warn("Failed to gather optimization info for CSV export", e);
+                optimInfo = null;
+            }
+            writeOptimInfoCsv(directory.resolve(componentId + CSV_SUFFIX_OPTI), optimInfo, firstSolve);
         }
 
         incrementSolveCount();
@@ -695,30 +699,27 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
     }
 
-    private void writeOptimInfoCsv(Path file, double totalPenalty, double penaltyP, double penaltyQ, double penaltyV, KNSolution solution, KNSolver solver,
-                                   boolean writeHeader) {
-        String[] row;
-        try {
-            row = new String[] {
-                String.valueOf(totalPenalty),
-                String.valueOf(penaltyP),
-                String.valueOf(penaltyQ),
-                String.valueOf(penaltyV),
-                String.valueOf(solution.getStatus()),
-                String.valueOf(solver.getNumberIters()),
-                String.valueOf(getSolveCount())
-            };
-        } catch (KNException e) {
-            LOGGER.warn("Failed to gather optimization info for CSV export", e);
-            row = null;
-        }
+    private record OptimInfo(double totalPenalty, double penaltyP, double penaltyQ, double penaltyV,
+                             Integer status, int iterations, int outerloopIteration) {
+    }
 
+    /**
+     * Appends the optimization information of the current solve to the given CSV file.
+     *
+     * @param file        The CSV file.
+     * @param optimInfo   The optimization information of the current solve, or null if it could not be gathered (only the header is then written).
+     * @param writeHeader Whether to recreate the file and write the header.
+     */
+    private void writeOptimInfoCsv(Path file, OptimInfo optimInfo, boolean writeHeader) {
         try (CsvWriter csv = openCsvWriter(file, writeHeader)) {
             if (writeHeader) {
                 csv.writeRecord("total_penalty", "penaltyP", "penaltyQ", "penaltyV", "status", "iterations", "outerloop_iteration");
             }
-            if (row != null) {
-                csv.writeRecord(row);
+            if (optimInfo != null) {
+                csv.writeRecord(
+                        String.valueOf(optimInfo.totalPenalty), String.valueOf(optimInfo.penaltyP), String.valueOf(optimInfo.penaltyQ),
+                        String.valueOf(optimInfo.penaltyV), String.valueOf(optimInfo.status), String.valueOf(optimInfo.iterations),
+                        String.valueOf(optimInfo.outerloopIteration));
             }
             LOGGER.info("Optimization information exported to {}", file);
         } catch (IOException | UncheckedIOException e) {
