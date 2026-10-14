@@ -89,7 +89,8 @@ class RelaxedKnitroSolverCsvTest {
 
     @Test
     void testSlackOnBusWithLoadGeneratorAndShunt() throws IOException {
-        // The 1000 MW load is cut by the slack (the load stays positive), which would bring the generator below its minP
+        // Only ~225 MW can reach B2, so the slack supplies the missing ~765 MW. Read as a load cut, the 1000 MW load
+        // stays positive; read as extra generation, it would bring the generator to ~775 MW, above its 20 MW maxP
         Network network = createNetwork();
         VoltageLevel vl2 = network.getVoltageLevel("VL2");
         vl2.newLoad().setId("L2").setBus("B2").setP0(1000).setQ0(100).add();
@@ -106,7 +107,8 @@ class RelaxedKnitroSolverCsvTest {
 
     @Test
     void testSlackOnBusWithLoadGeneratorAndShuntRaisedMaxP() throws IOException {
-        // The 1000 MW load is cut by the slack (the load stays positive), which would bring the generator below its minP
+        // Same as above, but the generator's maxP is raised to 2000 MW: the slack can now be interpreted either as a
+        // load cut or as extra generation (~775 MW) without violating any limit
         Network network = createNetwork();
         VoltageLevel vl2 = network.getVoltageLevel("VL2");
         vl2.newLoad().setId("L2").setBus("B2").setP0(1000).setQ0(100).add();
