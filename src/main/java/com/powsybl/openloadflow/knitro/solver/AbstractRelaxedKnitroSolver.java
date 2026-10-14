@@ -604,7 +604,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     }
 
     /**
-     * Formats a generator limit, displaying unbounded limits as ±inf. 
+     * Formats a generator limit, displaying unbounded limits as ±inf.
      */
     private static String formatLimit(double limit) {
         if (Math.abs(limit) >= UNBOUNDED_LIMIT) {
@@ -657,7 +657,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @return The field value, with any delimiter replaced.
      */
     private static String toCsvField(String value) {
-        return value == null ? "" : value.replace(";", "|");
+        return value == null ? "" : value;
     }
 
     /**
