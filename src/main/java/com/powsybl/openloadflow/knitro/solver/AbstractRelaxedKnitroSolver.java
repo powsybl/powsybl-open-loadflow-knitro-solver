@@ -519,14 +519,16 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         int hasVoltageViolation = 0;
         double vMinPu = knitroParameters.getLowerVoltageBound();
         double vMaxPu = knitroParameters.getUpperVoltageBound();
+        
+        double deltaV = -epsilon;
 
-        if (Math.abs(epsilon) < 0.001) {
-            interpretation.append(String.format("ΔV = %f p.u. (%f kV) ", epsilon, epsilon * bus.getNominalV()));
+        if (Math.abs(deltaV) < 0.001) {
+            interpretation.append(String.format("ΔV = %f p.u. (%f kV) ", deltaV, deltaV * bus.getNominalV()));
         } else {
-            interpretation.append(String.format("ΔV = %.4f p.u. (%.4f kV) ", epsilon, epsilon * bus.getNominalV()));
+            interpretation.append(String.format("ΔV = %.4f p.u. (%.4f kV) ", deltaV, deltaV * bus.getNominalV()));
         }
         for (VoltageControl<?> vc : bus.getVoltageControls()) {
-            boolean feasible = isFeasibleV(epsilon, vc.getTargetValue(), vMinPu, vMaxPu);
+            boolean feasible = isFeasibleV(deltaV, vc.getTargetValue(), vMinPu, vMaxPu);
             if (!feasible) {
                 hasVoltageViolation = 1;
             }
@@ -534,7 +536,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                     "Voltage target: %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
             interpretation.append(String.format("%n\t\tAfter slack, voltage constraints at bus are %s ", feasible ? FEASIBLE : VIOLATED));
         }
-        return new SlackVariableInfo(bus.getId(), epsilon, type.toString(), bus.getVoltageLevelId(), 0, 0, hasVoltageViolation, bus.getGenerators(), bus.getVoltageControls(),
+        return new SlackVariableInfo(bus.getId(), deltaV, type.toString(), bus.getVoltageLevelId(), 0, 0, hasVoltageViolation, bus.getGenerators(), bus.getVoltageControls(),
                 bus.getLoads(), bus.getShunt(), bus.getTransformerVoltageControl(), interpretation.toString(), outerloopIteration
         );
     }
@@ -876,8 +878,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             if (slackBase >= 0) {
                 varIndices.add(slackBase);       // Sm
                 varIndices.add(slackBase + 1);   // Sp
-                coefficients.add(1.0);
                 coefficients.add(-1.0);
+                coefficients.add(1.0);
             }
         }
 
