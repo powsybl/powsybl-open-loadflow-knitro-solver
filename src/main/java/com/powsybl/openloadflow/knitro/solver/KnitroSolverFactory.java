@@ -50,12 +50,11 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 .setAlwaysUpdateNetwork(parametersExt.isAlwaysUpdateNetwork())
                 .setUseTransformerRatio(parameters.isDcUseTransformerRatio())
                 .setDcApproximationType(parametersExt.getDcApproximationType());
-        KnitroLoadFlowParameters knitroLoadFlowParameters;
+        KnitroLoadFlowParameters knitroLoadFlowParameters = KnitroLoadFlowParameters.load();
         if (parameters.getExtension(KnitroLoadFlowParameters.class) != null) {
             knitroLoadFlowParameters = parameters.getExtension(KnitroLoadFlowParameters.class);
-        } else {
-            knitroLoadFlowParameters = KnitroLoadFlowParameters.load();
         }
+
         knitroSolverParameters
                     .setGradientComputationMode(knitroLoadFlowParameters.getGradientComputationMode())
                     .setGradientUserRoutine(knitroLoadFlowParameters.getGradientUserRoutine())
