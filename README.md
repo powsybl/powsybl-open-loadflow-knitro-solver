@@ -255,7 +255,7 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
 12. **Export Directory**
     - Default value: export disabled (empty)
     - When set to a directory (which must exist), two CSV files are exported for each network component: `ccX_scY_slacks.csv`, with the information of each slack (type, value, location...), and `ccX_scY_optim_info.csv`, with the optimization summary, both usable afterward for visualization.
-    - The files are rewritten after each solve and hold all the outer loop iterations of the load flow. A later load flow exporting to the same directory overwrites them.
+    - The files are additively written after each solve and hold all the outer loop iterations of the load flow. A later load flow exporting to the same directory overwrites them.
     - Use `setExportDirectory`.
     
 ### Constraint Handling
