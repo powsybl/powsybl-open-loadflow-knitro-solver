@@ -29,7 +29,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 import de.siegmar.fastcsv.writer.CsvWriter;
 
@@ -100,10 +102,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     protected final Map<Integer, Integer> qEquationLocalIds;
     protected final Map<Integer, Integer> vEquationLocalIds;
 
-    // Mapping of the slack variable and info
-    private final ArrayList<SlackVariableInfo> slackContributions = new ArrayList<>();
-    // One optimization info CSV row per solve, kept so that the export covers every outer loop iteration
-    private final List<String[]> optimContributions = new ArrayList<>();
     // Gamma weight of each V slack variable, indexed by its local V index
     protected HashMap<Integer, Double> weightVMap;
 
@@ -310,9 +308,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         // ========== Slack Logging ==========
         LOGGER.info("== Slack informations: showing the 5 largest slack value (use DEBUG mode to display all) == ");
-        logSlackValues(SlackType.P, slackPStartIndex, numPEquations, x, outerloopIteration);
-        logSlackValues(SlackType.Q, slackQStartIndex, numQEquations, x, outerloopIteration);
-        logSlackValues(SlackType.V, slackVStartIndex, numVEquations, x, outerloopIteration);
+        // Slack information of the current solve only
+        List<SlackVariableInfo> slackContributions = new ArrayList<>();
+        slackContributions.addAll(logSlackValues(SlackType.P, slackPStartIndex, numPEquations, x, outerloopIteration));
+        slackContributions.addAll(logSlackValues(SlackType.Q, slackQStartIndex, numQEquations, x, outerloopIteration));
+        slackContributions.addAll(logSlackValues(SlackType.V, slackVStartIndex, numVEquations, x, outerloopIteration));
 
         // ========== Penalty Computation ==========
         double penaltyP = computeSlackPenalty(x, slackPStartIndex, numPEquations, weightP1);
@@ -341,16 +341,16 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             LOGGER.info(String.format("Gamma values : %s", gammaStr));
         }
 
-        SlackVariableInfo[] slackArray = slackContributions.toArray(new SlackVariableInfo[0]); // Object with all the present slack information
         String exportDirectory = this.knitroParameters.getExportDirectory();
 
-        logSlackSummary(slackArray); // Generic summary of the network, number of slack of each type, number of load or generator violations
+        logSlackSummary(slackContributions); // Generic summary of the network, number of slack of each type, number of load or generator violations
         if (exportDirectory != null && !exportDirectory.isBlank()) {
             // One file pair per network component, so that the components solved in a same load flow do not overwrite each other
             String componentId = "cc" + network.getNumCC() + "_sc" + network.getNumSC();
             Path directory = Path.of(exportDirectory);
-            writeSlackInfoCsv(directory.resolve(componentId + CSV_SUFFIX_SLACKS), slackArray);
-            writeOptimInfoCsv(directory.resolve(componentId + CSV_SUFFIX_OPTI), totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver);
+            boolean firstSolve = outerloopIteration == 0;
+            writeSlackInfoCsv(directory.resolve(componentId + CSV_SUFFIX_SLACKS), slackContributions, firstSolve);
+            writeOptimInfoCsv(directory.resolve(componentId + CSV_SUFFIX_OPTI), totalPenalty, penaltyP, penaltyQ, penaltyV, solution, solver, firstSolve);
         }
 
         incrementSolveCount();
@@ -364,8 +364,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
      * @param startIndex The start index of slack variables associated to the given type.
      * @param count The maximum number of slack variables associated to the given type.
      * @param x The variable values as returned by solver.
+     * @return The information of the slack variables above the slack threshold.
      */
-    protected void logSlackValues(SlackType type, int startIndex, int count, List<Double> x, int outerloopIteration) {
+    private List<SlackVariableInfo> logSlackValues(SlackType type, int startIndex, int count, List<Double> x, int outerloopIteration) {
         List<SlackVariableInfo> localContributions = new ArrayList<>();
         LOGGER.info("==== Slack diagnostics for {} (p.u. and physical units) ====", type);
         for (int i = 0; i < count; i++) {
@@ -389,9 +390,6 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             }
         }
 
-        // Add to global list
-        slackContributions.addAll(localContributions);
-
         // Log top 5 of this type as INFO, rest as DEBUG
         List<SlackVariableInfo> sorted = new ArrayList<>(localContributions);
         sorted.sort(Comparator.comparingDouble(s -> -Math.abs(s.slackValuePu)));
@@ -408,6 +406,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 LOGGER.debug(SLACK_LOG, s.type(), s.busId(), s.interpretation());
             }
         }
+        return localContributions;
     }
 
     /**
@@ -519,7 +518,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         int hasVoltageViolation = 0;
         double vMinPu = knitroParameters.getLowerVoltageBound();
         double vMaxPu = knitroParameters.getUpperVoltageBound();
-        
+
         double deltaV = -epsilon;
 
         if (Math.abs(deltaV) < 0.001) {
@@ -615,11 +614,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         return String.format("%.2f", limit);
     }
 
-    private void logSlackSummary(SlackVariableInfo[] slackArray) {
-        Map<Integer, List<SlackVariableInfo>> groupedByIteration = Arrays.stream(slackArray)
-                .collect(Collectors.groupingBy(si -> si.outerloopIteration));
-        List<SlackVariableInfo> currentIterationSlacks = groupedByIteration.getOrDefault(getSolveCount(), List.of());
-
+    private void logSlackSummary(List<SlackVariableInfo> currentIterationSlacks) {
         if (!currentIterationSlacks.isEmpty()) {
             LOGGER.info("==== Perturbation general impact  ====");
             LOGGER.info("Total number of Slack = {}", currentIterationSlacks.size());
@@ -671,11 +666,23 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 .collect(Collectors.joining("|"));
     }
 
-    private void writeSlackInfoCsv(Path file, SlackVariableInfo[] slackArray) {
-        try (CsvWriter csv = CsvWriter.builder().fieldSeparator(';').build(file)) {
-            csv.writeRecord("bus_id", "type", "slackValue_pu", "voltage_level_id", "generator", "controleVoltage", "transfo", "shunt", "load", "load_violation", "gen_violation", "voltage_violation", "outerloop_iteration");
+    /**
+     * Opens a CSV writer on the given file, either truncating it (first solve) or appending to it.
+     */
+    private static CsvWriter openCsvWriter(Path file, boolean truncate) throws IOException {
+        OpenOption[] options = truncate
+                ? new OpenOption[] {StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE}
+                : new OpenOption[] {StandardOpenOption.CREATE, StandardOpenOption.APPEND};
+        return CsvWriter.builder().fieldSeparator(';').build(file, options);
+    }
 
-            for (SlackVariableInfo si : slackArray) {
+    private void writeSlackInfoCsv(Path file, List<SlackVariableInfo> slacks, boolean writeHeader) {
+        try (CsvWriter csv = openCsvWriter(file, writeHeader)) {
+            if (writeHeader) {
+                csv.writeRecord("bus_id", "type", "slackValue_pu", "voltage_level_id", "generator", "controleVoltage", "transfo", "shunt", "load", "load_violation", "gen_violation", "voltage_violation", "outerloop_iteration");
+            }
+
+            for (SlackVariableInfo si : slacks) {
                 csv.writeRecord(
                         toCsvField(si.busId), toCsvField(si.type), String.format(Locale.US, "%.6f", si.slackValuePu), toCsvField(si.voltageLevel),
                         toCsvField(si.generators), toCsvField(si.voltageControls), toCsvField(si.transformer.stream().toList()),
@@ -688,9 +695,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         }
     }
 
-    private void writeOptimInfoCsv(Path file, double totalPenalty, double penaltyP, double penaltyQ, double penaltyV, KNSolution solution, KNSolver solver) {
+    private void writeOptimInfoCsv(Path file, double totalPenalty, double penaltyP, double penaltyQ, double penaltyV, KNSolution solution, KNSolver solver,
+                                   boolean writeHeader) {
+        String[] row;
         try {
-            optimContributions.add(new String[] {
+            row = new String[] {
                 String.valueOf(totalPenalty),
                 String.valueOf(penaltyP),
                 String.valueOf(penaltyQ),
@@ -698,14 +707,17 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 String.valueOf(solution.getStatus()),
                 String.valueOf(solver.getNumberIters()),
                 String.valueOf(getSolveCount())
-            });
+            };
         } catch (KNException e) {
             LOGGER.warn("Failed to gather optimization info for CSV export", e);
+            row = null;
         }
 
-        try (CsvWriter csv = CsvWriter.builder().fieldSeparator(';').build(file)) {
-            csv.writeRecord("total_penalty", "penaltyP", "penaltyQ", "penaltyV", "status", "iterations", "outerloop_iteration");
-            for (String[] row : optimContributions) {
+        try (CsvWriter csv = openCsvWriter(file, writeHeader)) {
+            if (writeHeader) {
+                csv.writeRecord("total_penalty", "penaltyP", "penaltyQ", "penaltyV", "status", "iterations", "outerloop_iteration");
+            }
+            if (row != null) {
                 csv.writeRecord(row);
             }
             LOGGER.info("Optimization information exported to {}", file);
