@@ -20,9 +20,16 @@ public final class SlackFeasibility {
         return newValue >= min && newValue <= max;
     }
 
-    // A load is feasible if the post-slack value stays >= 0
-    public static boolean isLoadFeasible(double slack, double loadTarget) {
-        return slack + loadTarget >= 0;
+    /**
+     * A P load is deemed feasible if the post-slack value stays >= 0 (the load does not turn into a generation).
+     * A Q load is deemed feasible if the slack does not increase its magnitude.
+     */
+    static boolean isLoadFeasible(double slack, double loadTarget, AbstractRelaxedKnitroSolver.SlackType type) {
+        return switch (type) {
+            case P -> slack + loadTarget >= 0;
+            case Q -> Math.abs(slack + loadTarget) <= Math.abs(loadTarget);
+            case V -> throw new UnsupportedOperationException("Not applicable for V");
+        };
     }
 
     /**

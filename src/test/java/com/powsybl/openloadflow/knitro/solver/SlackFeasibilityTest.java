@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.isFeasibleV;
 import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.isGenFeasible;
 import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.isLoadFeasible;
+import static com.powsybl.openloadflow.knitro.solver.AbstractRelaxedKnitroSolver.SlackType.P;
+import static com.powsybl.openloadflow.knitro.solver.AbstractRelaxedKnitroSolver.SlackType.Q;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -35,9 +37,21 @@ class SlackFeasibilityTest {
 
     @Test
     void testIsLoadFeasible() {
-        assertTrue(isLoadFeasible(0.0, 5.0));   // slack + load = 5.0 >= 0
-        assertFalse(isLoadFeasible(-6.0, 5.0)); // slack + load = -1.0 < 0
-        assertTrue(isLoadFeasible(0.0, 0.0));   // slack + load = 0.0 >= 0 (lower boundary)
+        assertTrue(isLoadFeasible(0.0, 5.0, P));   // slack + load = 5.0 >= 0
+        assertFalse(isLoadFeasible(-6.0, 5.0, P)); // slack + load = -1.0 < 0
+        assertTrue(isLoadFeasible(0.0, 0.0, P));   // slack + load = 0.0 >= 0 (lower boundary)
+        assertTrue(isLoadFeasible(3.0, 5.0, P));   // slack + load = 8.0 >= 0
+    }
+
+    @Test
+    void testIsLoadFeasibleQ() {
+        assertTrue(isLoadFeasible(-2.0, 5.0, Q));   // |3.0| <= |5.0|
+        assertFalse(isLoadFeasible(1.0, 5.0, Q));   // |6.0| > |5.0|
+        assertTrue(isLoadFeasible(-10.0, 5.0, Q));  // |-5.0| <= |5.0| (boundary)
+        assertFalse(isLoadFeasible(-11.0, 5.0, Q)); // |-6.0| > |5.0|
+        assertTrue(isLoadFeasible(2.0, -5.0, Q));   // |-3.0| <= |-5.0|
+        assertFalse(isLoadFeasible(-1.0, -5.0, Q)); // |-6.0| > |-5.0|
+        assertTrue(isLoadFeasible(0.0, 0.0, Q));    // |0.0| <= |0.0|
     }
 
     @Test
