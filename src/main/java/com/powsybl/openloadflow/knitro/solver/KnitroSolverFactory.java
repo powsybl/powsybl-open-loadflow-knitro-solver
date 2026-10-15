@@ -47,25 +47,30 @@ public class KnitroSolverFactory implements AcSolverFactory {
                 .setLineSearchStateVectorScalingStepFold(parametersExt.getLineSearchStateVectorScalingStepFold())
                 .setMaxVoltageChangeStateVectorScalingMaxDv(parametersExt.getMaxVoltageChangeStateVectorScalingMaxDv())
                 .setMaxVoltageChangeStateVectorScalingMaxDphi(parametersExt.getMaxVoltageChangeStateVectorScalingMaxDphi())
-                .setAlwaysUpdateNetwork(parametersExt.isAlwaysUpdateNetwork());
+                .setAlwaysUpdateNetwork(parametersExt.isAlwaysUpdateNetwork())
+                .setUseTransformerRatio(parameters.isDcUseTransformerRatio())
+                .setDcApproximationType(parametersExt.getDcApproximationType());
+        KnitroLoadFlowParameters knitroLoadFlowParameters = KnitroLoadFlowParameters.load();
         if (parameters.getExtension(KnitroLoadFlowParameters.class) != null) {
-            KnitroLoadFlowParameters knitroLoadFlowParameters = parameters.getExtension(KnitroLoadFlowParameters.class);
-            knitroSolverParameters
-                .setGradientComputationMode(knitroLoadFlowParameters.getGradientComputationMode())
-                .setGradientUserRoutine(knitroLoadFlowParameters.getGradientUserRoutine())
-                .setHessianComputationMode(knitroLoadFlowParameters.getHessianComputationMode())
-                .setLowerVoltageBound(knitroLoadFlowParameters.getLowerVoltageBound())
-                .setUpperVoltageBound(knitroLoadFlowParameters.getUpperVoltageBound())
-                .setMaxIterations(knitroLoadFlowParameters.getMaxIterations())
-                .setRelConvEps(knitroLoadFlowParameters.getRelConvEps())
-                .setAbsConvEps(knitroLoadFlowParameters.getAbsConvEps())
-                .setRelOptEps(knitroLoadFlowParameters.getRelOptEps())
-                .setAbsOptEps(knitroLoadFlowParameters.getAbsOptEps())
-                .setSlackThreshold(knitroLoadFlowParameters.getSlackThreshold())
-                .setSolverType(knitroLoadFlowParameters.getKnitroSolverType())
-                .setThreadNumber(knitroLoadFlowParameters.getThreadNumber());
-
+            knitroLoadFlowParameters = parameters.getExtension(KnitroLoadFlowParameters.class);
         }
+
+        knitroSolverParameters
+                    .setGradientComputationMode(knitroLoadFlowParameters.getGradientComputationMode())
+                    .setGradientUserRoutine(knitroLoadFlowParameters.getGradientUserRoutine())
+                    .setHessianComputationMode(knitroLoadFlowParameters.getHessianComputationMode())
+                    .setLowerVoltageBound(knitroLoadFlowParameters.getLowerVoltageBound())
+                    .setUpperVoltageBound(knitroLoadFlowParameters.getUpperVoltageBound())
+                    .setMaxKnitroIterations(knitroLoadFlowParameters.getMaxKnitroIterations())
+                    .setRelConvEps(knitroLoadFlowParameters.getRelConvEps())
+                    .setAbsConvEps(knitroLoadFlowParameters.getAbsConvEps())
+                    .setRelOptEps(knitroLoadFlowParameters.getRelOptEps())
+                    .setAbsOptEps(knitroLoadFlowParameters.getAbsOptEps())
+                    .setSlackThreshold(knitroLoadFlowParameters.getSlackThreshold())
+                    .setSolverType(knitroLoadFlowParameters.getKnitroSolverType())
+                    .setThreadNumber(knitroLoadFlowParameters.getThreadNumber())
+                    .setLosses(knitroLoadFlowParameters.getLosses())
+                    .setExportDirectory(knitroLoadFlowParameters.getExportDirectory());
         return knitroSolverParameters;
     }
 

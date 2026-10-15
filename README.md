@@ -235,7 +235,7 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
 
 8. **Maximum Iterations**:
    - Default: **200**
-   - Modify using `setMaxIterations`.
+   - Modify using `setMaxKnitroIterations`.
 
 9. **Slack Threshold**:
     - Default value: $10^{-6}$ p.u : defines a slack values threshold below which we ignore insignificant activated slack variables.
@@ -247,6 +247,17 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
      - Use `setThreadNumber` in the `KnitroLoadFlowParameters` extension.
      - Warning: for options `2 (forward)` and `3 (central)` set the solver's number of threads to 1.
 
+11. **DC Losses approximation**:
+    - Default value: auto-estimated using a DC load flow on the network. 
+    - If set manually the estimation is skipped and the provided value is used as is.
+    - Use `setLosses`.
+
+12. **Export Directory**
+    - Default value: export disabled (empty)
+    - When set to a directory (which must exist), two CSV files are exported for each network component: `ccX_scY_slacks.csv`, with the information of each slack (type, value, location...), and `ccX_scY_optim_info.csv`, with the optimization summary, both usable afterward for visualization.
+    - The files are additively written after each solve and hold all the outer loop iterations of the load flow. A later load flow exporting to the same directory overwrites them.
+    - Use `setExportDirectory`.
+    
 ### Constraint Handling
 
 Constraints are categorized into two types:
