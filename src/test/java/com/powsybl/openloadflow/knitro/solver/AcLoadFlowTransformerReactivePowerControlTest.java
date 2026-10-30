@@ -11,7 +11,6 @@ import com.powsybl.commons.report.ReportNode;
 import com.powsybl.commons.test.PowsyblTestReportResourceBundle;
 import com.powsybl.computation.local.LocalComputationManager;
 import com.powsybl.iidm.network.*;
-import com.powsybl.iidm.network.extensions.RemoteReactivePowerControlAdder;
 import com.powsybl.iidm.network.regulation.RegulationMode;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
@@ -88,11 +87,12 @@ class AcLoadFlowTransformerReactivePowerControlTest {
         double t2wtTargetQ = 1;
         Terminal regulatedTerminal = t2wt.getTerminal2();
 
-        g4.setTargetQ(0.0).setVoltageRegulatorOn(false);
-        g4.newExtension(RemoteReactivePowerControlAdder.class)
-                .withTargetQ(gTargetQ)
-                .withRegulatingTerminal(regulatedTerminal)
-                .withEnabled(true).add();
+        g4.setLocalTargetQ(0.0);
+        g4.newVoltageRegulation()
+            .withMode(RegulationMode.REACTIVE_POWER)
+            .withTargetValue(gTargetQ)
+            .withTerminal(regulatedTerminal)
+            .build();
         g4.newMinMaxReactiveLimits().setMinQ(-5.0).setMaxQ(5.0).add();
 
         t2wt.getRatioTapChanger()
@@ -159,7 +159,8 @@ class AcLoadFlowTransformerReactivePowerControlTest {
                          + Outer loop IncrementalTransformerReactivePowerControl
                             + Outer loop iteration 2
                                1 reactive power-controlled branches are outside of their target deadbands
-                               1 transformers changed tap position
+                               + 1 transformers changed tap position
+                                  Transformer l34 changed tap position from 1 to 0
                                1 transformers reached their tap maximum position
                             + Outer loop iteration 3
                                1 reactive power-controlled branches are outside of their target deadbands
@@ -182,11 +183,12 @@ class AcLoadFlowTransformerReactivePowerControlTest {
         double t2wtTargetQ = 1;
         Terminal regulatedTerminal = twoWindingsTransformer.getTerminal2();
 
-        g4.setTargetQ(0.0).setVoltageRegulatorOn(false);
-        g4.newExtension(RemoteReactivePowerControlAdder.class)
-                .withTargetQ(gTargetQ)
-                .withRegulatingTerminal(regulatedTerminal)
-                .withEnabled(true).add();
+        g4.setLocalTargetQ(0.0);
+        g4.newVoltageRegulation()
+            .withMode(RegulationMode.REACTIVE_POWER)
+            .withTargetValue(gTargetQ)
+            .withTerminal(regulatedTerminal)
+            .build();
         g4.newMinMaxReactiveLimits().setMinQ(-3.0).setMaxQ(5.0).add();
 
         twoWindingsTransformer.getRatioTapChanger()
