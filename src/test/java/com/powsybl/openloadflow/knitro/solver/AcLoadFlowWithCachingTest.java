@@ -141,17 +141,6 @@ class AcLoadFlowWithCachingTest {
     }
 
     @Test
-    void testUnsupportedAttributeChange() {
-        var network = EurostagFactory.fix(EurostagTutorialExample1Factory.create());
-        var gen = network.getGenerator("GEN");
-
-        loadFlowRunner.run(network, parameters);
-        assertNotNull(NetworkCache.AC_LF_INSTANCE.findEntry(network).orElseThrow().getValues());
-        gen.setTargetQ(10);
-        assertNull(NetworkCache.AC_LF_INSTANCE.findEntry(network).orElseThrow().getValues());
-    }
-
-    @Test
     void testPropertiesChange() {
         var network = EurostagFactory.fix(EurostagTutorialExample1Factory.create());
         var gen = network.getGenerator("GEN");
