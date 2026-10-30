@@ -8,7 +8,7 @@
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.iidm.network.*;
-import com.powsybl.iidm.network.extensions.VoltagePerReactivePowerControlAdder;
+import com.powsybl.iidm.network.regulation.RegulationMode;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
@@ -203,9 +203,11 @@ class SwitchPqPvTest extends AbstractLoadFlowNetworkFactory {
                 .setId("svc3")
                 .setBus("b3")
                 .setConnectableBus("b3")
-                .setVoltageSetpoint(20)
-                .setRegulationMode(StaticVarCompensator.RegulationMode.VOLTAGE)
-                .setRegulating(true)
+                .setLocalTargetV(20)
+                .newVoltageRegulation()
+                    .withMode(RegulationMode.VOLTAGE)
+                    .withRegulating(true)
+                    .add()
                 .setBmax(30 / value)
                 .setBmin(-1000 / value)
                 .add();
@@ -234,7 +236,11 @@ class SwitchPqPvTest extends AbstractLoadFlowNetworkFactory {
         assertVoltageEquals(20, b3); // PV
 
         parametersExt.setVoltagePerReactivePowerControl(true);
-        svc3.newExtension(VoltagePerReactivePowerControlAdder.class).withSlope(0.00001).add();
+        svc3.newVoltageRegulation()
+                .withMode(RegulationMode.VOLTAGE_PER_REACTIVE_POWER)
+                .withRegulating(true)
+                .withSlope(0.00001)
+                .build();
         LoadFlowResult result2 = loadFlowRunner.run(network, parameters);
         assertTrue(result2.isFullyConverged());
         // bus 1 and 3 switch PQ at first outer loop, then at next outer loop bus 3 does not go back PV
