@@ -21,19 +21,18 @@ import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.network.*;
 import com.powsybl.openloadflow.util.Evaluable;
 import com.powsybl.openloadflow.util.PerUnit;
+import de.siegmar.fastcsv.writer.CsvWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
-import java.util.Map;
-import java.util.stream.Collectors;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-
-import de.siegmar.fastcsv.writer.CsvWriter;
+import java.util.*;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.*;
 
@@ -342,8 +341,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         logSlackSummary(slackContributions); // Generic summary of the network, number of slack of each type, number of load or generator violations
         if (exportDirectory != null && !exportDirectory.isBlank()) {
-            // One file pair per network component, so that the components solved in a same load flow do not overwrite each other
-            String componentId = "cc" + network.getNumCC() + "_sc" + network.getNumSC();
+            // One file pair per connected component, so that the components solved in a same load flow do not overwrite each other
+            String componentId = "cc" + network.getNumCC();
             Path directory = Path.of(exportDirectory);
             boolean firstSolve = outerloopIteration == 0;
             writeSlackInfoCsv(directory.resolve(componentId + CSV_SUFFIX_SLACKS), slackContributions, firstSolve);
@@ -683,7 +682,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     private void writeSlackInfoCsv(Path file, List<SlackVariableInfo> slacks, boolean writeHeader) {
         try (CsvWriter csv = openCsvWriter(file, writeHeader)) {
             if (writeHeader) {
-                csv.writeRecord("bus_id", "type", "slackValue_pu", "voltage_level_id", "generator", "controleVoltage", "transfo", "shunt", "load", "load_violation", "gen_violation", "voltage_violation", "outerloop_iteration");
+                csv.writeRecord("bus_id", "type", "slackValue_pu", "voltage_level_id", "generator", "controleVoltage", "transfo", "shunt", "load",
+                        "load_violation", "gen_violation", "voltage_violation", "outerloop_iteration");
             }
 
             for (SlackVariableInfo si : slacks) {

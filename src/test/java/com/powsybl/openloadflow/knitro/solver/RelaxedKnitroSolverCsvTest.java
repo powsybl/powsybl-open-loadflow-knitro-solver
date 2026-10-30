@@ -80,7 +80,7 @@ class RelaxedKnitroSolverCsvTest {
     private String[] runAndGetSlack(Network network, LoadFlowParameters parameters) throws IOException {
         assertTrue(new LoadFlow.Runner(new OpenLoadFlowProvider(new SparseMatrixFactory())).run(network, parameters).isFullyConverged());
 
-        return Files.readAllLines(tmp.resolve("cc0_sc0_slacks.csv")).stream()
+        return Files.readAllLines(tmp.resolve("cc0_slacks.csv")).stream()
                 .map(line -> line.split(";", -1))
                 .filter(row -> row[0].equals("VL2_0") && row[TYPE].equals("P"))
                 .findFirst()
