@@ -508,11 +508,11 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
         @Override
         protected KNEvalGACallback createGradientCallback(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                                          List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
-                                                          List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) {
+                                                          List<Integer> denseJacEntryConstraints, List<Integer> denseJacEntryVariables,
+                                                          List<Integer> sparseJacEntryConstraints, List<Integer> sparseJacEntryVariables) {
 
-            return new UseReactiveLimitsCallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
-                    listNonZerosCtsSparse, listNonZerosVarsSparse, network, equationSystem,
+            return new UseReactiveLimitsCallbackEvalG(jacobianMatrix, denseJacEntryConstraints, denseJacEntryVariables,
+                    sparseJacEntryConstraints, sparseJacEntryVariables, network, equationSystem,
                     knitroParameters, numberOfPowerFlowVariables);
         }
 
@@ -609,11 +609,11 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             private final Map<Integer, Variable<AcVariableType>> indRowVariable = new LinkedHashMap<>();
 
             private UseReactiveLimitsCallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                    List<Integer> denseConstraintIndices, List<Integer> denseVariableIndices, List<Integer> sparseConstraintIndices,
-                    List<Integer> sparseVariableIndices, LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                    List<Integer> denseJacEntryConstraints, List<Integer> denseJacEntryVariables, List<Integer> sparseJacEntryConstraints,
+                    List<Integer> sparseJacEntryVariables, LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                     KnitroSolverParameters knitroParameters, int numLFVariables) {
 
-                super(jacobianMatrix, denseConstraintIndices, denseVariableIndices, sparseConstraintIndices, sparseVariableIndices,
+                super(jacobianMatrix, denseJacEntryConstraints, denseJacEntryVariables, sparseJacEntryConstraints, sparseJacEntryVariables,
                         network, equationSystem, knitroParameters, numLFVariables);
 
                 this.numLFVar = equationSystem.getIndex().getSortedVariablesToFind().size();

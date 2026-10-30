@@ -395,30 +395,31 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          * @param listNonLinearConsts The list of non-linear constraint ids.
          */
         protected void setJacobianMatrix(List<Equation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve, List<Integer> listNonLinearConsts) {
-            // Non-zero pattern : for each constraint, we detail the variables of which the constraint is a function of.
-            List<Integer> listNonZerosCtsDense = new ArrayList<>();
-            List<Integer> listNonZerosVarsDense = new ArrayList<>();
-            List<Integer> listNonZerosCtsSparse = new ArrayList<>();
-            List<Integer> listNonZerosVarsSparse = new ArrayList<>();
+            // Non-zero pattern, one element per non-zero Jacobian entry (coordinate format): entry k is the derivative of
+            // constraint jacEntryConstraints[k] with respect to variable jacEntryVariables[k].
+            List<Integer> denseJacEntryConstraints = new ArrayList<>();
+            List<Integer> denseJacEntryVariables = new ArrayList<>();
+            List<Integer> sparseJacEntryConstraints = new ArrayList<>();
+            List<Integer> sparseJacEntryVariables = new ArrayList<>();
             if (knitroParameters.getGradientComputationMode() == 1) { // User routine to compute the Jacobian
                 try {
                     if (knitroParameters.getGradientUserRoutine() == 1) {
                         // Dense method: all non-linear constraints are considered as a function of all variables.
                         buildDenseJacobianMatrix(numberOfPowerFlowVariables, listNonLinearConsts,
-                                listNonZerosCtsDense, listNonZerosVarsDense);
-                        this.setJacNnzPattern(listNonZerosCtsDense, listNonZerosVarsDense);
+                                denseJacEntryConstraints, denseJacEntryVariables);
+                        this.setJacNnzPattern(denseJacEntryConstraints, denseJacEntryVariables);
                     } else if (knitroParameters.getGradientUserRoutine() == 2) {
                         // Sparse method: compute Jacobian only for variables the constraints depend on.
                         buildSparseJacobianMatrix(sortedSingleEquationsToSolve, listNonLinearConsts,
-                                listNonZerosCtsSparse, listNonZerosVarsSparse);
-                        this.setJacNnzPattern(listNonZerosCtsSparse, listNonZerosVarsSparse);
+                                sparseJacEntryConstraints, sparseJacEntryVariables);
+                        this.setJacNnzPattern(sparseJacEntryConstraints, sparseJacEntryVariables);
                     }
                 } catch (KNException e) {
                     throw new PowsyblException("Failed to set Jacobian pattern in Knitro problem", e);
                 }
                 // Set the callback for gradient evaluations if the user directly passes the Jacobian to the solver.
-                this.setGradEvalCallback(createGradientCallback(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
-                        listNonZerosCtsSparse, listNonZerosVarsSparse));
+                this.setGradEvalCallback(createGradientCallback(jacobianMatrix, denseJacEntryConstraints, denseJacEntryVariables,
+                        sparseJacEntryConstraints, sparseJacEntryVariables));
             }
         }
 
@@ -428,26 +429,26 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          *
          * @param numVars               Total number of variables.
          * @param listNonLinearConsts   List of non-linear constraint indices.
-         * @param listNonZerosCtsDense  Output list to receive constraint indices for non-zero Jacobian entries.
-         * @param listNonZerosVarsDense Output list to receive variable indices for non-zero Jacobian entries.
+         * @param denseJacEntryConstraints Output: constraint index of each non-zero Jacobian entry.
+         * @param denseJacEntryVariables   Output: variable index of each non-zero Jacobian entry.
          */
         public void buildDenseJacobianMatrix(
                 int numVars,
                 List<Integer> listNonLinearConsts,
-                List<Integer> listNonZerosCtsDense,
-                List<Integer> listNonZerosVarsDense) {
+                List<Integer> denseJacEntryConstraints,
+                List<Integer> denseJacEntryVariables) {
 
             // Each non-linear constraint will have a partial derivative with respect to every variable
             for (Integer constraintId : listNonLinearConsts) {
                 for (int varIndex = 0; varIndex < numVars; varIndex++) {
-                    listNonZerosCtsDense.add(constraintId);
+                    denseJacEntryConstraints.add(constraintId);
                 }
             }
 
             // We repeat the full list of variables for each non-linear constraint
             List<Integer> variableIndices = IntStream.range(0, numVars).boxed().toList();
             for (int i = 0; i < listNonLinearConsts.size(); i++) {
-                listNonZerosVarsDense.addAll(variableIndices);
+                denseJacEntryVariables.addAll(variableIndices);
             }
         }
 
@@ -457,11 +458,11 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          *
          * @param sortedSingleEquationsToSolve Ordered list of equations to solve.
          * @param nonLinearConstraintIds Indices of non-linear constraints within the sorted equation list.
-         * @param jacobianRowIndices Output: row indices (constraints) of non-zero Jacobian entries.
-         * @param jacobianColumnIndices Output: column indices (variables) of non-zero Jacobian entries.
+         * @param jacEntryConstraints Output: constraint index of each non-zero Jacobian entry.
+         * @param jacEntryVariables Output: variable index of each non-zero Jacobian entry.
          */
         protected void buildSparseJacobianMatrix(List<Equation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve, List<Integer> nonLinearConstraintIds,
-                                                 List<Integer> jacobianRowIndices, List<Integer> jacobianColumnIndices) {
+                                                 List<Integer> jacEntryConstraints, List<Integer> jacEntryVariables) {
 
             for (Integer constraintIndex : nonLinearConstraintIds) {
                 Equation<AcVariableType, AcEquationType> equation = sortedSingleEquationsToSolve.get(constraintIndex);
@@ -482,8 +483,8 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
                 // Allow subclasses to add additional variables (e.g., slack variables)
                 addAdditionalJacobianVariables(constraintIndex, equation, uniqueListVarsCurrentCt);
 
-                jacobianColumnIndices.addAll(uniqueListVarsCurrentCt);
-                jacobianRowIndices.addAll(Collections.nCopies(uniqueListVarsCurrentCt.size(), constraintIndex));
+                jacEntryVariables.addAll(uniqueListVarsCurrentCt);
+                jacEntryConstraints.addAll(Collections.nCopies(uniqueListVarsCurrentCt.size(), constraintIndex));
             }
         }
 
@@ -504,16 +505,16 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
          * Creates the gradient callback. Must be implemented by subclasses.
          *
          * @param jacobianMatrix The Jacobian matrix.
-         * @param listNonZerosCtsDense Dense constraint indices.
-         * @param listNonZerosVarsDense Dense variable indices.
-         * @param listNonZerosCtsSparse Sparse constraint indices.
-         * @param listNonZerosVarsSparse Sparse variable indices.
+         * @param denseJacEntryConstraints Constraint index of each non-zero Jacobian entry, dense pattern.
+         * @param denseJacEntryVariables Variable index of each non-zero Jacobian entry, dense pattern.
+         * @param sparseJacEntryConstraints Constraint index of each non-zero Jacobian entry, sparse pattern.
+         * @param sparseJacEntryVariables Variable index of each non-zero Jacobian entry, sparse pattern.
          * @return The gradient callback instance.
          */
         protected abstract KNEvalGACallback createGradientCallback(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                                                   List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
-                                                                   List<Integer> listNonZerosCtsSparse,
-                                                                   List<Integer> listNonZerosVarsSparse);
+                                                                   List<Integer> denseJacEntryConstraints, List<Integer> denseJacEntryVariables,
+                                                                   List<Integer> sparseJacEntryConstraints,
+                                                                   List<Integer> sparseJacEntryVariables);
     }
 }
 

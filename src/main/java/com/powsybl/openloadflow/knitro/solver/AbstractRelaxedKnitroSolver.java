@@ -944,11 +944,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         @Override
         protected KNEvalGACallback createGradientCallback(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                                          List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
-                                                          List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) {
+                                                          List<Integer> denseJacEntryConstraints, List<Integer> denseJacEntryVariables,
+                                                          List<Integer> sparseJacEntryConstraints, List<Integer> sparseJacEntryVariables) {
 
-            return new AbstractRelaxedKnitroProblem.RelaxedCallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
-                    listNonZerosCtsSparse, listNonZerosVarsSparse, network,
+            return new AbstractRelaxedKnitroProblem.RelaxedCallbackEvalG(jacobianMatrix, denseJacEntryConstraints, denseJacEntryVariables,
+                    sparseJacEntryConstraints, sparseJacEntryVariables, network,
                     equationSystem, knitroParameters, numberOfPowerFlowVariables);
         }
 
@@ -988,12 +988,12 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         public static class RelaxedCallbackEvalG extends KnitroCallbacks.BaseCallbackEvalG {
 
             RelaxedCallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                 List<Integer> denseConstraintIndices, List<Integer> denseVariableIndices,
-                                 List<Integer> sparseConstraintIndices, List<Integer> sparseVariableIndices,
+                                 List<Integer> denseJacEntryConstraints, List<Integer> denseJacEntryVariables,
+                                 List<Integer> sparseJacEntryConstraints, List<Integer> sparseJacEntryVariables,
                                  LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                  KnitroSolverParameters knitroParameters, int numLFVariables) {
 
-                super(jacobianMatrix, denseConstraintIndices, denseVariableIndices, sparseConstraintIndices, sparseVariableIndices,
+                super(jacobianMatrix, denseJacEntryConstraints, denseJacEntryVariables, sparseJacEntryConstraints, sparseJacEntryVariables,
                         network, equationSystem, knitroParameters, numLFVariables);
             }
 
