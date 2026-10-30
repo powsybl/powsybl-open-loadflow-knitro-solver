@@ -67,8 +67,8 @@
 
     <properties>
         <java.version>21</java.version>
-        <powsybl-core.version>7.3.0</powsybl-core.version>
-        <powsybl-open-loadflow.version>2.3.0</powsybl-open-loadflow.version>
+        <powsybl-core.version>7.4.2</powsybl-core.version>
+        <powsybl-open-loadflow.version>2.4.0</powsybl-open-loadflow.version>
         <knitro-interfaces.version>15.1.0</knitro-interfaces.version>
         <jna.version>5.17.0</jna.version>
         <fastcsv.version>4.4.0</fastcsv.version>

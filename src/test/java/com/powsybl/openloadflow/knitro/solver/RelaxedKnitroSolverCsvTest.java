@@ -8,6 +8,7 @@
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.iidm.network.*;
+import com.powsybl.iidm.network.regulation.RegulationMode;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.math.matrix.SparseMatrixFactory;
@@ -135,8 +136,8 @@ class RelaxedKnitroSolverCsvTest {
         network.getSubstation("S").newTwoWindingsTransformer().setId("T12").setBus1("B1").setBus2("B2")
                 .setRatedU1(400).setRatedU2(400).setR(0).setX(1600).add()
                 .newRatioTapChanger().setLowTapPosition(0).setTapPosition(0).setLoadTapChangingCapabilities(true)
-                .setRegulating(true).setRegulationMode(RatioTapChanger.RegulationMode.VOLTAGE).setRegulationValue(400)
-                .setTargetDeadband(0).setRegulationTerminal(load.getTerminal())
+                .newVoltageRegulation().withMode(RegulationMode.VOLTAGE).withTargetValue(400)
+                .withTargetDeadband(0).withTerminal(load.getTerminal()).withRegulating(true).add()
                 .beginStep().setRho(1.0).endStep()
                 .add();
 
