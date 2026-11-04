@@ -9,11 +9,11 @@ package com.powsybl.openloadflow.knitro.solver;
 
 import org.junit.jupiter.api.Test;
 
+import static com.powsybl.openloadflow.knitro.solver.AbstractRelaxedKnitroSolver.SlackType.P;
+import static com.powsybl.openloadflow.knitro.solver.AbstractRelaxedKnitroSolver.SlackType.Q;
 import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.isFeasibleV;
 import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.isGenFeasible;
 import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.isLoadFeasible;
-import static com.powsybl.openloadflow.knitro.solver.AbstractRelaxedKnitroSolver.SlackType.P;
-import static com.powsybl.openloadflow.knitro.solver.AbstractRelaxedKnitroSolver.SlackType.Q;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

@@ -31,7 +31,7 @@ class AcLoadFlowBoundaryTest {
     private Network network;
     private Bus bus1;
     private Bus bus2;
-    private DanglingLine dl1;
+    private BoundaryLine bl1;
     private Generator g1;
 
     private LoadFlow.Runner loadFlowRunner;
@@ -45,7 +45,7 @@ class AcLoadFlowBoundaryTest {
         network = BoundaryFactory.create();
         bus1 = network.getBusBreakerView().getBus("b1");
         bus2 = network.getBusBreakerView().getBus("b2");
-        dl1 = network.getDanglingLine("dl1");
+        bl1 = network.getBoundaryLine("bl1");
         g1 = network.getGenerator("g1");
         loadFlowRunner = new LoadFlow.Runner(new OpenLoadFlowProvider(new DenseMatrixFactory()));
         parameters = new LoadFlowParameters()
@@ -68,18 +68,18 @@ class AcLoadFlowBoundaryTest {
         assertAngleEquals(0.058104, bus1);
         assertVoltageEquals(388.582864, bus2);
         assertAngleEquals(0, bus2);
-        assertActivePowerEquals(101.303, dl1.getTerminal());
-        assertReactivePowerEquals(149.764, dl1.getTerminal());
+        assertActivePowerEquals(101.303, bl1.getTerminal());
+        assertReactivePowerEquals(149.764, bl1.getTerminal());
     }
 
     @Test
     void testWithVoltageRegulationOn() {
         g1.setTargetQ(0);
         g1.setVoltageRegulatorOn(false);
-        dl1.getGeneration().setVoltageRegulationOn(true);
-        dl1.getGeneration().setMinP(0);
-        dl1.getGeneration().setMaxP(10);
-        dl1.getGeneration().newMinMaxReactiveLimits()
+        bl1.getGeneration().setVoltageRegulationOn(true);
+        bl1.getGeneration().setMinP(0);
+        bl1.getGeneration().setMaxP(10);
+        bl1.getGeneration().newMinMaxReactiveLimits()
                 .setMinQ(-100)
                 .setMaxQ(100)
                 .add();
@@ -90,8 +90,8 @@ class AcLoadFlowBoundaryTest {
         assertAngleEquals(0.114371, bus1);
         assertVoltageEquals(390.181, bus2);
         assertAngleEquals(0, bus2);
-        assertActivePowerEquals(101.2, dl1.getTerminal());
-        assertReactivePowerEquals(-0.202, dl1.getTerminal());
+        assertActivePowerEquals(101.2, bl1.getTerminal());
+        assertReactivePowerEquals(-0.202, bl1.getTerminal());
 
         parameters.setDistributedSlack(true)
                 .setUseReactiveLimits(true);
@@ -102,8 +102,8 @@ class AcLoadFlowBoundaryTest {
         assertAngleEquals(0.114371, bus1);
         assertVoltageEquals(390.181, bus2);
         assertAngleEquals(0, bus2);
-        assertActivePowerEquals(101.2, dl1.getTerminal());
-        assertReactivePowerEquals(-0.202, dl1.getTerminal());
+        assertActivePowerEquals(101.2, bl1.getTerminal());
+        assertReactivePowerEquals(-0.202, bl1.getTerminal());
     }
 
     @Test
@@ -134,8 +134,8 @@ class AcLoadFlowBoundaryTest {
         assertReactivePowerEquals(0.0044, network.getLine("l34").getTerminal2());
 
         TieLine line = network.getTieLine("t12");
-        line.getDanglingLine1().getTerminal().disconnect();
-        line.getDanglingLine1().getTerminal().disconnect();
+        line.getBoundaryLine1().getTerminal().disconnect();
+        line.getBoundaryLine1().getTerminal().disconnect();
         loadFlowRunner.run(network, parameters);
         assertVoltageEquals(400.0, network.getBusBreakerView().getBus("b3"));
         System.out.println(network.getLine("l34").getTerminal2().getQ());
@@ -161,30 +161,30 @@ class AcLoadFlowBoundaryTest {
     }
 
     @Test
-    void testWithNonImpedantDanglingLine() {
-        dl1.setR(0.0).setX(0.0);
+    void testWithNonImpedantBoundaryLine() {
+        bl1.setR(0.0).setX(0.0);
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
-        assertActivePowerEquals(101.0, dl1.getTerminal());
-        assertReactivePowerEquals(150.0, dl1.getTerminal());
+        assertActivePowerEquals(101.0, bl1.getTerminal());
+        assertReactivePowerEquals(150.0, bl1.getTerminal());
 
-        dl1.getGeneration().setVoltageRegulationOn(true);
-        dl1.getGeneration().setTargetV(390.0);
-        dl1.getGeneration().setMinP(0);
-        dl1.getGeneration().setMaxP(10);
-        dl1.getGeneration().newMinMaxReactiveLimits()
+        bl1.getGeneration().setVoltageRegulationOn(true);
+        bl1.getGeneration().setTargetV(390.0);
+        bl1.getGeneration().setMinP(0);
+        bl1.getGeneration().setMaxP(10);
+        bl1.getGeneration().newMinMaxReactiveLimits()
                 .setMinQ(-100)
                 .setMaxQ(100)
                 .add();
         LoadFlowResult result2 = loadFlowRunner.run(network, parameters);
         assertTrue(result2.isFullyConverged());
-        assertActivePowerEquals(101.0, dl1.getTerminal());
-        assertReactivePowerEquals(-33.888, dl1.getTerminal());
+        assertActivePowerEquals(101.0, bl1.getTerminal());
+        assertReactivePowerEquals(-33.888, bl1.getTerminal());
 
         parameters.setDc(true);
         LoadFlowResult result3 = loadFlowRunner.run(network, parameters);
         assertTrue(result3.isFullyConverged());
-        assertActivePowerEquals(101.0, dl1.getTerminal());
-        assertReactivePowerEquals(Double.NaN, dl1.getTerminal());
+        assertActivePowerEquals(101.0, bl1.getTerminal());
+        assertReactivePowerEquals(Double.NaN, bl1.getTerminal());
     }
 }

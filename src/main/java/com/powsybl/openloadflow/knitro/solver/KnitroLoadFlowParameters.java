@@ -247,39 +247,41 @@ public class KnitroLoadFlowParameters extends AbstractExtension<LoadFlowParamete
 
     public KnitroLoadFlowParameters update(PlatformConfig platformConfig) {
         platformConfig.getOptionalModuleConfig(MODULE_SPECIFIC_PARAMETERS)
-                .ifPresent((ModuleConfig config) -> {
-                    config.getOptionalIntProperty(GRADIENT_COMPUTATION_MODE_PARAM_NAME)
-                            .ifPresent(this::setGradientComputationMode);
-                    config.getOptionalIntProperty(GRADIENT_USER_ROUTINE_PARAM_NAME)
-                            .ifPresent(this::setGradientUserRoutine);
-                    config.getOptionalIntProperty(HESSIAN_COMPUTATION_MODE_PARAM_NAME)
-                            .ifPresent(this::setHessianComputationMode);
-                    config.getOptionalDoubleProperty(LOWER_VOLTAGE_BOUND_PARAM_NAME)
-                            .ifPresent(this::setLowerVoltageBound);
-                    config.getOptionalDoubleProperty(UPPER_VOLTAGE_BOUND_PARAM_NAME)
-                            .ifPresent(this::setUpperVoltageBound);
-                    config.getOptionalIntProperty(MAX_KNITRO_ITERATIONS_PARAM_NAME)
-                            .ifPresent(this::setMaxKnitroIterations);
-                    config.getOptionalDoubleProperty(RELATIVE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME)
-                            .ifPresent(this::setRelConvEps);
-                    config.getOptionalDoubleProperty(ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME)
-                            .ifPresent(this::setAbsConvEps);
-                    config.getOptionalDoubleProperty(RELATIVE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME)
-                            .ifPresent(this::setRelOptEps);
-                    config.getOptionalDoubleProperty(ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME)
-                            .ifPresent(this::setAbsOptEps);
-                    config.getOptionalDoubleProperty(SLACK_THRESHOLD_PARAM_NAME)
-                            .ifPresent(this::setSlackThreshold);
-                    config.getOptionalEnumProperty(SOLVER_TYPE_PARAM_NAME, KnitroSolverParameters.SolverType.class)
-                            .ifPresent(this::setKnitroSolverType);
-                    config.getOptionalIntProperty(THREAD_NUMBER_PARAM_NAME)
-                            .ifPresent(this::setThreadNumber);
-                    config.getOptionalDoubleProperty(LOSSES_PARAM_NAME)
-                            .ifPresent(this::setLosses);
-                    config.getOptionalStringProperty(EXPORT_DIRECTORY_PARAM_NAME)
-                            .ifPresent(this::setExportDirectory);
-                });
+                .ifPresent(this::update);
         return this;
+    }
+
+    private void update(ModuleConfig config) {
+        config.getOptionalIntProperty(GRADIENT_COMPUTATION_MODE_PARAM_NAME)
+                .ifPresent(this::setGradientComputationMode);
+        config.getOptionalIntProperty(GRADIENT_USER_ROUTINE_PARAM_NAME)
+                .ifPresent(this::setGradientUserRoutine);
+        config.getOptionalIntProperty(HESSIAN_COMPUTATION_MODE_PARAM_NAME)
+                .ifPresent(this::setHessianComputationMode);
+        config.getOptionalDoubleProperty(LOWER_VOLTAGE_BOUND_PARAM_NAME)
+                .ifPresent(this::setLowerVoltageBound);
+        config.getOptionalDoubleProperty(UPPER_VOLTAGE_BOUND_PARAM_NAME)
+                .ifPresent(this::setUpperVoltageBound);
+        config.getOptionalIntProperty(MAX_KNITRO_ITERATIONS_PARAM_NAME)
+                .ifPresent(this::setMaxKnitroIterations);
+        config.getOptionalDoubleProperty(RELATIVE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME)
+                .ifPresent(this::setRelConvEps);
+        config.getOptionalDoubleProperty(ABSOLUTE_FEASIBILITY_STOPPING_CRITERIA_PARAM_NAME)
+                .ifPresent(this::setAbsConvEps);
+        config.getOptionalDoubleProperty(RELATIVE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME)
+                .ifPresent(this::setRelOptEps);
+        config.getOptionalDoubleProperty(ABSOLUTE_OPTIMALITY_STOPPING_CRITERIA_PARAM_NAME)
+                .ifPresent(this::setAbsOptEps);
+        config.getOptionalDoubleProperty(SLACK_THRESHOLD_PARAM_NAME)
+                .ifPresent(this::setSlackThreshold);
+        config.getOptionalEnumProperty(SOLVER_TYPE_PARAM_NAME, KnitroSolverParameters.SolverType.class)
+                .ifPresent(this::setKnitroSolverType);
+        config.getOptionalIntProperty(THREAD_NUMBER_PARAM_NAME)
+                .ifPresent(this::setThreadNumber);
+        config.getOptionalDoubleProperty(LOSSES_PARAM_NAME)
+                .ifPresent(this::setLosses);
+        config.getOptionalStringProperty(EXPORT_DIRECTORY_PARAM_NAME)
+                .ifPresent(this::setExportDirectory);
     }
 
     public KnitroLoadFlowParameters update(Map<String, String> properties) {

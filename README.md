@@ -103,12 +103,12 @@ dependencies to respectively have access to network model, IEEE test networks an
 <dependency>
     <groupId>com.powsybl</groupId>
     <artifactId>powsybl-iidm-impl</artifactId>
-    <version>7.1.2</version>
+    <version>7.3.0</version>
 </dependency>
 <dependency>
     <groupId>com.powsybl</groupId>
     <artifactId>powsybl-ieee-cdf-converter</artifactId>
-    <version>7.1.2</version>
+    <version>7.3.0</version>
 </dependency>
 <dependency>
     <groupId>org.slf4j</groupId>
@@ -124,11 +124,10 @@ Network network = IeeeCdfNetworkFactory.create14();
 
 After adding dependency on both Open Load Flow implementation and Knitro Solver extension:
 ```xml
-<!-- Open Load Flow to be installed from branch https://github.com/powsybl/powsybl-open-loadflow/tree/olf-2.1.1-not-vectorized -->
 <dependency>
     <groupId>com.powsybl</groupId>
     <artifactId>powsybl-open-loadflow</artifactId>
-    <version>2.1.1-not-vectorized</version>
+    <version>2.3.0</version>
 </dependency>
 <dependency>
     <groupId>com.powsybl</groupId>
@@ -254,7 +253,7 @@ parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters
 
 12. **Export Directory**
     - Default value: export disabled (empty)
-    - When set to a directory (which must exist), two CSV files are exported for each network component: `ccX_scY_slacks.csv`, with the information of each slack (type, value, location...), and `ccX_scY_optim_info.csv`, with the optimization summary, both usable afterward for visualization.
+    - When set to a directory (which must exist), two CSV files are exported for each connected component: `ccX_slacks.csv`, with the information of each slack (type, value, location...), and `ccX_optim_info.csv`, with the optimization summary, both usable afterward for visualization.
     - The files are additively written after each solve and hold all the outer loop iterations of the load flow. A later load flow exporting to the same directory overwrites them.
     - Use `setExportDirectory`.
     

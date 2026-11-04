@@ -21,19 +21,18 @@ import com.powsybl.openloadflow.equations.*;
 import com.powsybl.openloadflow.network.*;
 import com.powsybl.openloadflow.util.Evaluable;
 import com.powsybl.openloadflow.util.PerUnit;
+import de.siegmar.fastcsv.writer.CsvWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
-import java.util.Map;
-import java.util.stream.Collectors;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-
-import de.siegmar.fastcsv.writer.CsvWriter;
+import java.util.*;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.powsybl.openloadflow.knitro.solver.SlackFeasibility.*;
 
@@ -120,7 +119,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                                           EquationVector<AcVariableType, AcEquationType> equationVector, boolean detailedReport) {
         super(network, knitroParameters, equationSystem, j, targetVector, equationVector, detailedReport);
 
-        List<SingleEquation<AcVariableType, AcEquationType>> sortedEquations = equationSystem.getIndex().getSortedSingleEquationsToSolve();
+        List<Equation<AcVariableType, AcEquationType>> sortedEquations = getSortedEquationsToSolve(equationSystem);
         // Count number of equations by type
 
         this.numPEquations = (int) sortedEquations.stream().filter(e -> e.getType() == AcEquationType.BUS_TARGET_P).count();
@@ -342,8 +341,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         logSlackSummary(slackContributions); // Generic summary of the network, number of slack of each type, number of load or generator violations
         if (exportDirectory != null && !exportDirectory.isBlank()) {
-            // One file pair per network component, so that the components solved in a same load flow do not overwrite each other
-            String componentId = "cc" + network.getNumCC() + "_sc" + network.getNumSC();
+            // One file pair per connected component, so that the components solved in a same load flow do not overwrite each other
+            String componentId = "cc" + network.getNumCC();
             Path directory = Path.of(exportDirectory);
             boolean firstSolve = outerloopIteration == 0;
             writeSlackInfoCsv(directory.resolve(componentId + CSV_SUFFIX_SLACKS), slackContributions, firstSolve);
@@ -441,7 +440,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             throw new PowsyblException("Variable index associated with slack variable " + type + " was not found");
         }
 
-        LfBus bus = network.getBus(equationSystem.getIndex().getSortedSingleEquationsToSolve().get(varIndex).getElementNum());
+        LfBus bus = network.getBus(equationSystem.getIndex().getEquationAtColumn(varIndex).getElementNum());
 
         return bus.getId();
     }
@@ -683,7 +682,8 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     private void writeSlackInfoCsv(Path file, List<SlackVariableInfo> slacks, boolean writeHeader) {
         try (CsvWriter csv = openCsvWriter(file, writeHeader)) {
             if (writeHeader) {
-                csv.writeRecord("bus_id", "type", "slackValue_pu", "voltage_level_id", "generator", "controleVoltage", "transfo", "shunt", "load", "load_violation", "gen_violation", "voltage_violation", "outerloop_iteration");
+                csv.writeRecord("bus_id", "type", "slackValue_pu", "voltage_level_id", "generator", "controleVoltage", "transfo", "shunt", "load",
+                        "load_violation", "gen_violation", "voltage_violation", "outerloop_iteration");
             }
 
             for (SlackVariableInfo si : slacks) {
@@ -898,7 +898,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         @Override
         protected void addAdditionalJacobianVariables(int constraintIndex,
-                                                      SingleEquation<AcVariableType, AcEquationType> equation,
+                                                      Equation<AcVariableType, AcEquationType> equation,
                                                       List<Integer> variableIndices) {
             AcEquationType equationType = equation.getType();
             // get slack variable local index (within its equation type)
@@ -944,11 +944,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
 
         @Override
         protected KNEvalGACallback createGradientCallback(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                                          List<Integer> listNonZerosCtsDense, List<Integer> listNonZerosVarsDense,
-                                                          List<Integer> listNonZerosCtsSparse, List<Integer> listNonZerosVarsSparse) {
+                                                          List<Integer> denseJacEntryConstraints, List<Integer> denseJacEntryVariables,
+                                                          List<Integer> sparseJacEntryConstraints, List<Integer> sparseJacEntryVariables) {
 
-            return new AbstractRelaxedKnitroProblem.RelaxedCallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
-                    listNonZerosCtsSparse, listNonZerosVarsSparse, network,
+            return new AbstractRelaxedKnitroProblem.RelaxedCallbackEvalG(jacobianMatrix, denseJacEntryConstraints, denseJacEntryVariables,
+                    sparseJacEntryConstraints, sparseJacEntryVariables, network,
                     equationSystem, knitroParameters, numberOfPowerFlowVariables);
         }
 
@@ -960,9 +960,11 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
             private final AbstractRelaxedKnitroProblem problemInstance;
 
             RelaxedCallbackEvalFC(AbstractRelaxedKnitroProblem problemInstance,
-                                  List<SingleEquation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
-                                  List<Integer> nonLinearConstraintIds) {
-                super(sortedEquationsToSolve, nonLinearConstraintIds);
+                                  List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+                                  List<Integer> nonLinearConstraintIds,
+                                  EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                                  EquationVector<AcVariableType, AcEquationType> equationVector) {
+                super(sortedEquationsToSolve, nonLinearConstraintIds, equationSystem, equationVector);
                 this.problemInstance = problemInstance;
             }
 
@@ -986,12 +988,12 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         public static class RelaxedCallbackEvalG extends KnitroCallbacks.BaseCallbackEvalG {
 
             RelaxedCallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                 List<Integer> denseConstraintIndices, List<Integer> denseVariableIndices,
-                                 List<Integer> sparseConstraintIndices, List<Integer> sparseVariableIndices,
+                                 List<Integer> denseJacEntryConstraints, List<Integer> denseJacEntryVariables,
+                                 List<Integer> sparseJacEntryConstraints, List<Integer> sparseJacEntryVariables,
                                  LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                  KnitroSolverParameters knitroParameters, int numLFVariables) {
 
-                super(jacobianMatrix, denseConstraintIndices, denseVariableIndices, sparseConstraintIndices, sparseVariableIndices,
+                super(jacobianMatrix, denseJacEntryConstraints, denseJacEntryVariables, sparseJacEntryConstraints, sparseJacEntryVariables,
                         network, equationSystem, knitroParameters, numLFVariables);
             }
 

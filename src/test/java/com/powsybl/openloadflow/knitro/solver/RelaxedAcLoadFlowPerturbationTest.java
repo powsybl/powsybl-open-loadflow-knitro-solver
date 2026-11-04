@@ -15,23 +15,22 @@ import com.powsybl.math.matrix.SparseMatrixFactory;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
 import com.powsybl.openloadflow.ac.solver.NewtonRaphsonFactory;
+import com.powsybl.openloadflow.knitro.solver.NetworkProviders.NetworkPair;
 import com.powsybl.openloadflow.network.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-
-import com.powsybl.openloadflow.knitro.solver.NetworkProviders.NetworkPair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * @author Martin Debouté {@literal <martin.deboute at artelys.com>}
@@ -201,5 +200,3 @@ class RelaxedAcLoadFlowPerturbationTest {
         activePowerPerturbationTest(rknNetwork, nrNetwork, baseFilename, alpha, exportPath);
     }
 }
-
-

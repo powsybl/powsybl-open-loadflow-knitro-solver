@@ -19,7 +19,6 @@ import com.powsybl.openloadflow.network.LfNetwork;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.primitives.Doubles.toArray;
@@ -50,14 +49,20 @@ public final class KnitroCallbacks {
      */
     public static class BaseCallbackEvalFC extends KNEvalFCCallback {
 
-        protected final List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve;
+        protected final List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve;
         protected final List<Integer> nonLinearConstraintIds;
+        protected final EquationSystem<AcVariableType, AcEquationType> equationSystem;
+        protected final EquationVector<AcVariableType, AcEquationType> equationVector;
 
         public BaseCallbackEvalFC(
-                List<SingleEquation<AcVariableType, AcEquationType>> sortedSingleEquationsToSolve,
-                List<Integer> nonLinearConstraintIds) {
-            this.sortedSingleEquationsToSolve = sortedSingleEquationsToSolve;
+                List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve,
+                List<Integer> nonLinearConstraintIds,
+                EquationSystem<AcVariableType, AcEquationType> equationSystem,
+                EquationVector<AcVariableType, AcEquationType> equationVector) {
+            this.sortedEquationsToSolve = sortedEquationsToSolve;
             this.nonLinearConstraintIds = nonLinearConstraintIds;
+            this.equationSystem = equationSystem;
+            this.equationVector = equationVector;
         }
 
         /**
@@ -71,30 +76,21 @@ public final class KnitroCallbacks {
         public void evaluateFC(final List<Double> x, final List<Double> obj, final List<Double> c) {
             LOGGER.trace("============ Knitro evaluating callback function ============");
 
-            StateVector currentState = new StateVector(toArray(x));
-            LOGGER.trace("Current state vector: {}", currentState.get());
+            // move the equation system to the current point; f(x) (equation left-hand sides, by column) is recomputed
+            // lazily from the state vector, transparently whether the equation system is vectorized or not
+            equationSystem.getStateVector().set(toArray(x));
+            double[] fx = equationVector.getArray();
             LOGGER.trace("Evaluating {} non-linear constraints", nonLinearConstraintIds.size());
 
             int callbackConstraintIndex = 0;
 
             for (int equationId : nonLinearConstraintIds) {
-                SingleEquation<AcVariableType, AcEquationType> equation = sortedSingleEquationsToSolve.get(equationId);
+                Equation<AcVariableType, AcEquationType> equation = sortedEquationsToSolve.get(equationId);
                 AcEquationType type = equation.getType();
 
-                // Ensure the constraint is non-linear
-                if (NonLinearExternalSolverUtils.isLinear(type, equation.getTerms())) {
-                    throw new IllegalArgumentException(
-                            "Equation of type " + type + " is linear but passed to the non-linear callback");
-                }
-
-                // Evaluate equation using the current state
-                double constraintValue = 0.0;
-                for (SingleEquationTerm<AcVariableType, AcEquationType> term : equation.getTerms()) {
-                    term.setStateVector(currentState);
-                    if (term.isActive()) {
-                        constraintValue += term.eval();
-                    }
-                }
+                // the constraint index is the equation column: read the pre-evaluated left-hand side when available,
+                // otherwise evaluate the equation (e.g. equations added on top of the open load flow system)
+                double constraintValue = equationId < fx.length ? fx[equationId] : equation.eval();
 
                 // Allow subclasses to add slack contributions
                 constraintValue += addModificationOfNonLinearConstraints(equationId, type, x);
@@ -134,10 +130,10 @@ public final class KnitroCallbacks {
     public static class BaseCallbackEvalG extends KNEvalGACallback {
 
         protected final JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix;
-        protected final List<Integer> denseConstraintIndices;
-        protected final List<Integer> denseVariableIndices;
-        protected final List<Integer> sparseConstraintIndices;
-        protected final List<Integer> sparseVariableIndices;
+        protected final List<Integer> denseJacEntryConstraints;
+        protected final List<Integer> denseJacEntryVariables;
+        protected final List<Integer> sparseJacEntryConstraints;
+        protected final List<Integer> sparseJacEntryVariables;
 
         protected final LfNetwork network;
         protected final EquationSystem<AcVariableType, AcEquationType> equationSystem;
@@ -145,15 +141,15 @@ public final class KnitroCallbacks {
         protected final int numLFVariables;
 
         public BaseCallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                 List<Integer> denseConstraintIndices, List<Integer> denseVariableIndices,
-                                 List<Integer> sparseConstraintIndices, List<Integer> sparseVariableIndices,
+                                 List<Integer> denseJacEntryConstraints, List<Integer> denseJacEntryVariables,
+                                 List<Integer> sparseJacEntryConstraints, List<Integer> sparseJacEntryVariables,
                                  LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
                                  KnitroSolverParameters knitroParameters, int numLFVariables) {
             this.jacobianMatrix = jacobianMatrix;
-            this.denseConstraintIndices = denseConstraintIndices;
-            this.denseVariableIndices = denseVariableIndices;
-            this.sparseConstraintIndices = sparseConstraintIndices;
-            this.sparseVariableIndices = sparseVariableIndices;
+            this.denseJacEntryConstraints = denseJacEntryConstraints;
+            this.denseJacEntryVariables = denseJacEntryVariables;
+            this.sparseJacEntryConstraints = sparseJacEntryConstraints;
+            this.sparseJacEntryVariables = sparseJacEntryVariables;
             this.network = network;
             this.equationSystem = equationSystem;
             this.knitroParameters = knitroParameters;
@@ -174,66 +170,51 @@ public final class KnitroCallbacks {
             double[] values = sparseMatrix.getValues();
 
             // Determine which list to use based on Knitro settings
-            List<Integer> constraintIndices;
-            List<Integer> variableIndices;
+            List<Integer> jacEntryConstraints;
+            List<Integer> jacEntryVariables;
 
             int routineType = knitroParameters.getGradientUserRoutine();
             if (routineType == 1) {
-                constraintIndices = denseConstraintIndices;
-                variableIndices = denseVariableIndices;
+                jacEntryConstraints = denseJacEntryConstraints;
+                jacEntryVariables = denseJacEntryVariables;
             } else if (routineType == 2) {
-                constraintIndices = sparseConstraintIndices;
-                variableIndices = sparseVariableIndices;
+                jacEntryConstraints = sparseJacEntryConstraints;
+                jacEntryVariables = sparseJacEntryVariables;
             } else {
                 throw new IllegalArgumentException("Unsupported gradientUserRoutine value: " + routineType);
             }
 
             // Fill Jacobian values
-            fillJacobianValues(constraintIndices, variableIndices, columnStart, rowIndices, values, jac);
+            fillJacobianValues(jacEntryConstraints, jacEntryVariables, columnStart, rowIndices, values, jac);
         }
 
         /**
-         * Fills the Jacobian values.
+         * Fills the Jacobian values, in the order of the non-zero pattern given to Knitro.
          * Can be overridden to handle slack variables.
          *
-         * @param constraintIndices Constraint indices.
-         * @param variableIndices Variable indices.
+         * @param jacEntryConstraints Constraint index of each non-zero Jacobian entry.
+         * @param jacEntryVariables Variable index of each non-zero Jacobian entry.
          * @param columnStart Column start array from sparse matrix.
          * @param rowIndices Row indices array from sparse matrix.
          * @param values Values array from sparse matrix.
          * @param jac Output Jacobian list.
          */
-        protected void fillJacobianValues(List<Integer> constraintIndices, List<Integer> variableIndices,
+        protected void fillJacobianValues(List<Integer> jacEntryConstraints, List<Integer> jacEntryVariables,
                                           int[] columnStart, int[] rowIndices, double[] values, List<Double> jac) {
-            int iRowIndices = 0;
-            int currentConstraint = -1;
-            for (int index = 0; index < constraintIndices.size(); index++) {
-                int constraintIndex = constraintIndices.get(index);
-                int variableIndex = variableIndices.get(index);
+            for (int index = 0; index < jacEntryConstraints.size(); index++) {
+                int constraintIndex = jacEntryConstraints.get(index);
+                int variableIndex = jacEntryVariables.get(index);
                 try {
                     double value;
 
-                    if (constraintIndex < Arrays.stream(columnStart).count()) { // Find matching (variableIndex, constraintIndex) entry in sparse column
-                        int colStart = columnStart[constraintIndex];
-
-                        // Check if we moved to the next constraint
-                        if (currentConstraint != constraintIndex) {
-                            // In this case, restart variable tracking slacks indices to 0 and change the currently handled constraint
-                            iRowIndices = 0;
-                            currentConstraint = constraintIndex;
-                        }
-
+                    // columnStart has one more element than the number of columns (open load flow equations)
+                    if (constraintIndex < columnStart.length - 1) {
                         // Check if current variableIndex is a slack variable index
                         if (variableIndex >= numLFVariables) {
                             // In this case, add corresponding value
                             value = computeModifiedJacobianValue(variableIndex);
-                            // When in dense mode, the constructed index list and the index list from powsybl don't match
-                        } else if (rowIndices[colStart + iRowIndices] != variableIndex) {
-                            // In this case, set corresponding value to zero
-                            value = 0.0;
                         } else {
-                            // This is the case of a LF variable with a non-zero coefficient in the Jacobian
-                            value = values[colStart + iRowIndices++];
+                            value = getJacobianTerm(columnStart, rowIndices, values, constraintIndex, variableIndex);
                         }
                     } else {
                         value = computeAddedConstraintJacobianValue(variableIndex, constraintIndex);
@@ -241,11 +222,27 @@ public final class KnitroCallbacks {
 
                     jac.set(index, value);
                 } catch (Exception e) {
-                    int varId = variableIndices.get(index);
-                    int ctId = constraintIndices.get(index);
+                    int varId = jacEntryVariables.get(index);
+                    int ctId = jacEntryConstraints.get(index);
                     LOGGER.error("Error while filling Jacobian term at var {} and constraint {}", varId, ctId, e);
                 }
             }
+        }
+
+        /**
+         * Returns the derivative of a constraint (sparse matrix column) with respect to a variable (sparse matrix row),
+         * or 0 if the variable is not in the column.
+         * Row indices are not sorted within a column (e.g. with a vectorized equation system), so the whole column is
+         * scanned, and duplicated entries are summed.
+         */
+        private static double getJacobianTerm(int[] columnStart, int[] rowIndices, double[] values, int column, int row) {
+            double value = 0.0;
+            for (int k = columnStart[column]; k < columnStart[column + 1]; k++) {
+                if (rowIndices[k] == row) {
+                    value += values[k];
+                }
+            }
+            return value;
         }
 
         /**
