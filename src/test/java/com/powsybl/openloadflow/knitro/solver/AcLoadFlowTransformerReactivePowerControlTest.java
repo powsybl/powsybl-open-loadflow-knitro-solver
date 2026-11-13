@@ -9,12 +9,12 @@ package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.commons.report.ReportNode;
 import com.powsybl.commons.test.PowsyblTestReportResourceBundle;
-import com.powsybl.computation.local.LocalComputationManager;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.regulation.RegulationMode;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
+import com.powsybl.loadflow.LoadFlowRunParameters;
 import com.powsybl.math.matrix.DenseMatrixFactory;
 import com.powsybl.openloadflow.OpenLoadFlowParameters;
 import com.powsybl.openloadflow.OpenLoadFlowProvider;
@@ -47,6 +47,7 @@ class AcLoadFlowTransformerReactivePowerControlTest {
     private LoadFlow.Runner loadFlowRunner;
     private LoadFlowParameters parameters;
     private OpenLoadFlowParameters parametersExt;
+    private LoadFlowRunParameters runParameters;
 
     @BeforeEach
     void setUp() {
@@ -60,6 +61,7 @@ class AcLoadFlowTransformerReactivePowerControlTest {
         parametersExt = OpenLoadFlowParameters.create(parameters)
                 .setSlackBusSelectionMode(SlackBusSelectionMode.FIRST)
                 .setAcSolverType(KnitroSolverFactory.NAME);
+        runParameters = new LoadFlowRunParameters().setParameters(parameters);
     }
 
     @Test
@@ -133,8 +135,8 @@ class AcLoadFlowTransformerReactivePowerControlTest {
                 .withResourceBundles(PowsyblOpenLoadFlowReportResourceBundle.BASE_NAME, PowsyblTestReportResourceBundle.TEST_BASE_NAME)
                 .withMessageTemplate("test")
                 .build();
-
-        result = loadFlowRunner.run(network, network.getVariantManager().getWorkingVariantId(), LocalComputationManager.getDefault(), parameters, report);
+        runParameters.setReportNode(report);
+        result = loadFlowRunner.run(network, network.getVariantManager().getWorkingVariantId(), runParameters);
         assertTrue(result.isFullyConverged());
         assertReactivePowerEquals(-5.0, g4.getTerminal()); // limit of generator
         assertReactivePowerEquals(gTargetQ, regulatedTerminal); // targetQ of generator is held
@@ -209,9 +211,8 @@ class AcLoadFlowTransformerReactivePowerControlTest {
                 .withResourceBundles(PowsyblOpenLoadFlowReportResourceBundle.BASE_NAME, PowsyblTestReportResourceBundle.TEST_BASE_NAME)
                 .withMessageTemplate("test")
                 .build();
-
-        LoadFlowResult result = loadFlowRunner.run(myNetwork, myNetwork.getVariantManager().getWorkingVariantId(), LocalComputationManager.getDefault(),
-                parameters, report);
+        runParameters.setReportNode(report);
+        LoadFlowResult result = loadFlowRunner.run(myNetwork, myNetwork.getVariantManager().getWorkingVariantId(), runParameters);
         assertTrue(result.isFullyConverged());
         assertReactivePowerEquals(3.0, g4.getTerminal());
         assertReactivePowerEquals(-0.751, regulatedTerminal); // not targetQ
@@ -663,8 +664,8 @@ class AcLoadFlowTransformerReactivePowerControlTest {
         // no transformer reactive power control if terminal 1 is opened on controlled branch
         t2wt2.getTerminal2().connect();
         t2wt.getRatioTapChanger()
-                .setRegulationTerminal(t2wt2.getTerminal2())
-                .setRegulationValue(2.665);
+                .getVoltageRegulation()
+                .setTerminal(t2wt2.getTerminal2(), 2.665);
         t2wt2.getTerminal1().disconnect();
         result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());

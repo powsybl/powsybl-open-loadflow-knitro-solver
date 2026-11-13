@@ -52,8 +52,10 @@ class RelaxedKnitroSolverCsvTest {
         Substation s = network.newSubstation().setId("S").add();
         VoltageLevel vl1 = s.newVoltageLevel().setId("VL1").setNominalV(400).setTopologyKind(TopologyKind.BUS_BREAKER).add();
         vl1.getBusBreakerView().newBus().setId("B1").add();
-        vl1.newGenerator().setId("G1").setBus("B1").setMinP(0).setMaxP(2000).setTargetP(0).setTargetV(400)
-                .setVoltageRegulatorOn(true).add();
+        vl1.newGenerator().setId("G1").setBus("B1").setMinP(0).setMaxP(2000).setTargetP(0)
+                .setLocalTargetV(400)
+                .newVoltageRegulation().withMode(RegulationMode.VOLTAGE).add()
+                .add();
         VoltageLevel vl2 = s.newVoltageLevel().setId("VL2").setNominalV(400).setTopologyKind(TopologyKind.BUS_BREAKER).add();
         vl2.getBusBreakerView().newBus().setId("B2").add();
         network.newLine().setId("L12").setBus1("B1").setBus2("B2").setR(0).setX(1600).add();
@@ -95,8 +97,12 @@ class RelaxedKnitroSolverCsvTest {
         Network network = createNetwork();
         VoltageLevel vl2 = network.getVoltageLevel("VL2");
         vl2.newLoad().setId("L2").setBus("B2").setP0(1000).setQ0(100).add();
-        vl2.newGenerator().setId("G2").setBus("B2").setMinP(0).setMaxP(20).setTargetP(10).setTargetQ(0)
-                .setVoltageRegulatorOn(false).add();
+        vl2.newGenerator().setId("G2").setBus("B2").setMinP(0).setMaxP(20).setTargetP(10)
+                .setLocalTargetQ(0)
+                .newVoltageRegulation()
+                    .withRegulating(false)
+                    .add()
+                .add();
         vl2.newShuntCompensator().setId("SH2").setBus("B2").setSectionCount(1)
                 .newLinearModel().setBPerSection(1e-5).setMaximumSectionCount(1).add().add();
 
@@ -113,8 +119,12 @@ class RelaxedKnitroSolverCsvTest {
         Network network = createNetwork();
         VoltageLevel vl2 = network.getVoltageLevel("VL2");
         vl2.newLoad().setId("L2").setBus("B2").setP0(1000).setQ0(100).add();
-        vl2.newGenerator().setId("G2").setBus("B2").setMinP(0).setMaxP(2000).setTargetP(10).setTargetQ(0)
-                .setVoltageRegulatorOn(false).add();
+        vl2.newGenerator().setId("G2").setBus("B2").setMinP(0).setMaxP(2000).setTargetP(10)
+                .setLocalTargetQ(0)
+                .newVoltageRegulation()
+                    .withRegulating(false)
+                    .add()
+                .add();
         vl2.newShuntCompensator().setId("SH2").setBus("B2").setSectionCount(1)
                 .newLinearModel().setBPerSection(1e-5).setMaximumSectionCount(1).add().add();
 
@@ -131,8 +141,12 @@ class RelaxedKnitroSolverCsvTest {
         Network network = createNetwork();
         VoltageLevel vl2 = network.getVoltageLevel("VL2");
         Load load = vl2.newLoad().setId("L2").setBus("B2").setP0(10).setQ0(0).add();
-        vl2.newGenerator().setId("G2").setBus("B2").setMinP(-1000).setMaxP(0).setTargetP(-1000).setTargetQ(0)
-                .setVoltageRegulatorOn(false).add();
+        vl2.newGenerator().setId("G2").setBus("B2").setMinP(-1000).setMaxP(0).setTargetP(-1000)
+                .setLocalTargetQ(0)
+                .newVoltageRegulation()
+                    .withRegulating(false)
+                    .add()
+                .add();
         network.getSubstation("S").newTwoWindingsTransformer().setId("T12").setBus1("B1").setBus2("B2")
                 .setRatedU1(400).setRatedU2(400).setR(0).setX(1600).add()
                 .newRatioTapChanger().setLowTapPosition(0).setTapPosition(0).setLoadTapChangingCapabilities(true)

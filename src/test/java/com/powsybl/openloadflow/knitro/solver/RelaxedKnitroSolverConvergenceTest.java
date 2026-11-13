@@ -72,9 +72,10 @@ class RelaxedKnitroSolverConvergenceTest {
         Terminal t5 = t5Optional.get();
 
         // Apply voltage mismatch and remote control to regulating generator
-        network.getGenerator("B2-G").setTargetV(131.0429)
-                .setVoltageRegulatorOn(true)
-                .setRegulatingTerminal(t5);
+        network.getGenerator("B2-G").setLocalTargetV(131.0429)
+                .getVoltageRegulation()
+                .setTerminal(t5, 131.0429)
+                .setRegulating(true);
 
         // Change line parameters to make it have low reactance
         l15.setX(0.001742)

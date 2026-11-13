@@ -174,7 +174,7 @@ class SecondaryVoltageControlTest {
     }
 
     @Test
-    void testUnblockGeneratorFromLimit() {
+    void modifyNetworkToUnblockGeneratorFromLimit() {
         network.newExtension(SecondaryVoltageControlAdder.class)
                 .newControlZone()
                 .withName("z1")
@@ -185,8 +185,8 @@ class SecondaryVoltageControlTest {
                 .add();
 
         // to put g6 and g8 at q min
-        g6.setTargetV(11.8);
-        g8.setTargetV(19.5);
+        g6.setLocalTargetV(11.8);
+        g8.setLocalTargetV(19.5);
 
         // This scenario works if the slack distribution fails and an injection is added at the slack bus
         parametersExt.setPlausibleActivePowerLimit(5000); // Remove large generators from slack distribution

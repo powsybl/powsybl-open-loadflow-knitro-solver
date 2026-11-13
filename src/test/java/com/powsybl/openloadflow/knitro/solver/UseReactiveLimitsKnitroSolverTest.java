@@ -9,6 +9,7 @@ package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.ieeecdf.converter.IeeeCdfNetworkFactory;
 import com.powsybl.iidm.network.*;
+import com.powsybl.iidm.network.regulation.RegulationMode;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
@@ -87,8 +88,8 @@ class UseReactiveLimitsKnitroSolverTest {
                 .setConnectableBus("NGEN2")
                 .setMinP(-9999.99)
                 .setMaxP(9999.99)
-                .setVoltageRegulatorOn(true)
-                .setTargetV(24.5)
+                .newVoltageRegulation().withMode(RegulationMode.VOLTAGE).add()
+                .setLocalTargetV(24.5)
                 .setTargetP(100)
                 .add();
 
@@ -233,8 +234,8 @@ class UseReactiveLimitsKnitroSolverTest {
                 .setConnectableBus("NGEN2")
                 .setMinP(-9999.99)
                 .setMaxP(9999.99)
-                .setVoltageRegulatorOn(true)
-                .setTargetV(24.5)
+                .newVoltageRegulation().withMode(RegulationMode.VOLTAGE).add()
+                .setLocalTargetV(24.5)
                 .setTargetP(50)
                 .add();
 

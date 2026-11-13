@@ -74,8 +74,8 @@ class AcLoadFlowBoundaryTest {
 
     @Test
     void testWithVoltageRegulationOn() {
-        g1.setTargetQ(0);
-        g1.setVoltageRegulatorOn(false);
+        g1.setLocalTargetQ(0);
+        g1.getVoltageRegulation().setRegulating(false);
         bl1.getGeneration().setVoltageRegulationOn(true);
         bl1.getGeneration().setMinP(0);
         bl1.getGeneration().setMaxP(10);

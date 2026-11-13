@@ -10,6 +10,7 @@ package com.powsybl.openloadflow.knitro.solver;
 import com.powsybl.iidm.network.Bus;
 import com.powsybl.iidm.network.Network;
 import com.powsybl.iidm.network.VariantManagerConstants;
+import com.powsybl.iidm.network.regulation.RegulationMode;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
 import com.powsybl.iidm.network.test.FourSubstationsNodeBreakerFactory;
 import com.powsybl.loadflow.LoadFlow;
@@ -65,7 +66,7 @@ class AcLoadFlowWithCachingTest {
         assertVoltageEquals(24.5, ngen);
         assertVoltageEquals(147.578, nload);
 
-        gen.setTargetV(24.1);
+        gen.setLocalTargetV(24.1);
 
         result = loadFlowRunner.run(network, parameters);
         assertEquals(1, NetworkCache.AC_LF_INSTANCE.getEntryCount());
@@ -342,7 +343,7 @@ class AcLoadFlowWithCachingTest {
         assertNotNull(NetworkCache.AC_LF_INSTANCE.findEntry(network).orElseThrow().getValues());
 
         var gen = network.getGenerator("GEN");
-        gen.setTargetV(1000);
+        gen.setLocalTargetV(1000);
         result = loadFlowRunner.run(network, parameters);
         assertEquals(LoadFlowResult.ComponentResult.Status.NO_CALCULATION, result.getComponentResults().get(0).getStatus());
     }
@@ -352,13 +353,13 @@ class AcLoadFlowWithCachingTest {
     void testInitiallyInvalidNetwork() {
         var network = EurostagFactory.fix(EurostagTutorialExample1Factory.create());
         var gen = network.getGenerator("GEN");
-        gen.setTargetV(1000);
+        gen.setLocalTargetV(1000);
         var result = loadFlowRunner.run(network, parameters);
         assertEquals(LoadFlowResult.ComponentResult.Status.FAILED, result.getComponentResults().get(0).getStatus());
 
         assertNotNull(NetworkCache.AC_LF_INSTANCE.findEntry(network).orElseThrow().getValues());
 
-        gen.setTargetV(24);
+        gen.setLocalTargetV(24);
         result = loadFlowRunner.run(network, parameters);
         assertEquals(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getComponentResults().get(0).getStatus());
     }
@@ -426,7 +427,7 @@ class AcLoadFlowWithCachingTest {
         assertEquals(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getComponentResults().get(0).getStatus());
         checkVoltageIsDefinedForAllBuses(network);
         var g1 = network.getGenerator("g1");
-        g1.setTargetV(g1.getTargetV() + 0.1);
+        g1.setLocalTargetV(g1.getLocalTargetV() + 0.1);
         result = loadFlowRunner.run(network, parameters);
         assertEquals(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getComponentResults().get(0).getStatus());
         checkVoltageIsDefinedForAllBuses(network);
@@ -437,11 +438,11 @@ class AcLoadFlowWithCachingTest {
         Network network = VoltageControlNetworkFactory.createNetworkWithT2wt();
         var t2wt = network.getTwoWindingsTransformer("T2wT");
         t2wt.getRatioTapChanger()
-                .setTargetDeadband(0)
-                .setRegulating(true)
                 .setTapPosition(0)
-                .setRegulationTerminal(t2wt.getTerminal2())
-                .setTargetV(34.0);
+                .getVoltageRegulation()
+                    .setTerminal(t2wt.getTerminal2(), 34.0)
+                    .setTargetDeadband(0)
+                    .setRegulating(true);
 
         parameters.setTransformerVoltageControlOn(true);
 
@@ -532,18 +533,18 @@ class AcLoadFlowWithCachingTest {
 
         parameters.setTransformerVoltageControlOn(true);
         twt.getRatioTapChanger()
-                .setTargetDeadband(0)
-                .setRegulating(true)
                 .setTapPosition(0)
-                .setRegulationTerminal(twt.getTerminal2())
-                .setTargetV(30.0);
+                .getVoltageRegulation()
+                    .setTargetDeadband(0)
+                    .setRegulating(true)
+                    .setTerminal(twt.getTerminal2(), 30);
 
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
         assertEquals(1, twt.getRatioTapChanger().getSolvedTapPosition());
         assertEquals(0, twt.getRatioTapChanger().getTapPosition());
 
-        twt.getRatioTapChanger().setTargetV(32);
+        twt.getRatioTapChanger().getVoltageRegulation().setTargetValue(32);
         assertNotNull(NetworkCache.AC_LF_INSTANCE.findEntry(network).orElseThrow().getValues()); // check cache has not been invalidated
 
         result = loadFlowRunner.run(network, parameters);
@@ -559,11 +560,11 @@ class AcLoadFlowWithCachingTest {
         var twt = network.getThreeWindingsTransformer("T3wT");
 
         twt.getLeg2().getRatioTapChanger()
-                .setTargetDeadband(0)
-                .setRegulating(true)
                 .setTapPosition(0)
-                .setRegulationTerminal(twt.getLeg2().getTerminal())
-                .setTargetV(30);
+                .getVoltageRegulation()
+                    .setTargetDeadband(0)
+                    .setRegulating(true)
+                    .setTerminal(twt.getLeg2().getTerminal(), 30);
 
         parameters.setTransformerVoltageControlOn(true);
 
@@ -572,7 +573,7 @@ class AcLoadFlowWithCachingTest {
         assertEquals(1, twt.getLeg2().getRatioTapChanger().getSolvedTapPosition());
         assertEquals(0, twt.getLeg2().getRatioTapChanger().getTapPosition());
 
-        twt.getLeg2().getRatioTapChanger().setTargetV(26);
+        twt.getLeg2().getRatioTapChanger().getVoltageRegulation().setTargetValue(26);
         assertNotNull(NetworkCache.AC_LF_INSTANCE.findEntry(network).orElseThrow().getValues()); // check cache has not been invalidated
 
         result = loadFlowRunner.run(network, parameters);
@@ -636,8 +637,8 @@ class AcLoadFlowWithCachingTest {
                 .setId("NEW_GEN")
                 .setBus("NEW_BUS")
                 .setTargetP(10)
-                .setVoltageRegulatorOn(true)
-                .setTargetV(24)
+                .newVoltageRegulation().withMode(RegulationMode.VOLTAGE).add()
+                .setLocalTargetV(24)
                 .setMinP(0)
                 .setMaxP(1000)
                 .add();
@@ -645,9 +646,9 @@ class AcLoadFlowWithCachingTest {
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
         assertTrue(result.isFullyConverged());
         assertNotNull(NetworkCache.AC_LF_INSTANCE.findEntry(network).orElseThrow().getValues());
-        gen.setTargetV(gen.getTargetV() + 0.1);
+        gen.setLocalTargetV(gen.getLocalTargetV() + 0.1);
         assertNotNull(NetworkCache.AC_LF_INSTANCE.findEntry(network).orElseThrow().getValues()); // check cache has not been invalidated
-        newGen.setTargetV(newGen.getTargetV() + 0.1);
+        newGen.setLocalTargetV(newGen.getLocalTargetV() + 0.1);
         assertNotNull(NetworkCache.AC_LF_INSTANCE.findEntry(network).orElseThrow().getValues()); // check cache has not been invalidated
     }
 }

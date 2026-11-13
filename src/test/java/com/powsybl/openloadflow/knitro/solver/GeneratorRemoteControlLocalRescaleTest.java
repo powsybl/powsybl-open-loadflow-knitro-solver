@@ -8,6 +8,7 @@
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.iidm.network.*;
+import com.powsybl.iidm.network.regulation.RegulationMode;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.loadflow.LoadFlowResult;
@@ -69,9 +70,12 @@ class GeneratorRemoteControlLocalRescaleTest {
                 .setMinP(0)
                 .setMaxP(200)
                 .setTargetP(100)
-                .setTargetV(413.4)
-                .setVoltageRegulatorOn(true)
-                .setRegulatingTerminal(l2.getTerminal())
+                .newVoltageRegulation()
+                    .withMode(RegulationMode.VOLTAGE)
+                    .withRegulating(true)
+                    .withTargetValue(413.4)
+                    .withTerminal(l2.getTerminal())
+                    .add()
                 .add();
         s.newTwoWindingsTransformer()
                 .setId("tr1")
