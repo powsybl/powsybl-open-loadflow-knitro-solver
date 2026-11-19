@@ -22,6 +22,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -83,7 +86,7 @@ class RelaxedKnitroSolverCsvTest {
     private String[] runAndGetSlack(Network network, LoadFlowParameters parameters) throws IOException {
         assertTrue(new LoadFlow.Runner(new OpenLoadFlowProvider(new SparseMatrixFactory())).run(network, parameters).isFullyConverged());
 
-        return Files.readAllLines(tmp.resolve("cc0_slacks.csv")).stream()
+        return Files.readAllLines(tmp.resolve("cc0_sc0_slacks.csv")).stream()
                 .map(line -> line.split(";", -1))
                 .filter(row -> row[0].equals("VL2_0") && row[TYPE].equals("P"))
                 .findFirst()
@@ -177,5 +180,32 @@ class RelaxedKnitroSolverCsvTest {
         String[] slackP = runAndGetSlack(network, createParameters());
         assertEquals("0", slackP[LOAD_VIOLATION]);
         assertEquals("0", slackP[GEN_VIOLATION]);
+    }
+
+    @Test
+    void testOneFilePairPerSynchronousComponent() throws IOException {
+        // B3 is linked to B2 by an HVDC line: a single connected component with two synchronous components
+        Network network = createNetwork();
+        network.getVoltageLevel("VL2").newLccConverterStation().setId("CS2").setBus("B2").setLossFactor(0).setPowerFactor(0.8f).add();
+        VoltageLevel vl3 = network.getSubstation("S").newVoltageLevel().setId("VL3").setNominalV(400).setTopologyKind(TopologyKind.BUS_BREAKER).add();
+        vl3.getBusBreakerView().newBus().setId("B3").add();
+        vl3.newGenerator().setId("G3").setBus("B3").setMinP(0).setMaxP(2000).setTargetP(0)
+                .setLocalTargetV(400)
+                .newVoltageRegulation().withMode(RegulationMode.VOLTAGE).add()
+                .add();
+        vl3.newLccConverterStation().setId("CS3").setBus("B3").setLossFactor(0).setPowerFactor(0.8f).add();
+        network.newHvdcLine().setId("HVDC23").setConverterStationId1("CS2").setConverterStationId2("CS3")
+                .setR(1).setNominalV(400).setMaxP(100).setActivePowerSetpoint(0)
+                .setConvertersMode(HvdcLine.ConvertersMode.SIDE_1_RECTIFIER_SIDE_2_INVERTER)
+                .add();
+
+        LoadFlowParameters parameters = createParameters();
+        OpenLoadFlowParameters.get(parameters).setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED);
+        new LoadFlow.Runner(new OpenLoadFlowProvider(new SparseMatrixFactory())).run(network, parameters);
+
+        try (Stream<Path> files = Files.list(tmp)) {
+            assertEquals(Set.of("cc0_sc0_slacks.csv", "cc0_sc0_optim_info.csv", "cc0_sc1_slacks.csv", "cc0_sc1_optim_info.csv"),
+                    files.map(file -> file.getFileName().toString()).collect(Collectors.toSet()));
+        }
     }
 }
