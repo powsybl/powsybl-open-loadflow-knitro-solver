@@ -173,8 +173,7 @@ public final class PerturbationFactory {
         List<Generator> regulatingGenerators = regulatingBus.getGeneratorStream()
                 .toList();
         for (Generator regulatingGenerator : regulatingGenerators) {
-            regulatingGenerator.setLocalTargetV(targetV)
-                    .newVoltageRegulation()
+            regulatingGenerator.newVoltageRegulation()
                     .withMode(RegulationMode.VOLTAGE)
                     .withTargetValue(targetV)
                     .withTerminal(regulatingTerminal)

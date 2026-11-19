@@ -127,10 +127,6 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
 
     /**
      * Builds the column-indexed list of all equations to solve.
-     * The index of an equation in the returned list equals its column in the equation system, which is also the
-     * constraint index used by Knitro and the row index of {@link TargetVector}. This works transparently whether the
-     * equation system is vectorized (bus P/Q equations held in {@link com.powsybl.openloadflow.equations.EquationArray})
-     * or not.
      *
      * @param equationSystem The equation system.
      * @return The equations to solve, indexed by column.
