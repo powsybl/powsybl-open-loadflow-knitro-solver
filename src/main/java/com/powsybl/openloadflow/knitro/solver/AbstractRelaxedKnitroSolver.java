@@ -104,6 +104,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
     // Gamma weight of each V slack variable, indexed by its local V index
     protected HashMap<Integer, Double> weightVMap;
 
+    // Identifier of the solved network
+    private final String componentId;
+
     private int solverCount = 0;
 
     public int incrementSolveCount() {
@@ -118,6 +121,14 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                                           JacobianMatrix<AcVariableType, AcEquationType> j, TargetVector<AcVariableType, AcEquationType> targetVector,
                                           EquationVector<AcVariableType, AcEquationType> equationVector, boolean detailedReport) {
         super(network, knitroParameters, equationSystem, j, targetVector, equationVector, detailedReport);
+
+        // The OpenLoadFlow acDcNetwork mode, where a network can hold several synchronous components, is not supported
+        List<LfSynchronousNetwork> synchronousNetworks = network.getSynchronousNetworks();
+        if (synchronousNetworks.size() != 1) {
+            throw new PowsyblException("Relaxed Knitro solver expects a network with exactly one synchronous component, but network "
+                    + network + " has " + synchronousNetworks.size());
+        }
+        this.componentId = "cc" + network.getNumCC() + "_sc" + synchronousNetworks.getFirst().getNumSC();
 
         List<Equation<AcVariableType, AcEquationType>> sortedEquations = getSortedEquationsToSolve(equationSystem);
         // Count number of equations by type
@@ -350,16 +361,9 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                 LOGGER.warn("Failed to gather optimization info for CSV export", e);
                 optimInfo = null;
             }
-            // One file pair indexed by a cc and a sc, so that the components solved in a same load flow do not overwrite each other.
-            for (LfSynchronousNetwork synchronousNetwork : network.getSynchronousNetworks()) {
-                int numSC = synchronousNetwork.getNumSC();
-                String componentId = "cc" + network.getNumCC() + "_sc" + numSC;
-                List<SlackVariableInfo> componentSlacks = slackContributions.stream()
-                        .filter(s -> s.numSC() == numSC)
-                        .toList();
-                writeSlackInfoCsv(directory.resolve(componentId + CSV_SUFFIX_SLACKS), componentSlacks, firstSolve);
-                writeOptimInfoCsv(directory.resolve(componentId + CSV_SUFFIX_OPTI), optimInfo, firstSolve);
-            }
+            // Files indexed by the cc and sc of the solved network, so that the components solved in a same load flow do not overwrite each other
+            writeSlackInfoCsv(directory.resolve(componentId + CSV_SUFFIX_SLACKS), slackContributions, firstSolve);
+            writeOptimInfoCsv(directory.resolve(componentId + CSV_SUFFIX_OPTI), optimInfo, firstSolve);
         }
 
         incrementSolveCount();
@@ -451,7 +455,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         return bus.getId();
     }
 
-    private record SlackVariableInfo(String busId, int numSC, double slackValuePu, String type,
+    private record SlackVariableInfo(String busId, double slackValuePu, String type,
                                          String voltageLevel,
                                          int loadViolation, int genViolation, int voltageViolation,
                                          Collection<LfGenerator> generators, List<VoltageControl<?>> voltageControls,
@@ -544,7 +548,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
                     "Voltage target: %.2f [p.u]", vc.getMergeStatus(), vc.getType(), vc.getControllerElements(), vc.getTargetValue()));
             interpretation.append(String.format("%n\t\tAfter slack, voltage constraints at bus are %s ", feasible ? FEASIBLE : VIOLATED));
         }
-        return new SlackVariableInfo(bus.getId(), bus.getNumSC(), deltaV, type.toString(), bus.getVoltageLevelId(), 0, 0, hasVoltageViolation, bus.getGenerators(), bus.getVoltageControls(),
+        return new SlackVariableInfo(bus.getId(), deltaV, type.toString(), bus.getVoltageLevelId(), 0, 0, hasVoltageViolation, bus.getGenerators(), bus.getVoltageControls(),
                 bus.getLoads(), bus.getShunt(), bus.getTransformerVoltageControl(), interpretation.toString(), outerloopIteration
         );
     }
@@ -589,7 +593,7 @@ public abstract class AbstractRelaxedKnitroSolver extends AbstractKnitroSolver {
         if (maybeLoad.isEmpty() && maybeGenerator.isEmpty() && maybeShunt.isEmpty() && maybeTransfo.isEmpty()) {
             interpretation.append(String.format("%n\t\tNo direct connected Load, Generator, Transformer Control voltage or Shunt "));
         }
-        return new SlackVariableInfo(bus.getId(), bus.getNumSC(), epsilon, type.toString(), bus.getVoltageLevelId(),
+        return new SlackVariableInfo(bus.getId(), epsilon, type.toString(), bus.getVoltageLevelId(),
                 hasLoadViolation, hasGenViolation, 0, bus.getGenerators(), bus.getVoltageControls(),
                 bus.getLoads(), bus.getShunt(), bus.getTransformerVoltageControl(), interpretation.toString(), outerloopIteration
         );
