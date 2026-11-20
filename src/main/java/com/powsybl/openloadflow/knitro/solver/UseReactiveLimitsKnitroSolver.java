@@ -54,7 +54,6 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
     // Mappings from global equation indices to local indices by equation type
     private final Map<Integer, Integer> elemNumControlledControllerBus;
-    private static final Map<Integer, Equation<AcVariableType, AcEquationType>> INDEQUNACTIVEQ = new LinkedHashMap<>();
 
     // reactive limit equations to add to the constraints to model the PV/PQ switches of generators
     private final List<Equation<AcVariableType, AcEquationType>> equationsQBusV;
@@ -231,6 +230,9 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
         private List<Equation<AcVariableType, AcEquationType>> completeEquationsToSolve;
         private List<Double> completeTargetVector;
 
+        // maps the index of each added reactive power constraint to its equation
+        private final Map<Integer, Equation<AcVariableType, AcEquationType>> addedReactiveEquationsByConstraintIndex = new LinkedHashMap<>();
+
         /**
          * Generator reactive limits Knitro problem definition including:
          * - Initialization of customized variables (complmentarity auxiliary variables, and those specific to the Knitro modeling)
@@ -340,7 +342,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                 }
                 // these equations are non-linear since reactive power flows appear in the balance
                 nonlinearConstraintIndexes.add(equationId);
-                INDEQUNACTIVEQ.put(equationId, equation);
+                addedReactiveEquationsByConstraintIndex.put(equationId, equation);
             }
 
             // this includes the number of equations from the OLF system,
@@ -513,7 +515,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
 
             return new UseReactiveLimitsCallbackEvalG(jacobianMatrix, denseJacEntryConstraints, denseJacEntryVariables,
                     sparseJacEntryConstraints, sparseJacEntryVariables, network, equationSystem,
-                    knitroParameters, numberOfPowerFlowVariables);
+                    knitroParameters, numberOfPowerFlowVariables, addedReactiveEquationsByConstraintIndex);
         }
 
         @Override
@@ -607,15 +609,18 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
             private final int numPQEq;
 
             private final Map<Integer, Variable<AcVariableType>> indRowVariable = new LinkedHashMap<>();
+            private final Map<Integer, Equation<AcVariableType, AcEquationType>> addedReactiveEquationsByConstraintIndex;
 
             private UseReactiveLimitsCallbackEvalG(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
                     List<Integer> denseJacEntryConstraints, List<Integer> denseJacEntryVariables, List<Integer> sparseJacEntryConstraints,
                     List<Integer> sparseJacEntryVariables, LfNetwork network, EquationSystem<AcVariableType, AcEquationType> equationSystem,
-                    KnitroSolverParameters knitroParameters, int numLFVariables) {
+                    KnitroSolverParameters knitroParameters, int numLFVariables,
+                    Map<Integer, Equation<AcVariableType, AcEquationType>> addedReactiveEquationsByConstraintIndex) {
 
                 super(jacobianMatrix, denseJacEntryConstraints, denseJacEntryVariables, sparseJacEntryConstraints, sparseJacEntryVariables,
                         network, equationSystem, knitroParameters, numLFVariables);
 
+                this.addedReactiveEquationsByConstraintIndex = addedReactiveEquationsByConstraintIndex;
                 this.numLFVar = equationSystem.getIndex().getSortedVariablesToFind().size();
 
                 List<Equation<AcVariableType, AcEquationType>> sortedEquationsToSolve = getSortedEquationsToSolve(equationSystem);
@@ -636,7 +641,7 @@ public class UseReactiveLimitsKnitroSolver extends AbstractRelaxedKnitroSolver {
                 // Case of Unactivated Q equations
                 // If var is a LF variable : derivate non-activated equations
                 double value = 0.0;
-                Equation<AcVariableType, AcEquationType> equation = INDEQUNACTIVEQ.get(constraintIndex);
+                Equation<AcVariableType, AcEquationType> equation = addedReactiveEquationsByConstraintIndex.get(constraintIndex);
                 if (variableIndex < numLFVar) {
                     // add non-linear terms
                     Map<Variable<AcVariableType>, List<EquationTerm<AcVariableType, AcEquationType>>> termsByVariable = equation.getTermsByVariable();
