@@ -8,6 +8,7 @@
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.iidm.network.*;
+import com.powsybl.iidm.network.regulation.RegulationMode;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
 import com.powsybl.math.matrix.SparseMatrixFactory;
@@ -21,6 +22,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -51,8 +55,10 @@ class RelaxedKnitroSolverCsvTest {
         Substation s = network.newSubstation().setId("S").add();
         VoltageLevel vl1 = s.newVoltageLevel().setId("VL1").setNominalV(400).setTopologyKind(TopologyKind.BUS_BREAKER).add();
         vl1.getBusBreakerView().newBus().setId("B1").add();
-        vl1.newGenerator().setId("G1").setBus("B1").setMinP(0).setMaxP(2000).setTargetP(0).setTargetV(400)
-                .setVoltageRegulatorOn(true).add();
+        vl1.newGenerator().setId("G1").setBus("B1").setMinP(0).setMaxP(2000).setTargetP(0)
+                .setLocalTargetV(400)
+                .newVoltageRegulation().withMode(RegulationMode.VOLTAGE).add()
+                .add();
         VoltageLevel vl2 = s.newVoltageLevel().setId("VL2").setNominalV(400).setTopologyKind(TopologyKind.BUS_BREAKER).add();
         vl2.getBusBreakerView().newBus().setId("B2").add();
         network.newLine().setId("L12").setBus1("B1").setBus2("B2").setR(0).setX(1600).add();
@@ -94,8 +100,12 @@ class RelaxedKnitroSolverCsvTest {
         Network network = createNetwork();
         VoltageLevel vl2 = network.getVoltageLevel("VL2");
         vl2.newLoad().setId("L2").setBus("B2").setP0(1000).setQ0(100).add();
-        vl2.newGenerator().setId("G2").setBus("B2").setMinP(0).setMaxP(20).setTargetP(10).setTargetQ(0)
-                .setVoltageRegulatorOn(false).add();
+        vl2.newGenerator().setId("G2").setBus("B2").setMinP(0).setMaxP(20).setTargetP(10)
+                .setLocalTargetQ(0)
+                .newVoltageRegulation()
+                    .withRegulating(false)
+                    .add()
+                .add();
         vl2.newShuntCompensator().setId("SH2").setBus("B2").setSectionCount(1)
                 .newLinearModel().setBPerSection(1e-5).setMaximumSectionCount(1).add().add();
 
@@ -112,8 +122,12 @@ class RelaxedKnitroSolverCsvTest {
         Network network = createNetwork();
         VoltageLevel vl2 = network.getVoltageLevel("VL2");
         vl2.newLoad().setId("L2").setBus("B2").setP0(1000).setQ0(100).add();
-        vl2.newGenerator().setId("G2").setBus("B2").setMinP(0).setMaxP(2000).setTargetP(10).setTargetQ(0)
-                .setVoltageRegulatorOn(false).add();
+        vl2.newGenerator().setId("G2").setBus("B2").setMinP(0).setMaxP(2000).setTargetP(10)
+                .setLocalTargetQ(0)
+                .newVoltageRegulation()
+                    .withRegulating(false)
+                    .add()
+                .add();
         vl2.newShuntCompensator().setId("SH2").setBus("B2").setSectionCount(1)
                 .newLinearModel().setBPerSection(1e-5).setMaximumSectionCount(1).add().add();
 
@@ -130,13 +144,17 @@ class RelaxedKnitroSolverCsvTest {
         Network network = createNetwork();
         VoltageLevel vl2 = network.getVoltageLevel("VL2");
         Load load = vl2.newLoad().setId("L2").setBus("B2").setP0(10).setQ0(0).add();
-        vl2.newGenerator().setId("G2").setBus("B2").setMinP(-1000).setMaxP(0).setTargetP(-1000).setTargetQ(0)
-                .setVoltageRegulatorOn(false).add();
+        vl2.newGenerator().setId("G2").setBus("B2").setMinP(-1000).setMaxP(0).setTargetP(-1000)
+                .setLocalTargetQ(0)
+                .newVoltageRegulation()
+                    .withRegulating(false)
+                    .add()
+                .add();
         network.getSubstation("S").newTwoWindingsTransformer().setId("T12").setBus1("B1").setBus2("B2")
                 .setRatedU1(400).setRatedU2(400).setR(0).setX(1600).add()
                 .newRatioTapChanger().setLowTapPosition(0).setTapPosition(0).setLoadTapChangingCapabilities(true)
-                .setRegulating(true).setRegulationMode(RatioTapChanger.RegulationMode.VOLTAGE).setRegulationValue(400)
-                .setTargetDeadband(0).setRegulationTerminal(load.getTerminal())
+                .newVoltageRegulation().withMode(RegulationMode.VOLTAGE).withTargetValue(400)
+                .withTargetDeadband(0).withTerminal(load.getTerminal()).withRegulating(true).add()
                 .beginStep().setRho(1.0).endStep()
                 .add();
 
@@ -162,5 +180,32 @@ class RelaxedKnitroSolverCsvTest {
         String[] slackP = runAndGetSlack(network, createParameters());
         assertEquals("0", slackP[LOAD_VIOLATION]);
         assertEquals("0", slackP[GEN_VIOLATION]);
+    }
+
+    @Test
+    void testOneFilePairPerSynchronousComponent() throws IOException {
+        // B3 is linked to B2 by an HVDC line: a single connected component with two synchronous components
+        Network network = createNetwork();
+        network.getVoltageLevel("VL2").newLccConverterStation().setId("CS2").setBus("B2").setLossFactor(0).setPowerFactor(0.8f).add();
+        VoltageLevel vl3 = network.getSubstation("S").newVoltageLevel().setId("VL3").setNominalV(400).setTopologyKind(TopologyKind.BUS_BREAKER).add();
+        vl3.getBusBreakerView().newBus().setId("B3").add();
+        vl3.newGenerator().setId("G3").setBus("B3").setMinP(0).setMaxP(2000).setTargetP(0)
+                .setLocalTargetV(400)
+                .newVoltageRegulation().withMode(RegulationMode.VOLTAGE).add()
+                .add();
+        vl3.newLccConverterStation().setId("CS3").setBus("B3").setLossFactor(0).setPowerFactor(0.8f).add();
+        network.newHvdcLine().setId("HVDC23").setConverterStationId1("CS2").setConverterStationId2("CS3")
+                .setR(1).setNominalV(400).setMaxP(100).setActivePowerSetpoint(0)
+                .setConvertersMode(HvdcLine.ConvertersMode.SIDE_1_RECTIFIER_SIDE_2_INVERTER)
+                .add();
+
+        LoadFlowParameters parameters = createParameters();
+        OpenLoadFlowParameters.get(parameters).setSlackBusSelectionMode(SlackBusSelectionMode.MOST_MESHED);
+        new LoadFlow.Runner(new OpenLoadFlowProvider(new SparseMatrixFactory())).run(network, parameters);
+
+        try (Stream<Path> files = Files.list(tmp)) {
+            assertEquals(Set.of("cc0_sc0_slacks.csv", "cc0_sc0_optim_info.csv", "cc0_sc1_slacks.csv", "cc0_sc1_optim_info.csv"),
+                    files.map(file -> file.getFileName().toString()).collect(Collectors.toSet()));
+        }
     }
 }

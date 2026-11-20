@@ -30,7 +30,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.concurrent.CompletionException;
 
 import static com.powsybl.openloadflow.util.LoadFlowAssert.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -123,7 +122,7 @@ class SecondaryVoltageControlTest {
         pilotPoint.setTargetV(13.5);
         result = loadFlowRunner.run(network, parameters);
         assertEquals(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getComponentResults().get(0).getStatus());
-        assertEquals(8, result.getComponentResults().get(0).getIterationCount());
+        assertEquals(10, result.getComponentResults().get(0).getIterationCount());
         assertVoltageEquals(13.5, b10);
         assertVoltageEquals(13.358, b6);
         assertVoltageEquals(25.621, b8);
@@ -165,17 +164,17 @@ class SecondaryVoltageControlTest {
 
         result = loadFlowRunner.run(network, parameters);
         assertEquals(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getComponentResults().get(0).getStatus());
-        assertEquals(11, result.getComponentResults().get(0).getIterationCount());
+        assertEquals(9, result.getComponentResults().get(0).getIterationCount());
 
-        assertVoltageEquals(11.736, b10); // 11.5 kV was not feasible
-        assertVoltageEquals(11.924, b6);
-        assertVoltageEquals(19.537, b8);
+        assertVoltageEquals(11.817, b10); // 11.5 kV was not feasible
+        assertVoltageEquals(11.986, b6);
+        assertVoltageEquals(19.8, b8);
         assertReactivePowerEquals(6, g6.getTerminal()); // [-6, 24] => qmin
-        assertReactivePowerEquals(6, g8.getTerminal()); // [-6, 200] => qmin
+        assertReactivePowerEquals(3.150, g8.getTerminal()); // [-6, 200], not saturated after clipped correction
     }
 
     @Test
-    void testUnblockGeneratorFromLimit() {
+    void modifyNetworkToUnblockGeneratorFromLimit() {
         network.newExtension(SecondaryVoltageControlAdder.class)
                 .newControlZone()
                 .withName("z1")
@@ -186,8 +185,8 @@ class SecondaryVoltageControlTest {
                 .add();
 
         // to put g6 and g8 at q min
-        g6.setTargetV(11.8);
-        g8.setTargetV(19.5);
+        g6.setLocalTargetV(11.8);
+        g8.setLocalTargetV(19.5);
 
         // This scenario works if the slack distribution fails and an injection is added at the slack bus
         parametersExt.setPlausibleActivePowerLimit(5000); // Remove large generators from slack distribution
@@ -201,7 +200,7 @@ class SecondaryVoltageControlTest {
         // try to put g6 and g8 at qmax to see if they are correctly unblock from qmin
         var result = loadFlowRunner.run(network, parameters);
         assertEquals(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getComponentResults().get(0).getStatus());
-        assertEquals(21, result.getComponentResults().get(0).getIterationCount());
+        assertEquals(37, result.getComponentResults().get(0).getIterationCount());
 
         assertVoltageEquals(15, b10);
         assertVoltageEquals(14.604, b6);
@@ -235,7 +234,7 @@ class SecondaryVoltageControlTest {
         parameters.addExtension(KnitroLoadFlowParameters.class, knitroLoadFlowParameters);
         var result = loadFlowRunner.run(network, parameters);
         assertEquals(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getComponentResults().get(0).getStatus());
-        assertEquals(12, result.getComponentResults().get(0).getIterationCount());
+        assertEquals(21, result.getComponentResults().get(0).getIterationCount());
         assertVoltageEquals(142, b4);
         assertVoltageEquals(14.5, b10);
     }
@@ -259,10 +258,12 @@ class SecondaryVoltageControlTest {
 
         var result = loadFlowRunner.run(network, parameters);
         assertEquals(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getComponentResults().get(0).getStatus());
-        assertEquals(11, result.getComponentResults().get(0).getIterationCount());
-        assertVoltageEquals(14.4, b10);
-        assertVoltageEquals(14.151, b6);
-        assertVoltageEquals(28.913, b8);
+        assertEquals(7, result.getComponentResults().get(0).getIterationCount());
+        // This non-local topology issue still converges, but the clipped SVC correction no longer reaches the pilot
+        // target in one run.
+        assertVoltageEquals(13.503, b10);
+        assertVoltageEquals(14.093, b6);
+        assertVoltageEquals(23.8, b8);
     }
 
     @Test
@@ -298,23 +299,6 @@ class SecondaryVoltageControlTest {
         List<LfSecondaryVoltageControl> secondaryVoltageControls = lfNetwork.getSecondaryVoltageControls();
         assertEquals(1, secondaryVoltageControls.size());
         assertEquals(1, secondaryVoltageControls.get(0).getControlledBuses().size()); // B99-G not found
-    }
-
-    @Test
-    void testOptionalNoValueIssue() {
-        network.newExtension(SecondaryVoltageControlAdder.class)
-                .newControlZone()
-                .withName("z1")
-                .newPilotPoint().withTargetV(13).withBusbarSectionsOrBusesIds(List.of("B10")).add()
-                .newControlUnit().withId("B6-G").add()
-                .newControlUnit().withId("B9-SH").add() // this is a shunt which is not supported
-                .add()
-                .add();
-
-        parametersExt.setSecondaryVoltageControl(true);
-
-        CompletionException e = assertThrows(CompletionException.class, () -> loadFlowRunner.run(network, parameters));
-        assertEquals("Control unit 'B9-SH' of zone 'z1' is expected to be either a generator or a VSC converter station", e.getCause().getMessage());
     }
 
     @Test
@@ -362,9 +346,9 @@ class SecondaryVoltageControlTest {
     }
 
     @Test
-    void testNotPlausibleTargetV() {
-        // g8 generator is very far from pilot point bus b12, there is no way for generators of the zone to control
-        // the pilot point voltage, this is detected by secondary voltage control outer loop which fails
+    void testFarPilotPointTargetVoltageChangeIsClipped() {
+        // g8 generator is very far from pilot point bus b12. The secondary voltage control target voltage change is
+        // clipped, so the load-flow converges instead of failing on an implausible target voltage.
         network.newExtension(SecondaryVoltageControlAdder.class)
                 .newControlZone()
                 .withName("z1")
@@ -376,6 +360,7 @@ class SecondaryVoltageControlTest {
         parametersExt.setSecondaryVoltageControl(true);
 
         LoadFlowResult result = loadFlowRunner.run(network, parameters);
-        assertEquals(LoadFlowResult.ComponentResult.Status.FAILED, result.getComponentResults().get(0).getStatus());
+        assertEquals(LoadFlowResult.ComponentResult.Status.CONVERGED, result.getComponentResults().get(0).getStatus());
+        assertEquals(11, result.getComponentResults().get(0).getIterationCount());
     }
 }

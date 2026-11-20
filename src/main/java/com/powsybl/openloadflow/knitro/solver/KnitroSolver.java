@@ -85,7 +85,7 @@ public class KnitroSolver extends AbstractKnitroSolver {
             setObjConstPart(0.0);
 
             // callbacks of the constraints
-            setObjEvalCallback(new KnitroCallbacks.BaseCallbackEvalFC(activeConstraints, nonlinearConstraintIndexes));
+            setObjEvalCallback(new KnitroCallbacks.BaseCallbackEvalFC(activeConstraints, nonlinearConstraintIndexes, equationSystem, equationVector));
 
             // set the representation of the jacobian matrix (dense or sparse)
             setJacobianMatrix(activeConstraints, nonlinearConstraintIndexes);
@@ -93,13 +93,13 @@ public class KnitroSolver extends AbstractKnitroSolver {
 
         @Override
         protected KNEvalGACallback createGradientCallback(JacobianMatrix<AcVariableType, AcEquationType> jacobianMatrix,
-                                                          List<Integer> listNonZerosCtsDense,
-                                                          List<Integer> listNonZerosVarsDense,
-                                                          List<Integer> listNonZerosCtsSparse,
-                                                          List<Integer> listNonZerosVarsSparse) {
+                                                          List<Integer> denseJacEntryConstraints,
+                                                          List<Integer> denseJacEntryVariables,
+                                                          List<Integer> sparseJacEntryConstraints,
+                                                          List<Integer> sparseJacEntryVariables) {
 
-            return new KnitroCallbacks.BaseCallbackEvalG(jacobianMatrix, listNonZerosCtsDense, listNonZerosVarsDense,
-                    listNonZerosCtsSparse, listNonZerosVarsSparse, network, equationSystem,
+            return new KnitroCallbacks.BaseCallbackEvalG(jacobianMatrix, denseJacEntryConstraints, denseJacEntryVariables,
+                    sparseJacEntryConstraints, sparseJacEntryVariables, network, equationSystem,
                     knitroParameters, numberOfPowerFlowVariables);
         }
     }

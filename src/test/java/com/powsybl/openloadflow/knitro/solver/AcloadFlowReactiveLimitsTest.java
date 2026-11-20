@@ -8,6 +8,7 @@
 package com.powsybl.openloadflow.knitro.solver;
 
 import com.powsybl.iidm.network.*;
+import com.powsybl.iidm.network.regulation.RegulationMode;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
@@ -74,8 +75,8 @@ class AcloadFlowReactiveLimitsTest {
                 .setConnectableBus("NGEN2")
                 .setMinP(-9999.99)
                 .setMaxP(9999.99)
-                .setVoltageRegulatorOn(true)
-                .setTargetV(24.5)
+                .newVoltageRegulation().withMode(RegulationMode.VOLTAGE).add()
+                .setLocalTargetV(24.5)
                 .setTargetP(100)
                 .add();
         gen2.newMinMaxReactiveLimits()

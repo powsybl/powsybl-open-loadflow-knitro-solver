@@ -10,6 +10,7 @@ package com.powsybl.openloadflow.knitro.solver;
 import com.powsybl.iidm.modification.SetGeneratorToLocalRegulation;
 import com.powsybl.iidm.modification.topology.RemoveFeederBay;
 import com.powsybl.iidm.network.*;
+import com.powsybl.iidm.network.regulation.RegulationMode;
 import com.powsybl.openloadflow.util.PerUnit;
 
 import java.util.ArrayList;
@@ -154,7 +155,7 @@ public final class PerturbationFactory {
         double vNomGenerator = generatorBusVL.getNominalV();
         double vNomRegulator = regulatingBusVL.getNominalV();
         double vNomNoGenerator = noGeneratorBusVL.getNominalV();
-        double targetV = generator.getTargetV() / vNomRegulator * vNomGenerator * alpha;
+        double targetV = generator.getRegulatingTargetV() / vNomRegulator * vNomGenerator * alpha;
 
         // Acquire regulating terminal
         Terminal regulatingTerminal;
@@ -172,11 +173,21 @@ public final class PerturbationFactory {
         List<Generator> regulatingGenerators = regulatingBus.getGeneratorStream()
                 .toList();
         for (Generator regulatingGenerator : regulatingGenerators) {
-            regulatingGenerator.setTargetV(targetV)
-                    .setVoltageRegulatorOn(true)
-                    .setRegulatingTerminal(regulatingTerminal);
+            regulatingGenerator.newVoltageRegulation()
+                    .withMode(RegulationMode.VOLTAGE)
+                    .withTargetValue(targetV)
+                    .withTerminal(regulatingTerminal)
+                    .withRegulating(true)
+                    .build();
         }
-        generator.setVoltageRegulatorOn(true);
+        if (generator.getVoltageRegulation() != null) {
+            generator.getVoltageRegulation().setRegulating(true);
+        } else {
+            generator.newVoltageRegulation()
+                    .withMode(RegulationMode.VOLTAGE)
+                    .withRegulating(true)
+                    .build();
+        }
 
         // Changing line parameters by setting their reactance and shunt admittance to 0
         double r = rPU * vNomGenerator * vNomNoGenerator / PerUnit.SB;
@@ -298,7 +309,7 @@ public final class PerturbationFactory {
         generatorModification.apply(network);
 
         // Get the susceptance value corresponding to targetQ of reactive power
-        double generatorVoltage = targetGenerator.getTargetV();
+        double generatorVoltage = targetGenerator.getRegulatingTargetV();
         double targetB = targetQ / Math.pow(generatorVoltage * 1e3, 2);
 
         VoltageLevel targetVL = targetBus.getVoltageLevel();

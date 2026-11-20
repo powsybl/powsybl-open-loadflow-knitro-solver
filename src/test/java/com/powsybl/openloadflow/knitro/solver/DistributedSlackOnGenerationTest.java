@@ -11,6 +11,7 @@ package com.powsybl.openloadflow.knitro.solver;
 import com.powsybl.iidm.network.*;
 import com.powsybl.iidm.network.extensions.ActivePowerControl;
 import com.powsybl.iidm.network.extensions.ReferencePriority;
+import com.powsybl.iidm.network.regulation.RegulationMode;
 import com.powsybl.iidm.network.test.EurostagTutorialExample1Factory;
 import com.powsybl.loadflow.LoadFlow;
 import com.powsybl.loadflow.LoadFlowParameters;
@@ -414,8 +415,8 @@ class DistributedSlackOnGenerationTest {
                 .setMinP(0)
                 .setMaxP(0)
                 .setTargetP(0)
-                .setTargetV(24.5)
-                .setVoltageRegulatorOn(true)
+                .setLocalTargetV(24.5)
+                .newVoltageRegulation().withMode(RegulationMode.VOLTAGE).add()
                 .add();
         assertThrows(CompletionException.class, () -> loadFlowRunner.run(network, parameters),
                 "Failed to distribute slack bus active power mismatch, 504.9476825313616 MW remains");

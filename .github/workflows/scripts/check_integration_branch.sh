@@ -8,7 +8,7 @@ core_snapshot_version=$(echo "$core_version" | grep -q SNAPSHOT && echo "$core_v
 
 # Check if an integration branch exists
 INTEGRATION_BRANCH=$(git ls-remote --heads "$repo" | grep -E "refs/heads/integration/powsyblcore-$core_snapshot_version" | sed 's/.*refs\/heads\///')
-if [ -n "$INTEGRATION_BRANCH" ]; then
+if [[ -n "$INTEGRATION_BRANCH" ]]; then
     echo "Integration branch found: $INTEGRATION_BRANCH"
     echo "INTEGRATION_BRANCH=$INTEGRATION_BRANCH" >> "$GITHUB_ENV"
 else

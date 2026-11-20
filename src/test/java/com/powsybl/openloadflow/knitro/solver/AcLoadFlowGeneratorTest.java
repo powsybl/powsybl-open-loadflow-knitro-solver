@@ -60,7 +60,7 @@ class AcLoadFlowGeneratorTest {
     @Test
     void testGeneratorDiscardedFromVoltageControl() {
         Network network = FourBusNetworkFactory.createWith2GeneratorsAtBus1();
-        Generator g1Bis = network.getGenerator("g1Bis").setTargetP(0.0).setMinP(1.0).setTargetQ(Double.NaN); // must be discarded from voltage control
+        Generator g1Bis = network.getGenerator("g1Bis").setTargetP(0.0).setMinP(1.0).setLocalTargetQ(Double.NaN); // must be discarded from voltage control
         Bus b1 = network.getBusBreakerView().getBus("b1");
         Bus b4 = network.getBusBreakerView().getBus("b4");
         Generator g1 = network.getGenerator("g1");
