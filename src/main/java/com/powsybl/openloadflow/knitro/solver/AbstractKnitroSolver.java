@@ -29,7 +29,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.TreeMap;
 import java.util.stream.IntStream;
 import static com.google.common.primitives.Doubles.toArray;
 
@@ -194,9 +194,10 @@ public abstract class AbstractKnitroSolver extends AbstractAcSolver {
             throw new PowsyblException("Exception while trying to solve with Knitro", e);
         }
 
-        Map<Integer, Double> slackBusActivePowerMismatch = network.getSynchronousNetworks().stream()
-                .collect(Collectors.toMap(LfSynchronousNetwork::getNumSC,
-                        synchronousNetwork -> synchronousNetwork.getSlackBuses().stream().mapToDouble(LfBus::getMismatchP).sum()));
+        Map<Integer, Double> slackBusActivePowerMismatch = new TreeMap<>();
+        for (LfSynchronousNetwork lfScNetwork : network.getSynchronousNetworks()) {
+            slackBusActivePowerMismatch.put(lfScNetwork.getNumSC(), lfScNetwork.getSlackBuses().stream().mapToDouble(LfBus::getMismatchP).sum());
+        }
         return new AcSolverResult(acStatus, nbIter, slackBusActivePowerMismatch);
     }
 
